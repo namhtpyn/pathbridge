@@ -1,3 +1,16 @@
+# [1.2.0](https://github.com/namhtpyn/pathbridge/compare/v1.1.3...v1.2.0) (2026-10-06)
+
+
+### Bug Fixes
+
+* typecheck under noUncheckedIndexedAccess; UCard v4 ui keys ([00f5b0f](https://github.com/namhtpyn/pathbridge/commit/00f5b0f038507c7aa645fcd293415e2b30d1d880))
+
+
+### Features
+
+* frontend zod schema transforms loose input before submit ([bb1d23a](https://github.com/namhtpyn/pathbridge/commit/bb1d23af02b8940e9367b0b68daf3318955460ec))
+* Nuxt UI v4 admin + strict zod backend validation ([56de296](https://github.com/namhtpyn/pathbridge/commit/56de29624ea63be4f9cae5e6e6854dee07077266))
+
 ## [1.1.3](https://github.com/namhtpyn/pathbridge/compare/v1.1.2...v1.1.3) (2026-10-06)
 
 
