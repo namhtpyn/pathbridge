@@ -25,15 +25,27 @@ docker run -d \
 
 Put your own TLS terminator (nginx, Traefik, Caddy…) in front; the app itself is plain HTTP.
 
-## First-run setup
+## Authentication
 
-1. Create the admin user:
+Email + password by default. Create the admin user:
 
 ```bash
 docker exec -it <container> bun scripts/create-admin.ts admin@example.com <password>
 ```
 
-2. Sign in at `/_admin`.
+Then sign in at `/_admin`.
+
+### Optional: OIDC (SSO)
+
+Set all three to enable a generic OIDC provider:
+
+| env | purpose |
+|---|---|
+| `OIDC_ISSUER` | issuer base, e.g. `https://login.microsoftonline.com/<tenant>/v2.0` |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | OAuth client credentials |
+| `OIDC_DISABLED_PASSWORD_LOGIN` | `true` to turn off email+password entirely (OIDC only) |
+
+Redirect URI for your IdP: `<your-base-url>/api/auth/callback/oidc`
 
 ## Admin API
 

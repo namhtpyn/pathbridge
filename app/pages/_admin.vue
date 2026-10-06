@@ -6,7 +6,7 @@
     </header>
 
     <!-- login -->
-    <form v-if="!session" class="card" @submit.prevent="login">
+    <form v-if="!session && authConfig?.passwordEnabled !== false" class="card" @submit.prevent="login">
       <h2>sign in</h2>
       <label>email
         <input v-model="email" type="email" required>
@@ -16,10 +16,15 @@
       </label>
       <p v-if="loginError" class="err">{{ loginError }}</p>
       <button :disabled="busy">sign in</button>
+      <button v-if="authConfig?.oidcEnabled" type="button" class="ghost" style="margin-left:.5rem" @click="oidcLogin">sign in with SSO</button>
     </form>
+    <div v-else-if="!session && authConfig?.oidcEnabled" class="card">
+      <h2>sign in</h2>
+      <button @click="oidcLogin">sign in with SSO</button>
+    </div>
 
     <!-- main -->
-    <template v-else>
+    <template v-else-if="session">
       <div class="bar">
         <span class="who">{{ session.user.name || session.user.email }}</span>
         <button class="ghost" @click="logout">sign out</button>
@@ -75,29 +80,32 @@
 </template>
 
 <script setup lang="ts">
-interface PairRow {
-  path: string
-  target: string
-  upstreamHost: string | null
-  stripPrefix: boolean
-  note: string | null
-  enabled: boolean
-}
+import type { PairRow, PairsResponse, PairInput } from '../../shared/types'
+
+interface SessionUser { id: string, name?: string | null, email: string }
+interface SessionPayload { user: SessionUser, session: { expiresAt: string } }
+interface AuthConfig { passwordEnabled: boolean, oidcEnabled: boolean }
 
 const email = ref('')
 const password = ref('')
 const loginError = ref('')
-const session = ref<any>(null)
+const session = ref<SessionPayload | null>(null)
 const pairs = ref<PairRow[]>([])
 const busy = ref(false)
 const editing = ref('')
-const empty = (): PairRow => ({ path: '', target: '', upstreamHost: '', note: '', stripPrefix: false, enabled: true } as any)
-const form = reactive<any>(empty())
+const authConfig = ref<AuthConfig | null>(null)
+
+const emptyForm = (): PairInput => ({ path: '', target: '', upstreamHost: '', note: '', stripPrefix: false, enabled: true })
+const form = reactive<PairInput>(emptyForm())
 
 onMounted(async () => {
   try {
-    const s = await $fetch('/_auth/get-session')
-    session.value = (s as any)?.user ? s : null
+    authConfig.value = await $fetch<AuthConfig>('/api/auth-config')
+  }
+  catch { authConfig.value = { passwordEnabled: true, oidcEnabled: false } }
+  try {
+    const s = await $fetch<SessionPayload | null>('/_auth/get-session')
+    session.value = s?.user ? s : null
     if (session.value) await load()
   }
   catch { /* not signed in */ }
@@ -107,17 +115,21 @@ async function login() {
   busy.value = true
   loginError.value = ''
   try {
-    const res = await $fetch('/_auth/sign-in/email', {
+    const res = await $fetch<SessionPayload>('/_auth/sign-in/email', {
       method: 'POST',
       body: { email: email.value, password: password.value },
     })
     session.value = res
     await load()
   }
-  catch (e: any) {
+  catch {
     loginError.value = 'invalid credentials'
   }
   busy.value = false
+}
+
+function oidcLogin() {
+  window.location.href = '/_auth/oauth2/oidc'
 }
 
 async function logout() {
@@ -127,46 +139,53 @@ async function logout() {
 }
 
 async function load() {
-  const data = await $fetch('/_api/pairs') as any
+  const data = await $fetch<PairsResponse>('/api/pairs')
   pairs.value = data.pairs
 }
 
 function hostOf(target: string) {
-  try { return new URL(target).hostname } catch { return '' }
+  try { return new URL(target).hostname }
+  catch { return '' }
 }
 
 function edit(p: PairRow) {
   editing.value = p.path
-  Object.assign(form, JSON.parse(JSON.stringify(p)))
+  Object.assign(form, JSON.parse(JSON.stringify(p)) as PairInput)
 }
 
 function reset() {
   editing.value = ''
-  Object.assign(form, empty())
+  Object.assign(form, emptyForm())
 }
 
 async function save() {
   busy.value = true
   try {
-    const data = await $fetch('/_api/pairs', {
+    const data = await $fetch<PairsResponse>('/api/pairs', {
       method: 'PUT',
       body: { ...form },
-    }) as any
+    })
     pairs.value = data.pairs
     reset()
   }
-  catch (e: any) { alert(e?.data?.statusMessage || e?.message || 'save failed') }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    alert(err.data?.statusMessage || err.message || 'save failed')
+  }
   busy.value = false
 }
 
 async function remove(p: PairRow) {
   if (!confirm(`delete ${p.path}?`)) return
   try {
-    const data = await $fetch(`/_api/pairs/${encodeURIComponent(p.path.slice(1))}`, { method: 'DELETE' }) as any
+    const data = await $fetch<PairsResponse>(`/api/pairs/${encodeURIComponent(p.path.slice(1))}`, { method: 'DELETE' })
     pairs.value = data.pairs
     if (editing.value === p.path) reset()
   }
-  catch (e: any) { alert(e?.data?.statusMessage || e?.message || 'delete failed') }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    alert(err.data?.statusMessage || err.message || 'delete failed')
+  }
 }
 </script>
 
