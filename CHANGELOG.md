@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/namhtpyn/pathbridge/compare/v1.6.0...v1.7.0) (2026-10-06)
+
+
+### Features
+
+* per-pair HTTP method allowlist ([07f4701](https://github.com/namhtpyn/pathbridge/commit/07f470174a345465d0dbbb1ac364ce4c5d491c99))
+
 # [1.6.0](https://github.com/namhtpyn/pathbridge/compare/v1.5.0...v1.6.0) (2026-10-06)
 
 
