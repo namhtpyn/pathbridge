@@ -141,7 +141,8 @@
 </template>
 
 <script setup lang="ts">
-import type { PairRow, PairsResponse, PairFormInput } from '../../shared/types'
+import type { PairRow, PairsResponse } from '../../shared/types'
+import { pairSubmitSchema } from '~/utils/pair-form'
 
 interface SessionUser { id: string, name?: string | null, email: string }
 interface SessionPayload { user: SessionUser, session: { expiresAt: string } }
@@ -157,22 +158,17 @@ const busy = ref(false)
 const editing = ref('')
 const authConfig = ref<AuthConfig | null>(null)
 
-const emptyForm = (): PairFormInput => ({ path: '', target: '', upstreamHost: null, note: null, stripPrefix: false, enabled: true })
-const form = reactive<PairFormInput>(emptyForm())
+const emptyForm = () => ({ path: '', target: '', upstreamHost: null as string | null, note: null as string | null, stripPrefix: false, enabled: true })
+const form = reactive(emptyForm())
 
-// LOOSE frontend validation — UX only; the backend re-validates strictly.
-function validatePair(state: PairFormInput): Array<{ name: string, message: string }> {
-  const errors: Array<{ name: string, message: string }> = []
-  if (!state.path.startsWith('/')) {
-    errors.push({ name: 'path', message: 'Starts with "/" — e.g. /hook' })
-  }
-  if (!state.target.trim()) {
-    errors.push({ name: 'target', message: 'Where should requests go?' })
-  }
-  else if (!/^https?:\/\//i.test(state.target.trim())) {
-    errors.push({ name: 'target', message: 'Looks like a URL is missing http(s)://' })
-  }
-  return errors
+// Frontend schema TRANSFORMS loose input -> clean payload; UX errors surfaced
+// inline. Backend strict schema re-validates the transformed data for security.
+function validatePair(state: typeof form): Array<{ name: string, message: string }> {
+  const result = pairSubmitSchema.safeParse(state)
+  if (result.success) return []
+  return result.error.issues
+    .filter(i => i.path.length > 0)
+    .map(i => ({ name: String(i.path[0]), message: i.message }))
 }
 
 const columns = [
@@ -252,16 +248,16 @@ function reset() {
 async function save() {
   busy.value = true
   try {
+    // transform loose form state -> clean payload; backend re-validates strictly
+    const parsed = pairSubmitSchema.safeParse({ ...form })
+    if (!parsed.success) {
+      toast.add({ title: 'Check the form', description: parsed.error.issues[0]?.message, color: 'error' })
+      busy.value = false
+      return
+    }
     const data = await $fetch<PairsResponse>('/api/pairs', {
       method: 'PUT',
-      body: {
-        path: form.path,
-        target: form.target,
-        upstreamHost: form.upstreamHost?.trim() || undefined,
-        note: form.note?.trim() || undefined,
-        stripPrefix: form.stripPrefix,
-        enabled: form.enabled,
-      },
+      body: parsed.data,
     })
     pairs.value = data.pairs
     toast.add({ title: editing.value ? 'Pair updated' : 'Pair added', color: 'success' })
