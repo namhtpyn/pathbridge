@@ -94,7 +94,7 @@
                   <template #content>
                     <div class="max-w-64 space-y-1.5">
                       <p class="text-xs font-semibold text-white">Path</p>
-                      <p class="text-xs text-zinc-200">The incoming request path this pair claims. Exact paths match only themselves. End with <code>/*</code> to match everything beneath, or use <code>/</code> as the root catch-all.</p>
+                      <p class="text-xs text-zinc-200">The incoming request path this pair claims. Exact paths match only themselves. End with <code>/*</code> to match everything beneath.</p>
                     <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. /hook, /hook/*, /</p>
                     </div>
                   </template>
@@ -677,7 +677,7 @@ async function oidcLogin() {
   try {
     const res = await $fetch<{ url: string }>('/_auth/sign-in/social', {
       method: 'POST',
-      body: { provider: 'oidc', callbackURL: '/_admin' },
+      body: { provider: 'oidc', callbackURL: '/admin' },
     })
     if (res.url) window.location.href = res.url
   }

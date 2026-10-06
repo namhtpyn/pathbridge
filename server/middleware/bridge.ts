@@ -5,7 +5,7 @@ import { proxyRequest } from 'h3'
 import { db } from '../db'
 import { recordAccess } from '../utils/access-log'
 
-const RESERVED = ['/_admin', '/_api', '/_auth', '/_health', '/api']
+const RESERVED = ['/_api', '/_auth', '/_health', '/api', '/admin']
 
 interface MatchedPair {
   id: number
@@ -16,14 +16,8 @@ interface MatchedPair {
   methods: string | null
 }
 
-/**
- * Match a request path against a pair path.
- *   /hook    exact — equals only
- *   /hook/*  subtree — /hook or /hook/anything
- *   /        root catch-all
- */
+/** Match: /hook exact; /hook/* subtree. */
 function pairMatches(pairPath: string, reqPath: string): boolean {
-  if (pairPath === '/') return true
   if (pairPath.endsWith('/*')) {
     const base = pairPath.slice(0, -2) // "/hook"
     return reqPath === base || reqPath.startsWith(`${base}/`)
@@ -42,6 +36,9 @@ export default defineEventHandler(async (event) => {
   const path = event.path.split('?')[0] ?? '/'
 
   if (RESERVED.some(r => path === r || path.startsWith(`${r}/`))) return
+
+  // root redirects to the admin UI
+  if (path === '/') return sendRedirect(event, '/admin', 302)
 
   const all: MatchedPair[] = await db.query.pairs.findMany({
     where: { enabled: true },
