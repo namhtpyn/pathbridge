@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/namhtpyn/pathbridge/compare/v1.3.0...v1.4.0) (2026-10-06)
+
+
+### Features
+
+* settings page, user management, access log with retention ([74183b6](https://github.com/namhtpyn/pathbridge/commit/74183b6770f513c71fa1b9bd3c5b37927387f5b3))
+
 # [1.3.0](https://github.com/namhtpyn/pathbridge/compare/v1.2.0...v1.3.0) (2026-10-06)
 
 
