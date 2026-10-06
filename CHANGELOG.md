@@ -1,3 +1,11 @@
+## [1.9.1](https://github.com/namhtpyn/pathbridge/compare/v1.9.0...v1.9.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* bun:sqlite sync transaction — non-async callback with .run() ([c42444d](https://github.com/namhtpyn/pathbridge/commit/c42444d2fa43196022a22c476af6afc2af9f3d95))
+* senior review pass — update-in-place, dead code, mobile-first UI ([7a48e8e](https://github.com/namhtpyn/pathbridge/commit/7a48e8ec5fe1c7ab95df0b20aa40501c3304ceae))
+
 # [1.9.0](https://github.com/namhtpyn/pathbridge/compare/v1.8.0...v1.9.0) (2026-10-06)
 
 
