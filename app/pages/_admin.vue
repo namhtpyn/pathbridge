@@ -70,8 +70,8 @@
                 </UPageCard>
               </template>
               <UForm :state="form" :validate="validatePair" class="space-y-4" @submit="save">
-                <UFormField label="Path prefix" name="path" help="Must start with / — pairs claim their prefix">
-                  <UInput v-model="form.path" placeholder="/hook" icon="i-lucide-slash" class="w-full" required />
+                <UFormField label="Path" name="path" :help="pathHelp">
+                  <UInput v-model="form.path" placeholder="/hook or /hook/*" icon="i-lucide-slash" class="w-full" required />
                 </UFormField>
                 <UFormField label="Target origin" name="target" help="Absolute URL, no path">
                   <UInput v-model="form.target" placeholder="https://api.example.com" icon="i-lucide-globe" class="w-full" required />
@@ -83,7 +83,7 @@
                   <UInput v-model="form.note" placeholder="webhook from partner X" icon="i-lucide-notebook-pen" class="w-full" />
                 </UFormField>
                 <div class="flex items-center justify-between gap-3">
-                  <USwitch v-model="form.stripPrefix" label="Strip prefix" />
+                  <USwitch v-model="form.stripPrefix" :label="isWildcard ? 'Strip prefix' : 'Strip prefix (needs /*)'" :disabled="!isWildcard" />
                   <USwitch v-model="form.enabled" label="Enabled" />
                 </div>
                 <div class="flex justify-end gap-2">
@@ -161,6 +161,9 @@ const authConfig = ref<AuthConfig | null>(null)
 const emptyForm = () => ({ path: '', target: '', upstreamHost: undefined as string | undefined, note: undefined as string | undefined, stripPrefix: false, enabled: true })
 const form = reactive(emptyForm())
 
+const isWildcard = computed(() => form.path.trim().endsWith('/*') || form.path.trim() === '/')
+const pathHelp = computed(() => isWildcard.value ? 'Wildcard — matches this path and everything under it' : 'Exact match — this path only. Add /* for a subtree')
+
 // Frontend schema TRANSFORMS loose input -> clean payload; UX errors surfaced
 // inline. Backend strict schema re-validates the transformed data for security.
 function validatePair(state: typeof form): Array<{ name: string, message: string }> {
@@ -234,6 +237,10 @@ function hostOf(target: string) {
   try { return new URL(target).hostname }
   catch { return '' }
 }
+
+watch(isWildcard, (w) => {
+  if (!w && form.stripPrefix) form.stripPrefix = false
+})
 
 function edit(p: PairRow) {
   editing.value = p.path
