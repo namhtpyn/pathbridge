@@ -5,7 +5,7 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build
 
-FROM oven/bun:1 AS runtime
+FROM oven/bun:latest AS runtime
 WORKDIR /app
 ENV NODE_ENV=production DATA_DIR=/data
 COPY --from=build /app/.output ./.output
