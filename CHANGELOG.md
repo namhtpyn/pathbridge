@@ -1,3 +1,10 @@
+## [1.1.3](https://github.com/namhtpyn/pathbridge/compare/v1.1.2...v1.1.3) (2026-10-06)
+
+
+### Bug Fixes
+
+* first-user gate — drizzle rc findFirst returns undefined, not null ([abd9b4f](https://github.com/namhtpyn/pathbridge/commit/abd9b4fa4ac8a4732af2a236411629803b156478))
+
 ## [1.1.2](https://github.com/namhtpyn/pathbridge/compare/v1.1.1...v1.1.2) (2026-10-06)
 
 
