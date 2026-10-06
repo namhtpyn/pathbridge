@@ -13,6 +13,7 @@ interface MatchedPair {
   target: string
   upstreamHost: string | null
   stripPrefix: boolean
+  methods: string | null
 }
 
 /**
@@ -44,7 +45,7 @@ export default defineEventHandler(async (event) => {
 
   const all: MatchedPair[] = await db.query.pairs.findMany({
     where: { enabled: true },
-    columns: { id: true, path: true, target: true, upstreamHost: true, stripPrefix: true },
+    columns: { id: true, path: true, target: true, upstreamHost: true, stripPrefix: true, methods: true },
   })
 
   let best: MatchedPair | null = null
@@ -58,6 +59,17 @@ export default defineEventHandler(async (event) => {
   }
   if (!best) {
     throw createError({ statusCode: 404, statusMessage: 'No pair matches this path' })
+  }
+
+  // method allowlist: null = all verbs allowed
+  if (best.methods) {
+    let allowed: string[] = []
+    try { allowed = JSON.parse(best.methods) as string[] }
+    catch { allowed = [] }
+    if (!allowed.includes(event.method)) {
+      setResponseHeader(event, 'allow', allowed.join(', '))
+      throw createError({ statusCode: 405, statusMessage: `Method ${event.method} not allowed for this pair` })
+    }
   }
 
   const target = best.target.replace(/\/+$/, '')

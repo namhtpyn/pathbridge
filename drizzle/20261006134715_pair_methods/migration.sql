@@ -1,0 +1,1 @@
+ALTER TABLE `pairs` ADD `methods` text;
