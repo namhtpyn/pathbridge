@@ -1,7 +1,7 @@
 {
   "name": "pathbridge",
   "version": "0.1.0",
-  "description": "Configurable path-to-URL forwarding proxy with a built-in admin UI. Route selected paths to external upstreams — useful when an API must be reached from a specific network or region.",
+  "description": "Configurable path-to-URL forwarding proxy with a built-in admin UI. Route selected paths to external upstreams \u2014 useful when an API must be reached from a specific network or region.",
   "type": "module",
   "private": false,
   "scripts": {
@@ -42,5 +42,8 @@
   "license": "MIT",
   "publishConfig": {
     "access": "public"
+  },
+  "overrides": {
+    "esbuild": "0.25.12"
   }
 }
