@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/namhtpyn/pathbridge/compare/v1.4.0...v1.5.0) (2026-10-06)
+
+
+### Features
+
+* complete admin UI redesign — app shell, modals, polish ([5cff80e](https://github.com/namhtpyn/pathbridge/commit/5cff80e7d1183fc56e8a8ec0b8adb158e69c5927))
+
 # [1.4.0](https://github.com/namhtpyn/pathbridge/compare/v1.3.0...v1.4.0) (2026-10-06)
 
 
