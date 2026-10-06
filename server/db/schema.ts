@@ -75,6 +75,7 @@ export const pairs = sqliteTable('pairs', {
   target: text('target').notNull(),
   upstreamHost: text('upstream_host'),
   stripPrefix: integer('strip_prefix', { mode: 'boolean' }).notNull().default(false),
+  methods: text('methods'), // JSON array of allowed HTTP verbs; null = all
   note: text('note'),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),

@@ -150,6 +150,36 @@
                 </UTooltip></span></template>
                 <UInput v-model="form.note" placeholder="webhooks from partner X" icon="i-lucide-notebook-pen" class="w-full" />
               </UFormField>
+              <UFormField name="methods">
+                <template #label><span class="flex items-center gap-1.5">Allowed methods
+                  <UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+                    <template #default>
+                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+                    </template>
+                    <template #content>
+                      <div class="max-w-64 space-y-1.5">
+                        <p class="text-xs font-semibold text-white">Allowed methods</p>
+                        <p class="text-xs text-zinc-200">Only the selected HTTP verbs are forwarded; anything else gets 405. Leave "All" on to forward everything.</p>
+                      </div>
+                    </template>
+                  </UTooltip></span></template>
+                <div class="flex flex-wrap items-center gap-2">
+                  <UCheckbox v-model="form.methodsAll" label="All" @update:model-value="() => { if (form.methodsAll) form.methods = [] }" />
+                  <template v-for="verb in allVerbs" :key="verb">
+                    <button
+                      type="button"
+                      :disabled="form.methodsAll"
+                      class="rounded-md border px-2 py-1 font-mono text-xs transition-colors disabled:opacity-40"
+                      :class="form.methods.includes(verb)
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-zinc-300 text-zinc-500 hover:border-zinc-400 dark:border-zinc-600'"
+                      @click="toggleVerb(verb)"
+                    >
+                      {{ verb }}
+                    </button>
+                  </template>
+                </div>
+              </UFormField>
               <div class="flex items-center gap-6 sm:col-span-2">
                 <USwitch v-model="form.stripPrefix" :disabled="!isWildcard">
                 <template #label><span class="flex items-center gap-1.5">Strip prefix
@@ -182,6 +212,7 @@
                   <div class="flex items-center gap-2">
                     <code class="rounded-md bg-primary/5 px-1.5 py-0.5 text-sm font-semibold text-primary">{{ p.path }}</code>
                     <UBadge v-if="p.stripPrefix" label="strip" variant="subtle" color="warning" size="sm" />
+                    <span v-if="p.methods && p.methods.length" class="font-mono text-[10px] text-zinc-400">{{ p.methods.join(' ') }}</span>
                     <UBadge v-if="!p.enabled" label="disabled" variant="subtle" color="error" size="sm" />
                   </div>
                   <div class="mt-1 flex items-center gap-2 text-xs text-zinc-500">
@@ -502,8 +533,15 @@ const userMenuItems = computed(() => [[
 const activePairCount = computed(() => pairs.value.filter(p => p.enabled).length)
 
 // ---------- pair form ----------
-const emptyForm = () => ({ path: '', target: '', upstreamHost: undefined as string | undefined, note: undefined as string | undefined, stripPrefix: false, enabled: true })
+const allVerbs = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const
+const emptyForm = () => ({ path: '', target: '', upstreamHost: undefined as string | undefined, note: undefined as string | undefined, stripPrefix: false, methodsAll: true, methods: [] as string[], enabled: true })
 const form = reactive(emptyForm())
+
+function toggleVerb(v: string) {
+  const i = form.methods.indexOf(v)
+  if (i >= 0) form.methods.splice(i, 1)
+  else form.methods.push(v)
+}
 
 const isWildcard = computed(() => form.path.trim().endsWith('/*') || form.path.trim() === '/')
 const pathHelp = computed(() => isWildcard.value ? 'Wildcard — matches this path and everything under it' : 'Exact match — this path only. Add /* for a subtree')
@@ -667,6 +705,8 @@ function hostOf(target: string) {
 function edit(p: PairRow) {
   editing.value = p.path
   Object.assign(form, JSON.parse(JSON.stringify(p)))
+  form.methodsAll = !p.methods || p.methods.length === 0
+  form.methods = p.methods ? [...p.methods] : []
 }
 
 function reset() {
@@ -685,7 +725,7 @@ async function save() {
     }
     const data = await $fetch<PairsResponse>('/api/pairs', {
       method: 'PUT',
-      body: parsed.data,
+      body: { ...parsed.data, methods: form.methodsAll || form.methods.length === 0 ? undefined : form.methods },
     })
     pairs.value = data.pairs
     toast.add({ title: editing.value && editing.value !== 'new' ? 'Pair updated' : 'Pair added', color: 'success' })

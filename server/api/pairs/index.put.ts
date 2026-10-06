@@ -28,6 +28,7 @@ export default defineEventHandler(async (event): Promise<{ pairs: PairRow[] }> =
     target: u.origin,
     upstreamHost: parsed.data.upstreamHost ?? null,
     stripPrefix: parsed.data.stripPrefix,
+    methods: parsed.data.methods ? JSON.stringify(parsed.data.methods) : null,
     note: parsed.data.note !== undefined ? parsed.data.note.slice(0, 200) : null,
     enabled: parsed.data.enabled,
     updatedAt: new Date().toISOString(),

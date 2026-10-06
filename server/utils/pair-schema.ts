@@ -28,12 +28,20 @@ const validPairPath = z.string().min(1).max(512)
     return base.length > 0 && !base.endsWith('/') && !base.includes('*')
   }, 'wildcard must be a trailing "/*" on a non-empty base (e.g. "/hook/*"); use "/" for the root catch-all')
 
+const httpVerbs = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const
+export type HttpVerb = typeof httpVerbs[number]
+
+export const methodsSchema = z.array(z.enum(httpVerbs))
+  .min(1, 'allow at least one method')
+  .refine(m => new Set(m).size === m.length, 'duplicate methods')
+
 export const pairInputSchema = z.strictObject({
   path: validPairPath,
   target: httpOrigin,
   upstreamHost: z.string().min(1).max(253)
     .regex(/^[a-zA-Z0-9.-]+(:\d{1,5})?$/, 'upstreamHost must be host[:port]').optional(),
   stripPrefix: z.boolean().optional().default(false),
+  methods: methodsSchema.optional(),
   note: z.string().max(200).optional(),
   enabled: z.boolean().optional().default(true),
 }).refine(

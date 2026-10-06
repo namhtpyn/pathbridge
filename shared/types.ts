@@ -14,6 +14,8 @@ export interface PairRow {
   upstreamHost: string | null
   /** Strip the pair's path prefix before forwarding. */
   stripPrefix: boolean
+  /** Allowed HTTP verbs; null = all. Serialized JSON array in the row. */
+  methods: string[] | null
   /** Free-form note shown in the UI. */
   note: string | null
   enabled: boolean
