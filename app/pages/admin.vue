@@ -638,7 +638,7 @@ onMounted(async () => {
     authConfig.value = { passwordEnabled: true, oidcEnabled: false }
   }
   try {
-    const s = await $fetch<SessionPayload | null>('/_auth/get-session')
+    const s = await $fetch<SessionPayload | null>('/auth/get-session')
     session.value = s?.user ? s : null
     if (session.value) {
       await load()
@@ -658,7 +658,7 @@ async function login() {
   busy.value = true
   loginError.value = ''
   try {
-    const res = await $fetch<SessionPayload>('/_auth/sign-in/email', {
+    const res = await $fetch<SessionPayload>('/auth/sign-in/email', {
       method: 'POST',
       body: { email: loginState.email, password: loginState.password },
     })
@@ -675,7 +675,7 @@ async function login() {
 
 async function oidcLogin() {
   try {
-    const res = await $fetch<{ url: string }>('/_auth/sign-in/social', {
+    const res = await $fetch<{ url: string }>('/auth/sign-in/social', {
       method: 'POST',
       body: { provider: 'oidc', callbackURL: '/admin' },
     })
@@ -687,7 +687,7 @@ async function oidcLogin() {
 }
 
 async function logout() {
-  await $fetch('/_auth/sign-out', { method: 'POST' }).catch(() => {})
+  await $fetch('/auth/sign-out', { method: 'POST' }).catch(() => {})
   session.value = null
   pairs.value = []
 }

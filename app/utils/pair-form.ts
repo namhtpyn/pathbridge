@@ -23,6 +23,7 @@ export const pairSubmitSchema = z.object({
     .refine(v => v.startsWith('/'), 'path must start with "/"')
     .refine(v => v !== '/', 'path "/" is reserved — it redirects to the admin UI')
     .refine(v => v !== '/admin' && !v.startsWith('/admin/'), 'path must not collide with the admin UI')
+    .refine(v => v !== '/auth' && !v.startsWith('/auth/') && v !== '/health' && !v.startsWith('/health/'), 'path must not collide with reserved app routes')
     .refine((v) => {
       if (!v.includes('*')) return true
       return v.endsWith('/*') && !v.slice(0, -2).endsWith('/') && !v.slice(0, -2).includes('*')

@@ -69,7 +69,7 @@ async function buildAuth(): Promise<Auth> {
       provider: 'sqlite',
       schema: authSchema,
     }),
-    basePath: '/_auth',
+    basePath: '/auth',
     ...(env.BETTER_AUTH_URL ? { baseURL: env.BETTER_AUTH_URL } : {}),
     databaseHooks: {
       user: {

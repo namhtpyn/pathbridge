@@ -5,7 +5,7 @@ import { proxyRequest } from 'h3'
 import { db } from '../db'
 import { recordAccess } from '../utils/access-log'
 
-const RESERVED = ['/_api', '/_auth', '/_health', '/api', '/admin']
+const RESERVED = ['/auth', '/health', '/api', '/admin']
 
 interface MatchedPair {
   id: number
