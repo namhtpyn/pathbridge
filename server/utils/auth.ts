@@ -25,7 +25,7 @@ export const passwordLoginEnabled = passwordEnabled
 export const oidcConfigured = oidcEnabled
 
 async function anyUserExists(): Promise<boolean> {
-  return await db.query.user.findFirst({ columns: { id: true } }).then(r => r !== null)
+  return await db.query.user.findFirst({ columns: { id: true } }).then(r => r != null)
 }
 
 export const auth = betterAuth({
