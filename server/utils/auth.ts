@@ -24,12 +24,25 @@ const passwordEnabled = !(oidcEnabled && env.OIDC_DISABLED_PASSWORD_LOGIN === 't
 export const passwordLoginEnabled = passwordEnabled
 export const oidcConfigured = oidcEnabled
 
+async function anyUserExists(): Promise<boolean> {
+  return await db.query.user.findFirst({ columns: { id: true } }).then(r => r !== null)
+}
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: 'sqlite',
     schema: authSchema,
   }),
   basePath: '/_auth',
+  ...(env.BETTER_AUTH_URL ? { baseURL: env.BETTER_AUTH_URL } : {}),
+  databaseHooks: {
+    user: {
+      create: {
+        // public deployments: first user claims the instance, sign-up closes after
+        before: async () => (await anyUserExists() ? false : undefined),
+      },
+    },
+  },
   emailAndPassword: {
     enabled: passwordEnabled,
     requireEmailVerification: false,
