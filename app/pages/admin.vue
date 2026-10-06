@@ -28,9 +28,9 @@
     </div>
 
     <!-- ===================== APP ===================== -->
-    <div v-else class="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6">
+    <div v-else class="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 sm:px-6">
       <!-- top bar -->
-      <header class="flex h-16 shrink-0 items-center justify-between gap-4">
+      <header class="flex h-14 shrink-0 items-center justify-between gap-3 sm:h-16 sm:gap-4">
         <div class="flex items-center gap-3">
           <div class="flex size-9 items-center justify-center rounded-xl bg-primary/10">
             <UIcon name="i-lucide-arrow-left-right" class="size-5 text-primary" />
@@ -49,12 +49,12 @@
       </header>
 
       <!-- tabs -->
-      <nav class="flex shrink-0 items-center gap-1 border-b border-zinc-200 dark:border-zinc-800">
+      <nav class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-200 pl-1 dark:border-zinc-800" style="-webkit-overflow-scrolling: touch; scrollbar-width: none">
         <button
           v-for="t in tabs"
           :key="t.value"
           type="button"
-          class="-mb-px flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors"
+          class="-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors"
           :class="tab === t.value
             ? 'border-primary text-primary'
             : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'"
@@ -69,7 +69,7 @@
       <main class="flex-1 py-8">
         <!-- ============ PAIRS ============ -->
         <div v-if="tab === 'pairs'" class="space-y-6">
-          <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
               <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Pairs</h2>
               <p class="text-sm text-zinc-500">Route incoming paths to upstream origins</p>
@@ -180,7 +180,7 @@
                   </template>
                 </div>
               </UFormField>
-              <div class="flex items-center gap-6 sm:col-span-2">
+              <div class="flex flex-wrap items-center gap-x-6 gap-y-3 sm:col-span-2">
                 <USwitch v-model="form.stripPrefix" :disabled="!isWildcard">
                 <template #label><span class="flex items-center gap-1.5">Strip prefix
 <UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
@@ -207,7 +207,7 @@
 
           <UCard v-if="pairs.length" :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
             <ul class="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-              <li v-for="p in pairs" :key="p.id" class="flex items-center gap-4 px-5 py-4">
+              <li v-for="p in pairs" :key="p.id" class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:gap-4">
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2">
                     <code class="rounded-md bg-primary/5 px-1.5 py-0.5 text-sm font-semibold text-primary">{{ p.path }}</code>
@@ -217,15 +217,15 @@
                   </div>
                   <div class="mt-1 flex items-center gap-2 text-xs text-zinc-500">
                     <UIcon name="i-lucide-arrow-right" class="size-3" />
-                    <span class="truncate font-mono">{{ p.target }}</span>
+                    <span class="break-all font-mono">{{ p.target }}</span>
                     <span v-if="p.upstreamHost" class="truncate">· host: {{ p.upstreamHost }}</span>
                   </div>
                   <p v-if="p.note" class="mt-1 truncate text-xs text-zinc-400">{{ p.note }}</p>
                 </div>
-                <div class="flex shrink-0 items-center gap-1">
-                  <UButton icon="i-lucide-chart-line" variant="ghost" color="neutral" size="xs" label="Logs" @click="viewPairLogs(p)" />
-                  <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="xs" aria-label="Edit pair" @click="edit(p)" />
-                  <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="xs" aria-label="Delete pair" @click="remove(p)" />
+                <div class="flex shrink-0 items-center justify-end gap-2 self-end sm:self-auto">
+                  <UButton icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" label="Logs" @click="viewPairLogs(p)" />
+                  <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit pair" @click="edit(p)" />
+                  <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete pair" @click="remove(p)" />
                 </div>
               </li>
             </ul>
@@ -346,7 +346,7 @@
 
         <!-- ============ USERS ============ -->
         <div v-else-if="tab === 'users'" class="space-y-6">
-          <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
               <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Users</h2>
               <p class="text-sm text-zinc-500">Who can manage this bridge</p>
@@ -387,7 +387,7 @@
 
           <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
             <ul class="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-              <li v-for="u in users" :key="u.id" class="flex items-center gap-4 px-5 py-4">
+              <li v-for="u in users" :key="u.id" class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:gap-4">
                 <UAvatar :name="u.name || u.email" size="md" />
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2">
@@ -396,14 +396,14 @@
                   </div>
                   <div class="truncate text-xs text-zinc-500">{{ u.email }}</div>
                 </div>
-                <div class="flex shrink-0 items-center gap-3 text-xs text-zinc-400">
+                <div class="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
                   <span v-if="u.hasPassword" class="flex items-center gap-1" title="Has a password login"><UIcon name="i-lucide-lock" class="size-3" />password</span>
                   <span v-if="u.oidcLinked" class="flex items-center gap-1" title="Linked to OIDC"><UIcon name="i-lucide-key-round" class="size-3" />oidc</span>
                   <span class="flex items-center gap-1" title="Active sessions"><UIcon name="i-lucide-monitor-smartphone" class="size-3" />{{ u.sessionCount }}</span>
                 </div>
-                <div class="flex shrink-0 items-center gap-1">
-                  <UButton icon="i-lucide-key-round" variant="ghost" color="neutral" size="xs" label="Reset password" @click="resetPassword(u)" />
-                  <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="xs" aria-label="Delete user" :disabled="u.id === session.user.id" @click="removeUser(u)" />
+                <div class="flex shrink-0 items-center justify-end gap-2 self-end sm:self-auto">
+                  <UButton icon="i-lucide-key-round" variant="ghost" color="neutral" size="sm" label="Reset password" @click="resetPassword(u)" />
+                  <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete user" :disabled="u.id === session.user.id" @click="removeUser(u)" />
                 </div>
               </li>
             </ul>
@@ -412,7 +412,7 @@
 
         <!-- ============ LOGS ============ -->
         <div v-else-if="tab === 'logs'" class="space-y-6">
-          <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
               <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Access log</h2>
               <p class="text-sm text-zinc-500">
@@ -424,8 +424,8 @@
           </div>
 
           <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
-            <div v-if="logs.length" class="overflow-x-auto">
-              <table class="w-full text-sm">
+            <div v-if="logs.length" class="overflow-x-auto" style="-webkit-overflow-scrolling: touch">
+              <table class="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr class="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400 dark:border-zinc-800">
                     <th class="px-5 py-3 font-medium">Time</th>
@@ -534,7 +534,7 @@ const activePairCount = computed(() => pairs.value.filter(p => p.enabled).length
 
 // ---------- pair form ----------
 const allVerbs = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const
-const emptyForm = () => ({ path: '', target: '', upstreamHost: undefined as string | undefined, note: undefined as string | undefined, stripPrefix: false, methodsAll: true, methods: [] as string[], enabled: true })
+const emptyForm = () => ({ id: undefined as number | undefined, path: '', target: '', upstreamHost: undefined as string | undefined, note: undefined as string | undefined, stripPrefix: false, methodsAll: true, methods: [] as string[], enabled: true })
 const form = reactive(emptyForm())
 
 function toggleVerb(v: string) {
@@ -583,12 +583,13 @@ function resetPassword(u: AdminUser) {
 
 // ---------- delete confirm ----------
 const deleteModalOpen = ref(false)
-const deleteModal = reactive({ what: '', kind: '' as 'pair' | 'user', id: '' })
+const deleteModal = reactive({ what: '', kind: '' as 'pair' | 'user', id: '', pairPath: '' })
 
 function remove(p: PairRow) {
   deleteModal.what = `${p.path} → ${p.target}`
   deleteModal.kind = 'pair'
-  deleteModal.id = p.path
+  deleteModal.id = String(p.id)
+  deleteModal.pairPath = p.path
   deleteModalOpen.value = true
 }
 
@@ -705,6 +706,7 @@ function hostOf(target: string) {
 function edit(p: PairRow) {
   editing.value = p.path
   Object.assign(form, JSON.parse(JSON.stringify(p)))
+  form.id = p.id
   form.methodsAll = !p.methods || p.methods.length === 0
   form.methods = p.methods ? [...p.methods] : []
 }
@@ -725,7 +727,11 @@ async function save() {
     }
     const data = await $fetch<PairsResponse>('/api/pairs', {
       method: 'PUT',
-      body: { ...parsed.data, methods: form.methodsAll || form.methods.length === 0 ? undefined : form.methods },
+      body: {
+        ...parsed.data,
+        id: editing.value && editing.value !== 'new' ? form.id : undefined,
+        methods: form.methodsAll || form.methods.length === 0 ? undefined : form.methods,
+      },
     })
     pairs.value = data.pairs
     toast.add({ title: editing.value && editing.value !== 'new' ? 'Pair updated' : 'Pair added', color: 'success' })
@@ -741,9 +747,9 @@ async function save() {
 async function confirmDelete() {
   try {
     if (deleteModal.kind === 'pair') {
-      const data = await $fetch<PairsResponse>(`/api/pairs/${encodeURIComponent(deleteModal.id.slice(1))}`, { method: 'DELETE' })
+      const data = await $fetch<PairsResponse>(`/api/pairs/${deleteModal.id}`, { method: 'DELETE' })
       pairs.value = data.pairs
-      if (editing.value === deleteModal.id) reset()
+      if (editing.value === deleteModal.pairPath) reset()
       toast.add({ title: 'Pair deleted', color: 'success' })
     }
     else {

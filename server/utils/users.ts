@@ -3,7 +3,7 @@
 // same better-auth/crypto primitives so accounts stay compatible.
 import { db } from '../db'
 import { user, account, session as sessionTable } from '../db/schema'
-import { hashPassword, generateRandomString } from 'better-auth/crypto'
+import { hashPassword } from 'better-auth/crypto'
 
 export interface AdminUserView {
   id: string
@@ -38,18 +38,21 @@ export async function listUsers(): Promise<AdminUserView[]> {
 export async function createUser(email: string, name: string, password: string, emailVerified = true): Promise<void> {
   const id = crypto.randomUUID()
   const now = new Date()
-  await db.insert(user).values({
-    id, email, name, emailVerified, createdAt: now, updatedAt: now,
-  })
   const hash = await hashPassword(password)
-  await db.insert(account).values({
-    id: crypto.randomUUID(),
-    accountId: id,
-    providerId: 'credential',
-    userId: id,
-    password: hash,
-    createdAt: now,
-    updatedAt: now,
+  // one transaction: no orphan user rows if the account insert fails
+  await db.transaction(async (tx) => {
+    await tx.insert(user).values({
+      id, email, name, emailVerified, createdAt: now, updatedAt: now,
+    })
+    await tx.insert(account).values({
+      id: crypto.randomUUID(),
+      accountId: id,
+      providerId: 'credential',
+      userId: id,
+      password: hash,
+      createdAt: now,
+      updatedAt: now,
+    })
   })
 }
 

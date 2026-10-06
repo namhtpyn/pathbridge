@@ -58,7 +58,9 @@ let instance: Auth | null = null
 let builtWith = ''
 
 function policyKey(p: AuthPolicy): string {
-  return JSON.stringify([p.issuer, p.clientId, p.passwordEnabled])
+  // everything that feeds betterAuth() config — a stale instance would keep
+  // serving the old OIDC secret. In-memory only; never logged.
+  return JSON.stringify([p.issuer, p.clientId, p.clientSecret, p.passwordEnabled])
 }
 
 async function buildAuth(): Promise<Auth> {

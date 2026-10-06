@@ -86,7 +86,7 @@ export default defineEventHandler(async (event) => {
   const started = Date.now()
   const clientIp = getRequestIP(event, { xForwardedFor: true })?.toString() ?? null
   const userAgent = getRequestHeader(event, 'user-agent') ?? null
-  const pairId = (best as { id?: number }).id ?? null
+  const pairId = best.id
 
   // wrap the response to capture status; log after headers flush
   const res = await proxyRequest(event, url, { headers })

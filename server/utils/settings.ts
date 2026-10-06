@@ -8,7 +8,7 @@ export interface AppSettings {
   /** OIDC issuer URL; empty = OIDC off */
   oidcIssuer: string
   oidcClientId: string
-  /** write-only via API; stored scrypt-hashed like a password */
+  /** write-only via API; stored plaintext (better-auth needs the real value) */
   oidcClientSecret: string
   /** when true + OIDC configured, email+password login is disabled */
   disablePasswordLogin: boolean
@@ -23,8 +23,6 @@ const DEFAULTS: AppSettings = {
   disablePasswordLogin: false,
   logRetentionDays: 30,
 }
-
-const cache: Partial<AppSettings> = {}
 
 function coerce(raw: string | undefined, key: keyof AppSettings): string | number | boolean | undefined {
   if (raw === undefined) return undefined
@@ -53,25 +51,4 @@ export async function setSetting(key: keyof AppSettings, value: string | number 
     .onConflictDoUpdate({ target: settings.key, set: { value: String(value), updatedAt: new Date().toISOString() } })
 }
 
-/** Current password-login policy considering env + DB toggles. */
-export async function passwordLoginEnabled(): Promise<boolean> {
-  if (cache.disablePasswordLogin === true) return false
-  const s = await getSettings()
-  return !(s.oidcIssuer !== '' && s.disablePasswordLogin)
-}
 
-export function invalidateSettingsCache(): void {
-  delete cache.oidcIssuer
-  delete cache.oidcClientId
-  delete cache.oidcClientSecret
-  delete cache.disablePasswordLogin
-  delete cache.logRetentionDays
-}
-
-/** True when an OIDC issuer + client are fully configured (env or settings). */
-export async function oidcConfiguredNow(): Promise<boolean> {
-  const env = process.env
-  if (env.OIDC_ISSUER && env.OIDC_CLIENT_ID && env.OIDC_CLIENT_SECRET) return true
-  const s = await getSettings()
-  return s.oidcIssuer !== '' && s.oidcClientId !== '' && s.oidcClientSecret !== ''
-}
