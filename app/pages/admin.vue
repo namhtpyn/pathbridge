@@ -212,7 +212,7 @@
                   <div class="flex items-center gap-2">
                     <code class="rounded-md bg-primary/5 px-1.5 py-0.5 text-sm font-semibold text-primary">{{ p.path }}</code>
                     <UBadge v-if="p.stripPrefix" label="strip" variant="subtle" color="warning" size="sm" />
-                    <span v-if="p.methods && p.methods.length" class="font-mono text-[10px] text-zinc-400">{{ p.methods.join(' ') }}</span>
+                    <span v-if="p.methods?.length" class="font-mono text-[10px] text-zinc-400">{{ p.methods.join(' ') }}</span>
                     <UBadge v-if="!p.enabled" label="disabled" variant="subtle" color="error" size="sm" />
                   </div>
                   <div class="mt-1 flex items-center gap-2 text-xs text-zinc-500">
