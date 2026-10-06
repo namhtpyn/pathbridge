@@ -8,7 +8,7 @@ a stable public hostname in front of changing backends.
 
 ## How it works
 
-- Each **pair** maps a path prefix to a target origin, e.g. `/zalo` → `https://api.upstream.example`
+- Each **pair** maps a path prefix to a target origin, e.g. `/hook` → `https://api.upstream.example`
 - Requests to that prefix are proxied to the target with the upstream's Host header
 - Pairs are managed at runtime — add, edit, or remove them from the admin UI, no rebuild
 - Longest-prefix match wins; pairs can be individually disabled
@@ -17,27 +17,35 @@ a stable public hostname in front of changing backends.
 
 ```bash
 docker run -d \
-  -e ADMIN_PASSWORD=change-me \
   -e DATA_DIR=/data \
   -v pb-data:/data \
   -p 3000:3000 \
-  ghcr.io/<you>/pathbridge
+  ghcr.io/namhtpyn/pathbridge
 ```
 
 Put your own TLS terminator (nginx, Traefik, Caddy…) in front; the app itself is plain HTTP.
 
-## Admin UI
+## First-run setup
 
-Visit `/_admin`, enter the admin password. The same API is available programmatically:
+1. Create the admin user:
 
-```
-GET    /_api/pairs                      # list
-PUT    /_api/pairs                      # upsert  {"path":"/hook","target":"https://api.example.com"}
-DELETE /_api/pairs/hook                 # remove by path
-GET    /_health                         # liveness
+```bash
+docker exec -it <container> bun scripts/create-admin.ts admin@example.com <password>
 ```
 
-All `/_api` routes require `Authorization: Bearer <ADMIN_PASSWORD>`.
+2. Sign in at `/_admin`.
+
+## Admin API
+
+Same API the UI uses, session-cookie authenticated:
+
+```
+GET    /api/pairs            # list
+PUT    /api/pairs            # upsert  {"path":"/hook","target":"https://api.example.com"}
+DELETE /api/pairs/hook       # remove by path
+GET    /_health              # liveness
+POST   /_auth/sign-in/email  # better-auth endpoints under /_auth/*
+```
 
 ### Pair fields
 
@@ -54,10 +62,22 @@ All `/_api` routes require `Authorization: Bearer <ADMIN_PASSWORD>`.
 
 | env | default | purpose |
 |---|---|---|
-| `ADMIN_PASSWORD` | — (required) | admin UI + API password |
-| `DATA_DIR` | `./data` | where `pairs.json` lives |
+| `DATA_DIR` | `./data` | where `pathbridge.db` lives |
+| `PORT` | `3000` | listen port |
+| `DRIZZLE_DIR` | `./drizzle` | migrations dir (bundled) |
+
+## Tech
+
+- Nuxt 4 (Nitro) — catch-all bridge middleware
+- better-auth (drizzle relations-v2 adapter) — email+password sessions
+- drizzle-orm rc + bun:sqlite — storage, RQB query style, runtime migrations
+- 100% strict TypeScript
 
 ## Notes
 
-- Prefixes starting with `/_` are reserved (admin UI, API, health) and cannot be claimed by pairs.
-- Pair state is a single JSON file — mount it on a volume to persist across restarts.
+- Prefixes starting with `/_` are reserved (admin UI, auth, health, API) and cannot be claimed by pairs.
+- State lives in a single SQLite file — mount it on a volume to persist across restarts.
+
+## License
+
+MIT
