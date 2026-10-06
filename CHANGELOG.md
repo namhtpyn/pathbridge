@@ -1,3 +1,10 @@
+## [1.9.2](https://github.com/namhtpyn/pathbridge/compare/v1.9.1...v1.9.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* methods column -> drizzle json-mode text; fixes pair list render crash ([10ed95c](https://github.com/namhtpyn/pathbridge/commit/10ed95c9d5b05f2468ce020e1c79ddaaf2e37461))
+
 ## [1.9.1](https://github.com/namhtpyn/pathbridge/compare/v1.9.0...v1.9.1) (2026-10-06)
 
 
