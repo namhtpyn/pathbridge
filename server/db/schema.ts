@@ -49,7 +49,26 @@ export const verification = sqliteTable('verification', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }),
 })
 
-// pathbridge's own table (ISO strings here — our code owns these writes)
+// pathbridge's own tables (ISO strings here — our code owns these writes)
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
+})
+
+export const accessLog = sqliteTable('access_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  ts: text('ts').notNull().$defaultFn(() => new Date().toISOString()),
+  pairId: integer('pair_id'),
+  pairPath: text('pair_path'),
+  method: text('method').notNull(),
+  path: text('path').notNull(),
+  status: integer('status').notNull(),
+  durationMs: integer('duration_ms').notNull().default(0),
+  clientIp: text('client_ip'),
+  userAgent: text('user_agent'),
+})
+
 export const pairs = sqliteTable('pairs', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   path: text('path').notNull().unique(),
@@ -65,7 +84,7 @@ export const pairs = sqliteTable('pairs', {
 // Relations v2 (drizzle rc) — the shape better-auth's relations-v2 adapter consumes
 // via db._.relations and db.query.
 export const relations = defineRelations(
-  { user, session, account, verification, pairs },
+  { user, session, account, verification, pairs, settings, accessLog },
   (helpers) => ({
     user: {
       sessions: helpers.many.session({ from: helpers.user.id, to: helpers.session.userId }),
@@ -79,6 +98,8 @@ export const relations = defineRelations(
     },
     verification: {},
     pairs: {},
+    settings: {},
+    accessLog: {},
   }),
 )
 
