@@ -1,0 +1,99 @@
+// Drizzle rc (Relations v2): tables + relations. Auth tables are the better-auth
+// canonical set (Date fields = integer timestamp mode); `pairs` is pathbridge's own.
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { defineRelations } from 'drizzle-orm'
+
+export const user = sqliteTable('user', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(true),
+  image: text('image'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+})
+
+export const session = sqliteTable('session', {
+  id: text('id').primaryKey(),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+  token: text('token').notNull().unique(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  userId: text('user_id').notNull().references(() => user.id),
+})
+
+export const account = sqliteTable('account', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  userId: text('user_id').notNull().references(() => user.id),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  idToken: text('id_token'),
+  accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp' }),
+  refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp' }),
+  scope: text('scope'),
+  password: text('password'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+})
+
+export const verification = sqliteTable('verification', {
+  id: text('id').primaryKey(),
+  identifier: text('identifier').notNull(),
+  value: text('value').notNull(),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }),
+})
+
+// pathbridge's own table (ISO strings here — our code owns these writes)
+export const pairs = sqliteTable('pairs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  path: text('path').notNull().unique(),
+  target: text('target').notNull(),
+  upstreamHost: text('upstream_host'),
+  stripPrefix: integer('strip_prefix', { mode: 'boolean' }).notNull().default(false),
+  note: text('note'),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
+})
+
+// Relations v2 (drizzle rc) — the shape better-auth's relations-v2 adapter consumes
+// via db._.relations and db.query.
+export const relations = defineRelations(
+  { user, session, account, verification, pairs },
+  (helpers) => ({
+    user: {
+      sessions: helpers.many.session({ from: helpers.user.id, to: helpers.session.userId }),
+      accounts: helpers.many.account({ from: helpers.user.id, to: helpers.account.userId }),
+    },
+    session: {
+      user: helpers.one.user({ from: helpers.session.userId, to: helpers.user.id }),
+    },
+    account: {
+      user: helpers.one.user({ from: helpers.account.userId, to: helpers.user.id }),
+    },
+    verification: {},
+    pairs: {},
+  }),
+)
+
+// tables the better-auth relations-v2 adapter consumes
+export const authSchema = {
+  user,
+  session,
+  account,
+  verification,
+}
+
+// ---- inferred row types (single source of truth for app code) ----
+export type User = typeof user.$inferSelect
+export type Session = typeof session.$inferSelect
+export type Account = typeof account.$inferSelect
+export type Verification = typeof verification.$inferSelect
+export type Pair = typeof pairs.$inferSelect
+export type NewPair = typeof pairs.$inferInsert
