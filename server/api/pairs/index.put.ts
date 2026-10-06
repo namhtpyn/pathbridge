@@ -13,10 +13,10 @@ export default defineEventHandler(async (event): Promise<{ pairs: PairRow[] }> =
 
   const parsed = pairInputSchema.safeParse(body)
   if (!parsed.success) {
-    const issue = parsed.error.issues[0]
+    const issue: { path: (string | number | symbol)[], message: string } | undefined = parsed.error.issues[0]
     throw createError({
       statusCode: 400,
-      statusMessage: `${issue.path.join('.') || 'body'}: ${issue.message}`,
+      statusMessage: issue ? `${issue.path.join('.') || 'body'}: ${issue.message}` : 'invalid pair payload',
     })
   }
 
