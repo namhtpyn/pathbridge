@@ -1,6 +1,7 @@
 // PUT /api/pairs — upsert one pair (auth required). Zod-validated input
 // (backend security boundary); insert/upsert on the core API (RQB has no
 // upsert); read-back via RQB.
+import { eq } from 'drizzle-orm'
 import { db } from '../../db'
 import { pairs } from '../../db/schema'
 import type { PairRow } from '../../../shared/types'
@@ -34,8 +35,22 @@ export default defineEventHandler(async (event): Promise<{ pairs: PairRow[] }> =
     updatedAt: new Date().toISOString(),
   }
 
-  await db.insert(pairs).values(row)
-    .onConflictDoUpdate({ target: pairs.path, set: row })
+  if (parsed.data.id !== undefined) {
+    // update by id — path rename allowed unless another pair already claims it
+    const pairId: number = parsed.data.id
+    const clash = await db.query.pairs.findFirst({ where: { AND: [{ path }, { id: { ne: pairId } }] }, columns: { id: true } })
+    if (clash) {
+      throw createError({ statusCode: 409, statusMessage: `a pair already exists at ${path}` })
+    }
+    const updated = await db.update(pairs).set(row).where(eq(pairs.id, pairId)).returning({ id: pairs.id })
+    if (updated.length === 0) {
+      throw createError({ statusCode: 404, statusMessage: 'pair not found' })
+    }
+  }
+  else {
+    await db.insert(pairs).values(row)
+      .onConflictDoUpdate({ target: pairs.path, set: row })
+  }
 
   const rows = await db.query.pairs.findMany({ orderBy: { path: 'asc' } })
   return { pairs: rows as unknown as PairRow[] }

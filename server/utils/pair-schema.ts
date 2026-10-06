@@ -39,6 +39,8 @@ export const methodsSchema = z.array(z.enum(httpVerbs))
   .refine(m => new Set(m).size === m.length, 'duplicate methods')
 
 export const pairInputSchema = z.strictObject({
+  /** When present: UPDATE this row (path rename allowed). Absent: upsert by path. */
+  id: z.number().int().positive().optional(),
   path: validPairPath,
   target: httpOrigin,
   upstreamHost: z.string().min(1).max(253)
