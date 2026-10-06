@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/namhtpyn/pathbridge/compare/v1.1.1...v1.1.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* pin docker runtime to oven/bun:latest ([6642686](https://github.com/namhtpyn/pathbridge/commit/664268640d468fc7f0c146c4ecd48e3d304e5b05))
+
 ## [1.1.1](https://github.com/namhtpyn/pathbridge/compare/v1.1.0...v1.1.1) (2026-10-06)
 
 
