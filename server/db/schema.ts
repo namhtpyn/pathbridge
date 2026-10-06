@@ -49,6 +49,33 @@ export const verification = sqliteTable('verification', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }),
 })
 
+// @better-auth/api-key plugin table (plugin owns these writes)
+export const apiKey = sqliteTable('apikey', {
+  id: text('id').primaryKey(),
+  name: text('name'),
+  start: text('start'),
+  configId: text('config_id').notNull().default('default'),
+  requestCount: integer('request_count').notNull().default(0),
+  prefix: text('prefix'),
+  key: text('key').notNull(),
+  userId: text('user_id'),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  lastRequest: integer('last_request', { mode: 'timestamp' }),
+  referenceId: text('reference_id').notNull(),
+  lastRefillAt: integer('last_refill_at', { mode: 'timestamp' }),
+  rateLimitEnabled: integer('rate_limit_enabled', { mode: 'boolean' }),
+  rateLimitTimeWindow: integer('rate_limit_time_window'),
+  rateLimitMax: integer('rate_limit_max'),
+  remaining: integer('remaining'),
+  refillAmount: integer('refill_amount'),
+  refillInterval: integer('refill_interval'),
+  metadata: text('metadata', { mode: 'json' }),
+  permissions: text('permissions', { mode: 'json' }),
+})
+
 // pathbridge's own tables (ISO strings here — our code owns these writes)
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
@@ -85,7 +112,7 @@ export const pairs = sqliteTable('pairs', {
 // Relations v2 (drizzle rc) — the shape better-auth's relations-v2 adapter consumes
 // via db._.relations and db.query.
 export const relations = defineRelations(
-  { user, session, account, verification, pairs, settings, accessLog },
+  { user, session, account, verification, pairs, settings, accessLog, apikey: apiKey },
   (helpers) => ({
     user: {
       sessions: helpers.many.session({ from: helpers.user.id, to: helpers.session.userId }),
@@ -101,6 +128,7 @@ export const relations = defineRelations(
     pairs: {},
     settings: {},
     accessLog: {},
+    apiKey: {},
   }),
 )
 
@@ -110,6 +138,7 @@ export const authSchema = {
   session,
   account,
   verification,
+  apikey: apiKey,
 }
 
 // ---- inferred row types (single source of truth for app code) ----
