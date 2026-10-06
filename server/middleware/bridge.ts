@@ -13,7 +13,7 @@ interface MatchedPair {
   target: string
   upstreamHost: string | null
   stripPrefix: boolean
-  methods: string | null
+  methods: string[] | null
 }
 
 /** Match: /hook exact; /hook/* subtree. */
@@ -58,15 +58,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'No pair matches this path' })
   }
 
-  // method allowlist: null = all verbs allowed
-  if (best.methods) {
-    let allowed: string[] = []
-    try { allowed = JSON.parse(best.methods) as string[] }
-    catch { allowed = [] }
-    if (!allowed.includes(event.method)) {
-      setResponseHeader(event, 'allow', allowed.join(', '))
-      throw createError({ statusCode: 405, statusMessage: `Method ${event.method} not allowed for this pair` })
-    }
+  // method allowlist: null = all verbs allowed (drizzle json-mode column)
+  if (best.methods && !best.methods.includes(event.method)) {
+    setResponseHeader(event, 'allow', best.methods.join(', '))
+    throw createError({ statusCode: 405, statusMessage: `Method ${event.method} not allowed for this pair` })
   }
 
   const target = best.target.replace(/\/+$/, '')
