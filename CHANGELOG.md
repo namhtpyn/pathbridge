@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/namhtpyn/pathbridge/compare/v1.1.0...v1.1.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* bun runtime in docker image (server imports bun:sqlite) ([940ab29](https://github.com/namhtpyn/pathbridge/commit/940ab29baf99f2567f6f8080c5b1ad12323ed783))
+
 # [1.1.0](https://github.com/namhtpyn/pathbridge/compare/v1.0.1...v1.1.0) (2026-10-06)
 
 
