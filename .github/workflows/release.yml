@@ -3,6 +3,12 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build a docker image for (e.g. v1.0.0)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -16,10 +22,11 @@ concurrency:
 
 jobs:
   release:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
       released: ${{ steps.semrel.outputs.new_release_published }}
-      tag: ${{ steps.semrel.outputs.new_release_version }}
+      version: ${{ steps.semrel.outputs.new_release_version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,17 +48,21 @@ jobs:
 
       - name: Semantic Release
         id: semrel
+        uses: cycjimmy/semantic-release-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
 
   docker:
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.tag != '' ||
+      needs.release.outputs.released == 'true'
     needs: release
-    if: needs.release.outputs.released == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || format('v{0}', needs.release.outputs.version) }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -63,15 +74,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            echo "version=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=v${{ needs.release.outputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{version}},value=${{ steps.ver.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.ver.outputs.version }}
+            type=semver,pattern={{major}},value=${{ steps.ver.outputs.version }}
             type=raw,value=latest
 
       - name: Build and push
