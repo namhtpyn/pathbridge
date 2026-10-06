@@ -39,12 +39,13 @@ export async function createUser(email: string, name: string, password: string, 
   const id = crypto.randomUUID()
   const now = new Date()
   const hash = await hashPassword(password)
-  // one transaction: no orphan user rows if the account insert fails
-  await db.transaction(async (tx) => {
-    await tx.insert(user).values({
+  // one transaction: no orphan user rows if the account insert fails.
+  // bun:sqlite is a SYNC driver — the callback must not be async.
+  db.transaction((tx) => {
+    tx.insert(user).values({
       id, email, name, emailVerified, createdAt: now, updatedAt: now,
-    })
-    await tx.insert(account).values({
+    }).run()
+    tx.insert(account).values({
       id: crypto.randomUUID(),
       accountId: id,
       providerId: 'credential',
@@ -52,7 +53,7 @@ export async function createUser(email: string, name: string, password: string, 
       password: hash,
       createdAt: now,
       updatedAt: now,
-    })
+    }).run()
   })
 }
 
