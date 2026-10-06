@@ -23,6 +23,7 @@ const validPairPath = z.string().min(1).max(512)
   .refine(p => !p.startsWith('/_'), 'path must not use reserved prefix "_"')
   .refine(p => p !== '/', 'path "/" is reserved — it redirects to the admin UI')
   .refine(p => p !== '/admin' && !p.startsWith('/admin/'), 'path must not collide with the admin UI')
+  .refine(p => p !== '/auth' && !p.startsWith('/auth/') && p !== '/health' && !p.startsWith('/health/'), 'path must not collide with reserved app routes')
   .refine((p) => {
     if (!p.includes('*')) return true
     if (!p.endsWith('/*')) return false

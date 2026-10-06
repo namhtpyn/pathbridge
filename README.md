@@ -33,7 +33,7 @@ Email + password by default. Create the admin user:
 docker exec -it <container> bun scripts/create-admin.ts admin@example.com <password>
 ```
 
-Then sign in at `/_admin`.
+Then sign in at `/admin`.
 
 ### Optional: OIDC (SSO)
 
@@ -55,8 +55,8 @@ Same API the UI uses, session-cookie authenticated:
 GET    /api/pairs            # list
 PUT    /api/pairs            # upsert  {"path":"/hook","target":"https://api.example.com"}
 DELETE /api/pairs/hook       # remove by path
-GET    /_health              # liveness
-POST   /_auth/sign-in/email  # better-auth endpoints under /_auth/*
+GET    /health               # liveness
+POST   /auth/sign-in/email   # better-auth endpoints under /auth/*
 ```
 
 ### Pair fields

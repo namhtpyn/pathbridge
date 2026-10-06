@@ -1,4 +1,4 @@
-// Mount better-auth under /_auth/* — basePath is /_auth in the auth config,
+// Mount better-auth under /auth/* — basePath is /auth in the auth config,
 import { resolveAuthPolicy } from '../../utils/auth'
 // so the handler expects the FULL original path; no rewriting needed.
 import type { H3Event } from 'h3'
@@ -33,13 +33,13 @@ export default defineEventHandler(async (event) => {
   //  - password sign-in rejected when password login is disabled
   //  - OIDC endpoints 404 unless OIDC is fully configured
   const full = event.node.req.url ?? ''
-  if (event.method === 'POST' && full.includes('/_auth/sign-in/email')) {
+  if (event.method === 'POST' && full.includes('/auth/sign-in/email')) {
     const { passwordEnabled } = await resolveAuthPolicy()
     if (!passwordEnabled) {
       throw createError({ statusCode: 403, statusMessage: 'password login is disabled' })
     }
   }
-  if (full.includes('/_auth/oauth2/oidc')) {
+  if (full.includes('/auth/oauth2/oidc')) {
     const { oidcEnabled } = await resolveAuthPolicy()
     if (!oidcEnabled) {
       throw createError({ statusCode: 404, statusMessage: 'OIDC not configured' })
