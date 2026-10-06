@@ -21,6 +21,8 @@ export const pairSubmitSchema = z.object({
   path: z.string()
     .transform(v => v.trim())
     .refine(v => v.startsWith('/'), 'path must start with "/"')
+    .refine(v => v !== '/', 'path "/" is reserved — it redirects to the admin UI')
+    .refine(v => v !== '/admin' && !v.startsWith('/admin/'), 'path must not collide with the admin UI')
     .refine((v) => {
       if (!v.includes('*')) return true
       return v.endsWith('/*') && !v.slice(0, -2).endsWith('/') && !v.slice(0, -2).includes('*')

@@ -21,6 +21,8 @@ const httpOrigin = z.string().min(1, 'target is required').max(2048).refine((t) 
 const validPairPath = z.string().min(1).max(512)
   .startsWith('/', 'path must start with "/"')
   .refine(p => !p.startsWith('/_'), 'path must not use reserved prefix "_"')
+  .refine(p => p !== '/', 'path "/" is reserved — it redirects to the admin UI')
+  .refine(p => p !== '/admin' && !p.startsWith('/admin/'), 'path must not collide with the admin UI')
   .refine((p) => {
     if (!p.includes('*')) return true
     if (!p.endsWith('/*')) return false

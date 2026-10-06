@@ -9,7 +9,7 @@
 //   OIDC_ISSUER / OIDC_CLIENT_ID / OIDC_CLIENT_SECRET
 //   OIDC_DISABLED_PASSWORD_LOGIN — "true" to turn off email+password
 //
-// Runtime: /_admin -> Settings tab -> stored in the `settings` table.
+// Runtime: /admin -> Settings tab -> stored in the `settings` table.
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
 import { genericOAuth } from 'better-auth/plugins/generic-oauth'
