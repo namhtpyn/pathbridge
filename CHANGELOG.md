@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/namhtpyn/pathbridge/compare/v1.0.1...v1.1.0) (2026-10-06)
+
+
+### Features
+
+* close sign-up after first user; optional BETTER_AUTH_URL ([ac63a93](https://github.com/namhtpyn/pathbridge/commit/ac63a93d7920ae6cd88298e41d8e1c806d03fc9b))
+
 ## [1.0.1](https://github.com/namhtpyn/pathbridge/compare/v1.0.0...v1.0.1) (2026-10-06)
 
 
