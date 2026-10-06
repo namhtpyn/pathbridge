@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/namhtpyn/pathbridge/compare/v1.8.0...v1.9.0) (2026-10-06)
+
+
+### Features
+
+* drop underscore prefixes — /auth, /health, /api, /admin ([059679b](https://github.com/namhtpyn/pathbridge/commit/059679bed2f2bcb92c88877d434eb72ec505863d))
+
 # [1.8.0](https://github.com/namhtpyn/pathbridge/compare/v1.7.0...v1.8.0) (2026-10-06)
 
 
