@@ -1,3 +1,15 @@
+# [1.10.0](https://github.com/namhtpyn/pathbridge/compare/v1.9.2...v1.10.0) (2026-10-06)
+
+
+### Bug Fixes
+
+* sync package-lock.json with @better-auth/api-key ([8010f2c](https://github.com/namhtpyn/pathbridge/commit/8010f2cf39701154868550eae34afeff77ac5f4e))
+
+
+### Features
+
+* API keys via @better-auth/api-key — Bearer keys for agent/programmatic access ([4edcd7b](https://github.com/namhtpyn/pathbridge/commit/4edcd7ba606eeb59851c6e0c316b8d4e87e3e74c))
+
 ## [1.9.2](https://github.com/namhtpyn/pathbridge/compare/v1.9.1...v1.9.2) (2026-10-06)
 
 
