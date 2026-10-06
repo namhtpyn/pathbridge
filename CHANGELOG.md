@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/namhtpyn/pathbridge/compare/v1.2.0...v1.3.0) (2026-10-06)
+
+
+### Features
+
+* exact vs wildcard path matching, stripPrefix wildcard-only ([5220ab4](https://github.com/namhtpyn/pathbridge/commit/5220ab471d10c868274caa94b8a454317eeabdb2))
+
 # [1.2.0](https://github.com/namhtpyn/pathbridge/compare/v1.1.3...v1.2.0) (2026-10-06)
 
 
