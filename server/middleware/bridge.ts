@@ -13,6 +13,28 @@ interface MatchedPair {
   stripPrefix: boolean
 }
 
+/**
+ * Match a request path against a pair path.
+ *   /hook    exact — equals only
+ *   /hook/*  subtree — /hook or /hook/anything
+ *   /        root catch-all
+ */
+function pairMatches(pairPath: string, reqPath: string): boolean {
+  if (pairPath === '/') return true
+  if (pairPath.endsWith('/*')) {
+    const base = pairPath.slice(0, -2) // "/hook"
+    return reqPath === base || reqPath.startsWith(`${base}/`)
+  }
+  return reqPath === pairPath
+}
+
+/** Wildcard pairs only — strip the base prefix, keep the remainder. */
+function strip(pairPath: string, reqPath: string): string {
+  const base = pairPath.slice(0, -2) // "/hook"
+  if (reqPath === base) return '/'
+  return reqPath.slice(base.length) // keeps leading "/"
+}
+
 export default defineEventHandler(async (event) => {
   const path = event.path.split('?')[0] ?? '/'
 
@@ -25,8 +47,11 @@ export default defineEventHandler(async (event) => {
 
   let best: MatchedPair | null = null
   for (const p of all) {
-    if (path === p.path || path.startsWith(p.path.endsWith('/') ? p.path : `${p.path}/`)) {
-      if (!best || p.path.length > best.path.length) best = p
+    if (pairMatches(p.path, path)) {
+      // specificity: exact > longer wildcard base > root
+      const score = p.path.endsWith('/*') ? p.path.length - 2 : p.path.length + 0.5
+      const bestScore = best ? (best.path.endsWith('/*') ? best.path.length - 2 : best.path.length + 0.5) : -1
+      if (score > bestScore) best = p
     }
   }
   if (!best) {
@@ -35,10 +60,8 @@ export default defineEventHandler(async (event) => {
 
   const target = best.target.replace(/\/+$/, '')
   let rest = path
-  if (best.stripPrefix) {
-    const prefix = best.path.endsWith('/') ? best.path : `${best.path}/`
-    rest = prefix === '/' ? path : path.slice(prefix.length - 1)
-    if (path === best.path) rest = '/'
+  if (best.stripPrefix && best.path.endsWith('/*')) {
+    rest = strip(best.path, path)
   }
   const qIndex = event.path.indexOf('?')
   const q = qIndex >= 0 ? event.path.slice(qIndex) : ''

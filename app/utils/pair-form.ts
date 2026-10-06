@@ -20,7 +20,11 @@ export type PairFormState = z.input<typeof pairFormSchema>
 export const pairSubmitSchema = z.object({
   path: z.string()
     .transform(v => v.trim())
-    .refine(v => v.startsWith('/'), 'path must start with "/"'),
+    .refine(v => v.startsWith('/'), 'path must start with "/"')
+    .refine((v) => {
+      if (!v.includes('*')) return true
+      return v.endsWith('/*') && !v.slice(0, -2).endsWith('/') && !v.slice(0, -2).includes('*')
+    }, 'wildcard must be a trailing "/*" (e.g. "/hook/*")'),
   target: z.string()
     .transform(v => v.trim())
     .refine(v => /^https?:\/\//i.test(v), 'target is missing http(s)://'),
@@ -32,7 +36,10 @@ export const pairSubmitSchema = z.object({
     .transform(v => v === '' ? undefined : v),
   stripPrefix: z.boolean().default(false),
   enabled: z.boolean().default(true),
-})
+}).refine(
+  d => !d.stripPrefix || d.path.endsWith('/*'),
+  { message: 'Strip prefix needs a wildcard path — add "/*"', path: ['stripPrefix'] },
+)
 
 export type PairSubmitInput = z.input<typeof pairSubmitSchema>
 export type PairSubmitOutput = z.output<typeof pairSubmitSchema>
