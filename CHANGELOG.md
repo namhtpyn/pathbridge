@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/namhtpyn/pathbridge/compare/v1.5.0...v1.6.0) (2026-10-06)
+
+
+### Features
+
+* info-icon tooltips on all form fields; id-based pair delete ([b8f663a](https://github.com/namhtpyn/pathbridge/commit/b8f663afc9ea07144dbd1915f93730eb884a2adc))
+
 # [1.5.0](https://github.com/namhtpyn/pathbridge/compare/v1.4.0...v1.5.0) (2026-10-06)
 
 
