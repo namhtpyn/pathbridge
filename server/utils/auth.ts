@@ -13,6 +13,8 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
 import { genericOAuth } from 'better-auth/plugins/generic-oauth'
+import { bearer } from 'better-auth/plugins/bearer'
+import { apiKey } from '@better-auth/api-key'
 import { db } from '../db'
 import { authSchema } from '../db/schema'
 import { getSettings } from './settings'
@@ -52,6 +54,20 @@ interface Auth {
       user: { id: string, name: string, email: string, emailVerified: boolean, image?: string | null }
       session: { id: string, userId: string, expiresAt: Date }
     } | null>
+    verifyApiKey: (opts: { body: { key: string } }) => Promise<{
+      valid: boolean
+      error?: { message?: string } | null
+      key?: {
+        id?: string
+        referenceId?: string
+        expiresAt?: Date | string | null
+        name?: string | null
+        enabled?: boolean
+        lastRequest?: Date | string | null
+        rateLimitEnabled?: boolean | null
+        remaining?: number | null
+      } | null
+    }>
   }
 }
 let instance: Auth | null = null
@@ -66,6 +82,8 @@ function policyKey(p: AuthPolicy): string {
 async function buildAuth(): Promise<Auth> {
   const p = await resolveAuthPolicy()
   builtWith = policyKey(p)
+  // single justified cast: the plugin-heavy Auth<...> return is structurally
+  // compatible with the widened interface consumers rely on
   return betterAuth({
     database: drizzleAdapter(db, {
       provider: 'sqlite',
@@ -86,9 +104,13 @@ async function buildAuth(): Promise<Auth> {
       requireEmailVerification: false,
       minPasswordLength: 8,
     },
-    ...(p.oidcEnabled
-      ? {
-          plugins: [
+    plugins: [
+      // Authorization: Bearer <session-token> -> session (agent/MCP-friendly)
+      bearer(),
+      // long-lived revocable API keys (@better-auth/api-key)
+      apiKey(),
+      ...(p.oidcEnabled
+        ? [
             genericOAuth({
               config: [{
                 providerId: 'oidc',
@@ -97,15 +119,15 @@ async function buildAuth(): Promise<Auth> {
                 clientSecret: p.clientSecret!,
               }],
             }),
-          ],
-        }
-      : {}),
+          ]
+        : []),
+    ],
     advanced: {
       database: {
         generateId: () => crypto.randomUUID(),
       },
     },
-  })
+  }) as unknown as Auth
 }
 
 /** Lazily-built auth instance; auto-rebuilds when the policy changed. */
