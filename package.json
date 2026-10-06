@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Configurable path-to-URL forwarding proxy with a built-in admin UI. Route selected paths to external upstreams — useful when an API must be reached from a specific network or region.",
   "type": "module",
-  "private": true,
+  "private": false,
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
@@ -21,10 +21,26 @@
     "bun": ">=1.1"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^11.0.1",
+    "@semantic-release/github": "^12.0.10",
+    "@semantic-release/npm": "^13.2.0",
+    "@semantic-release/release-notes-generator": "^14.1.1",
     "@types/node": "^26.6.4",
     "bun-types": "^1.4.2",
     "drizzle-kit": "1.0.0-rc.4",
+    "semantic-release": "^25.0.9",
     "typescript": "5.9",
     "vue-tsc": "2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/namhtpyn/pathbridge.git"
+  },
+  "author": "namhtpyn",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
   }
 }
