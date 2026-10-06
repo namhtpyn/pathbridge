@@ -1,4 +1,7 @@
-// Shared types for pathbridge pairs (server<->client single source of truth).
+// Shared TYPES only (no validation). Schemas intentionally live separately:
+// server/utils/pair-schema.ts (strict, security) and inline in the admin UI
+// (loose, UX) — frontend validation is for UX, the backend re-validates
+// everything for security.
 
 /** Row shape returned by /api/pairs (serialized JSON — dates as ISO strings). */
 export interface PairRow {
@@ -18,13 +21,18 @@ export interface PairRow {
   updatedAt: string
 }
 
-/** Payload accepted by PUT /api/pairs (upsert). */
-export interface PairInput {
+/**
+ * Frontend form model — LOOSE on purpose: inputs naturally produce
+ * undefined | null | '' | string. The backend zod schema
+ * (server/utils/pair-schema.ts) is the strict authority and accepts none
+ * of those for required fields.
+ */
+export interface PairFormInput {
   path: string
   target: string
-  upstreamHost?: string
+  upstreamHost?: string | null
+  note?: string | null
   stripPrefix?: boolean
-  note?: string
   enabled?: boolean
 }
 
@@ -32,9 +40,7 @@ export interface PairsResponse {
   pairs: PairRow[]
 }
 
-/** Runtime guard for untrusted PUT bodies. */
-export function isPairInput(v: unknown): v is PairInput {
-  if (typeof v !== 'object' || v === null) return false
-  const o = v as Record<string, unknown>
-  return typeof o.path === 'string' && typeof o.target === 'string'
+export interface AuthConfig {
+  passwordEnabled: boolean
+  oidcEnabled: boolean
 }

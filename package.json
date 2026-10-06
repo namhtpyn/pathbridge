@@ -1,7 +1,7 @@
 {
   "name": "pathbridge",
   "version": "0.1.0",
-  "description": "Configurable path-to-URL forwarding proxy with a built-in admin UI. Route selected paths to external upstreams \u2014 useful when an API must be reached from a specific network or region.",
+  "description": "Configurable path-to-URL forwarding proxy with a built-in admin UI. Route selected paths to external upstreams — useful when an API must be reached from a specific network or region.",
   "type": "module",
   "private": true,
   "scripts": {
@@ -13,9 +13,13 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.7.7",
+    "@nuxt/fonts": "^0.14.0",
+    "@nuxt/icon": "^2.5.1",
+    "@nuxt/ui": "^4.11.3",
     "better-auth": "^1.7.7",
     "drizzle-orm": "^1.0.0-rc.4",
-    "nuxt": "^4.0.0"
+    "nuxt": "^4.0.0",
+    "zod": "^4.6.5"
   },
   "engines": {
     "bun": ">=1.1"

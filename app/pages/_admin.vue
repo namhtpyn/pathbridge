@@ -1,93 +1,155 @@
 <template>
-  <div class="wrap">
-    <header>
-      <h1>pathbridge</h1>
-      <p class="sub">forward selected paths to external upstreams</p>
-    </header>
+  <UPage>
+    <UPageHeader
+      title="pathbridge"
+      description="forward selected paths to external upstreams"
+      :ui="{ root: 'mb-8' }"
+    >
+      <template #leading>
+        <UAvatar icon="i-lucide-arrow-left-right" size="lg" />
+      </template>
+      <template #headline />
+    </UPageHeader>
 
-    <!-- login -->
-    <form v-if="!session && authConfig?.passwordEnabled !== false" class="card" @submit.prevent="login">
-      <h2>sign in</h2>
-      <label>email
-        <input v-model="email" type="email" required>
-      </label>
-      <label>password
-        <input v-model="password" type="password" required>
-      </label>
-      <p v-if="loginError" class="err">{{ loginError }}</p>
-      <button :disabled="busy">sign in</button>
-      <button v-if="authConfig?.oidcEnabled" type="button" class="ghost" style="margin-left:.5rem" @click="oidcLogin">sign in with SSO</button>
-    </form>
-    <div v-else-if="!session && authConfig?.oidcEnabled" class="card">
-      <h2>sign in</h2>
-      <button @click="oidcLogin">sign in with SSO</button>
-    </div>
+    <UPageBody>
+      <!-- login -->
+      <UCard v-if="!session && authConfig?.passwordEnabled !== false" :ui="{ container: 'mx-auto max-w-sm' }">
+        <template #header>
+          <UPageCard
+            title="Sign in"
+            description="manage forwarding pairs"
+            variant="subtle"
+            :ui="{ container: 'p-0' }"
+          />
+        </template>
+        <UForm :state="loginState" class="space-y-4" @submit="login">
+          <UFormField label="Email" name="email">
+            <UInput v-model="loginState.email" type="email" icon="i-lucide-mail" placeholder="you@example.com" class="w-full" required />
+          </UFormField>
+          <UFormField label="Password" name="password">
+            <UInput v-model="loginState.password" type="password" icon="i-lucide-lock" class="w-full" required />
+          </UFormField>
+          <UAlert v-if="loginError" icon="i-lucide-shield-alert" color="error" variant="subtle" :title="loginError" />
+          <UButton type="submit" block :loading="busy" label="Sign in" trailing-icon="i-lucide-arrow-right" />
+          <UButton
+            v-if="authConfig?.oidcEnabled"
+            block
+            variant="outline"
+            icon="i-lucide-key-round"
+            label="Sign in with SSO"
+            @click="oidcLogin"
+          />
+        </UForm>
+      </UCard>
 
-    <!-- main -->
-    <template v-else-if="session">
-      <div class="bar">
-        <span class="who">{{ session.user.name || session.user.email }}</span>
-        <button class="ghost" @click="logout">sign out</button>
-      </div>
+      <UCard v-else-if="!session && authConfig?.oidcEnabled" :ui="{ container: 'mx-auto max-w-sm' }">
+        <UButton block icon="i-lucide-key-round" label="Sign in with SSO" @click="oidcLogin" />
+      </UCard>
 
-      <form class="card" @submit.prevent="save">
-        <h2>{{ editing ? `edit ${editing}` : 'new pair' }}</h2>
-        <label>path prefix
-          <input v-model="form.path" placeholder="/hook" required>
-        </label>
-        <label>target origin
-          <input v-model="form.target" placeholder="https://api.example.com" required>
-        </label>
-        <label>upstream Host header <span class="opt">(optional — defaults to target hostname)</span>
-          <input v-model="form.upstreamHost" placeholder="api.example.com">
-        </label>
-        <label>note <span class="opt">(optional)</span>
-          <input v-model="form.note" placeholder="what this pair is for">
-        </label>
-        <div class="row">
-          <label class="check">
-            <input v-model="form.stripPrefix" type="checkbox"> strip prefix before forwarding
-          </label>
-          <span class="spacer" />
-          <button type="button" class="ghost" :disabled="!editing" @click="reset">cancel</button>
-          <button type="submit" :disabled="busy">{{ editing ? 'update' : 'add' }}</button>
-        </div>
-      </form>
+      <!-- main -->
+      <template v-else-if="session">
+        <UPage as="section">
+          <UPageBody :ui="{ container: 'p-0 sm:p-0' }">
+            <UDashboardNavbar :title="session.user.name || session.user.email">
+              <template #right>
+                <UButton icon="i-lucide-log-out" variant="ghost" color="neutral" label="Sign out" @click="logout" />
+              </template>
+            </UDashboardNavbar>
 
-      <div class="card">
-        <h2>pairs</h2>
-        <p v-if="!pairs.length" class="empty">no pairs yet — add one above</p>
-        <table v-else>
-          <thead>
-            <tr><th>path</th><th>target</th><th>host header</th><th>note</th><th /></tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in pairs" :key="p.path" :class="{ off: p.enabled === false }">
-              <td><code>{{ p.path }}</code></td>
-              <td><code>{{ p.target }}</code></td>
-              <td><code>{{ p.upstreamHost || hostOf(p.target) }}</code></td>
-              <td class="note">{{ p.note || '' }}</td>
-              <td class="actions">
-                <button class="link" @click="edit(p)">edit</button>
-                <button class="link danger" @click="remove(p)">delete</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </template>
-  </div>
+            <!-- editor -->
+            <UCard>
+              <template #header>
+                <UPageCard
+                  :title="editing ? `Edit ${editing}` : 'New pair'"
+                  variant="subtle"
+                  :ui="{ container: 'p-0' }"
+                >
+                  <template #leading>
+                    <UIcon :name="editing ? 'i-lucide-pencil' : 'i-lucide-plus'" />
+                  </template>
+                </UPageCard>
+              </template>
+              <UForm :state="form" :validate="validatePair" class="space-y-4" @submit="save">
+                <UFormField label="Path prefix" name="path" help="Must start with / — pairs claim their prefix">
+                  <UInput v-model="form.path" placeholder="/hook" icon="i-lucide-slash" class="w-full" required />
+                </UFormField>
+                <UFormField label="Target origin" name="target" help="Absolute URL, no path">
+                  <UInput v-model="form.target" placeholder="https://api.example.com" icon="i-lucide-globe" class="w-full" required />
+                </UFormField>
+                <UFormField label="Upstream Host header" name="upstreamHost" help="Optional — defaults to target hostname">
+                  <UInput v-model="form.upstreamHost" placeholder="api.example.com" icon="i-lucide-server" class="w-full" />
+                </UFormField>
+                <UFormField label="Note" name="note" help="What this pair is for">
+                  <UInput v-model="form.note" placeholder="webhook from partner X" icon="i-lucide-notebook-pen" class="w-full" />
+                </UFormField>
+                <div class="flex items-center justify-between gap-3">
+                  <USwitch v-model="form.stripPrefix" label="Strip prefix" />
+                  <USwitch v-model="form.enabled" label="Enabled" />
+                </div>
+                <div class="flex justify-end gap-2">
+                  <UButton v-if="editing" variant="ghost" color="neutral" label="Cancel" @click="reset" />
+                  <UButton type="submit" :loading="busy" :label="editing ? 'Update pair' : 'Add pair'" icon="i-lucide-plus" />
+                </div>
+              </UForm>
+            </UCard>
+
+            <!-- list -->
+            <UCard :ui="{ body: 'p-0 sm:p-0' }">
+              <template #header>
+                <UPageCard
+                  title="Pairs"
+                  variant="subtle"
+                  :ui="{ container: 'p-0' }"
+                >
+                  <template #leading>
+                    <UIcon name="i-lucide-list" />
+                  </template>
+                  <template #trailing>
+                    <UBadge variant="subtle" color="neutral" :label="`${pairs.length}`" />
+                  </template>
+                </UPageCard>
+              </template>
+              <UTable :data="tableData" :columns="columns" :empty-state="{ icon: 'i-lucide-database', label: 'No pairs yet', helper: 'Add your first pair above' }">
+                <template #path-cell="{ row }">
+                  <UBadge :label="row.original.path" variant="subtle" :color="row.original.enabled ? 'primary' : 'neutral'" />
+                </template>
+                <template #target-cell="{ row }">
+                  <UBadge :label="row.original.target" variant="outline" color="neutral" />
+                </template>
+                <template #host-cell="{ row }">
+                  <UBadge :label="row.original.upstreamHost || hostOf(row.original.target)" variant="subtle" color="neutral" />
+                </template>
+                <template #note-cell="{ row }">
+                  <UBadge v-if="row.original.note" :label="row.original.note" variant="subtle" color="neutral" />
+                </template>
+                <template #flags-cell="{ row }">
+                  <UBadge v-if="row.original.stripPrefix" label="strip" variant="subtle" color="warning" />
+                </template>
+                <template #actions-cell="{ row }">
+                  <div class="flex justify-end gap-1">
+                    <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="xs" @click="edit(row.original.raw)" />
+                    <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="xs" @click="remove(row.original.raw)" />
+                  </div>
+                </template>
+              </UTable>
+            </UCard>
+          </UPageBody>
+        </UPage>
+      </template>
+    </UPageBody>
+  </UPage>
 </template>
 
 <script setup lang="ts">
-import type { PairRow, PairsResponse, PairInput } from '../../shared/types'
+import type { PairRow, PairsResponse, PairFormInput } from '../../shared/types'
 
 interface SessionUser { id: string, name?: string | null, email: string }
 interface SessionPayload { user: SessionUser, session: { expiresAt: string } }
 interface AuthConfig { passwordEnabled: boolean, oidcEnabled: boolean }
 
-const email = ref('')
-const password = ref('')
+const toast = useToast()
+
+const loginState = reactive({ email: '', password: '' })
 const loginError = ref('')
 const session = ref<SessionPayload | null>(null)
 const pairs = ref<PairRow[]>([])
@@ -95,14 +157,42 @@ const busy = ref(false)
 const editing = ref('')
 const authConfig = ref<AuthConfig | null>(null)
 
-const emptyForm = (): PairInput => ({ path: '', target: '', upstreamHost: '', note: '', stripPrefix: false, enabled: true })
-const form = reactive<PairInput>(emptyForm())
+const emptyForm = (): PairFormInput => ({ path: '', target: '', upstreamHost: null, note: null, stripPrefix: false, enabled: true })
+const form = reactive<PairFormInput>(emptyForm())
+
+// LOOSE frontend validation — UX only; the backend re-validates strictly.
+function validatePair(state: PairFormInput): Array<{ name: string, message: string }> {
+  const errors: Array<{ name: string, message: string }> = []
+  if (!state.path.startsWith('/')) {
+    errors.push({ name: 'path', message: 'Starts with "/" — e.g. /hook' })
+  }
+  if (!state.target.trim()) {
+    errors.push({ name: 'target', message: 'Where should requests go?' })
+  }
+  else if (!/^https?:\/\//i.test(state.target.trim())) {
+    errors.push({ name: 'target', message: 'Looks like a URL is missing http(s)://' })
+  }
+  return errors
+}
+
+const columns = [
+  { accessorKey: 'path', header: 'Path' },
+  { accessorKey: 'target', header: 'Target' },
+  { accessorKey: 'host', header: 'Host header' },
+  { accessorKey: 'note', header: 'Note' },
+  { accessorKey: 'flags', header: '' },
+  { id: 'actions', header: '' },
+]
+
+const tableData = computed(() => pairs.value.map(p => ({ ...p, raw: p })))
 
 onMounted(async () => {
   try {
     authConfig.value = await $fetch<AuthConfig>('/api/auth-config')
   }
-  catch { authConfig.value = { passwordEnabled: true, oidcEnabled: false } }
+  catch {
+    authConfig.value = { passwordEnabled: true, oidcEnabled: false }
+  }
   try {
     const s = await $fetch<SessionPayload | null>('/_auth/get-session')
     session.value = s?.user ? s : null
@@ -117,13 +207,14 @@ async function login() {
   try {
     const res = await $fetch<SessionPayload>('/_auth/sign-in/email', {
       method: 'POST',
-      body: { email: email.value, password: password.value },
+      body: { email: loginState.email, password: loginState.password },
     })
     session.value = res
     await load()
+    toast.add({ title: 'Welcome back', color: 'success' })
   }
   catch {
-    loginError.value = 'invalid credentials'
+    loginError.value = 'Invalid credentials'
   }
   busy.value = false
 }
@@ -163,57 +254,37 @@ async function save() {
   try {
     const data = await $fetch<PairsResponse>('/api/pairs', {
       method: 'PUT',
-      body: { ...form },
+      body: {
+        path: form.path,
+        target: form.target,
+        upstreamHost: form.upstreamHost?.trim() || undefined,
+        note: form.note?.trim() || undefined,
+        stripPrefix: form.stripPrefix,
+        enabled: form.enabled,
+      },
     })
     pairs.value = data.pairs
+    toast.add({ title: editing.value ? 'Pair updated' : 'Pair added', color: 'success' })
     reset()
   }
   catch (e: unknown) {
     const err = e as { data?: { statusMessage?: string }, message?: string }
-    alert(err.data?.statusMessage || err.message || 'save failed')
+    toast.add({ title: 'Save failed', description: err.data?.statusMessage || err.message, color: 'error' })
   }
   busy.value = false
 }
 
 async function remove(p: PairRow) {
-  if (!confirm(`delete ${p.path}?`)) return
+  if (!confirm(`Delete ${p.path}?`)) return
   try {
     const data = await $fetch<PairsResponse>(`/api/pairs/${encodeURIComponent(p.path.slice(1))}`, { method: 'DELETE' })
     pairs.value = data.pairs
     if (editing.value === p.path) reset()
+    toast.add({ title: 'Pair deleted', color: 'success' })
   }
   catch (e: unknown) {
     const err = e as { data?: { statusMessage?: string }, message?: string }
-    alert(err.data?.statusMessage || err.message || 'delete failed')
+    toast.add({ title: 'Delete failed', description: err.data?.statusMessage || err.message, color: 'error' })
   }
 }
 </script>
-
-<style scoped>
-.wrap { max-width: 780px; margin: 2rem auto; padding: 0 1rem; font-family: ui-sans-serif, system-ui, sans-serif; }
-h1 { margin: 0; font-size: 1.4rem; }
-h2 { margin: 0 0 .8rem; font-size: 1rem; }
-.sub { margin: .2rem 0 1.5rem; color: #666; }
-.bar { display: flex; justify-content: flex-end; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-.who { color: #555; font-size: .85rem; }
-.card { background: #fafafa; border: 1px solid #e2e2e2; border-radius: 8px; padding: 1rem 1.2rem; margin-bottom: 1.2rem; }
-label { display: block; font-size: .8rem; color: #444; margin-bottom: .6rem; }
-input { display: block; width: 100%; margin-top: .2rem; padding: .45rem .6rem; border: 1px solid #ccc; border-radius: 6px; font-size: .9rem; box-sizing: border-box; }
-.row { display: flex; align-items: center; gap: .6rem; margin-top: .2rem; }
-.row label.check { display: flex; align-items: center; gap: .4rem; margin: 0; font-size: .8rem; }
-input[type=checkbox] { display: inline; width: auto; margin: 0; }
-.spacer { flex: 1 }
-button { padding: .45rem .9rem; border-radius: 6px; border: 1px solid #2b2b2b; background: #2b2b2b; color: #fff; cursor: pointer; font-size: .85rem; }
-button.ghost { background: none; color: #2b2b2b; }
-button.link { border: none; background: none; color: #06c; padding: 0; cursor: pointer; font-size: .8rem; }
-button.link.danger { color: #c33; }
-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
-th { text-align: left; color: #666; font-weight: 500; padding: .3rem .4rem; border-bottom: 1px solid #ddd; }
-td { padding: .4rem; border-bottom: 1px solid #eee; }
-code { background: #f0f0f0; padding: .1rem .3rem; border-radius: 4px; font-size: .8rem; }
-tr.off td { opacity: .45; }
-.note { color: #666; }
-.empty { color: #999; }
-.err { color: #c33; font-size: .8rem; }
-.opt { color: #999; }
-</style>
