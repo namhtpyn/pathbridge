@@ -13,7 +13,7 @@
 
     <UPageBody>
       <!-- login -->
-      <UCard v-if="!session && authConfig?.passwordEnabled !== false" :ui="{ container: 'mx-auto max-w-sm' }">
+      <UCard v-if="!session && authConfig?.passwordEnabled !== false" :ui="{ root: 'mx-auto max-w-sm' }">
         <template #header>
           <UPageCard
             title="Sign in"
@@ -42,14 +42,14 @@
         </UForm>
       </UCard>
 
-      <UCard v-else-if="!session && authConfig?.oidcEnabled" :ui="{ container: 'mx-auto max-w-sm' }">
+      <UCard v-else-if="!session && authConfig?.oidcEnabled" :ui="{ root: 'mx-auto max-w-sm' }">
         <UButton block icon="i-lucide-key-round" label="Sign in with SSO" @click="oidcLogin" />
       </UCard>
 
       <!-- main -->
       <template v-else-if="session">
         <UPage as="section">
-          <UPageBody :ui="{ container: 'p-0 sm:p-0' }">
+          <UPageBody >
             <UDashboardNavbar :title="session.user.name || session.user.email">
               <template #right>
                 <UButton icon="i-lucide-log-out" variant="ghost" color="neutral" label="Sign out" @click="logout" />
@@ -94,7 +94,7 @@
             </UCard>
 
             <!-- list -->
-            <UCard :ui="{ body: 'p-0 sm:p-0' }">
+            <UCard :ui="{ root: 'overflow-hidden' }">
               <template #header>
                 <UPageCard
                   title="Pairs"
@@ -158,7 +158,7 @@ const busy = ref(false)
 const editing = ref('')
 const authConfig = ref<AuthConfig | null>(null)
 
-const emptyForm = () => ({ path: '', target: '', upstreamHost: null as string | null, note: null as string | null, stripPrefix: false, enabled: true })
+const emptyForm = () => ({ path: '', target: '', upstreamHost: undefined as string | undefined, note: undefined as string | undefined, stripPrefix: false, enabled: true })
 const form = reactive(emptyForm())
 
 // Frontend schema TRANSFORMS loose input -> clean payload; UX errors surfaced
@@ -237,7 +237,7 @@ function hostOf(target: string) {
 
 function edit(p: PairRow) {
   editing.value = p.path
-  Object.assign(form, JSON.parse(JSON.stringify(p)) as PairInput)
+  Object.assign(form, JSON.parse(JSON.stringify(p)))
 }
 
 function reset() {
