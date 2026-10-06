@@ -3,10 +3,12 @@
 // Pair lookup uses RQB (drizzle relations-v2 query API).
 import { proxyRequest } from 'h3'
 import { db } from '../db'
+import { recordAccess } from '../utils/access-log'
 
 const RESERVED = ['/_admin', '/_api', '/_auth', '/_health', '/api']
 
 interface MatchedPair {
+  id: number
   path: string
   target: string
   upstreamHost: string | null
@@ -42,7 +44,7 @@ export default defineEventHandler(async (event) => {
 
   const all: MatchedPair[] = await db.query.pairs.findMany({
     where: { enabled: true },
-    columns: { path: true, target: true, upstreamHost: true, stripPrefix: true },
+    columns: { id: true, path: true, target: true, upstreamHost: true, stripPrefix: true },
   })
 
   let best: MatchedPair | null = null
@@ -72,5 +74,22 @@ export default defineEventHandler(async (event) => {
     host: best.upstreamHost ?? upstream.hostname,
   }
 
-  return proxyRequest(event, url, { headers })
+  const started = Date.now()
+  const clientIp = getRequestIP(event, { xForwardedFor: true })?.toString() ?? null
+  const userAgent = getRequestHeader(event, 'user-agent') ?? null
+  const pairId = (best as { id?: number }).id ?? null
+
+  // wrap the response to capture status; log after headers flush
+  const res = await proxyRequest(event, url, { headers })
+  recordAccess({
+    pairId,
+    pairPath: best.path,
+    method: event.method,
+    path,
+    status: event.node.res.statusCode,
+    durationMs: Date.now() - started,
+    clientIp,
+    userAgent,
+  })
+  return res
 })

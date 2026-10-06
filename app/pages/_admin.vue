@@ -56,6 +56,127 @@
               </template>
             </UDashboardNavbar>
 
+            <UTabs :items="tabItems" class="mb-6" />
+
+            <!-- LOGS -->
+            <UCard v-if="tab === 'logs'">
+              <template #header>
+                <UPageCard title="Access log" variant="subtle" :ui="{ root: 'p-0' }">
+                  <template #leading><UIcon name="i-lucide-scroll-text" /></template>
+                  <template #trailing>
+                    <UButton icon="i-lucide-refresh-cw" variant="ghost" size="xs" :loading="logsBusy" label="Refresh" @click="loadLogs(false)" />
+                  </template>
+                </UPageCard>
+              </template>
+              <UTable :data="logTable" :columns="logColumns" :empty-state="{ icon: 'i-lucide-scroll-text', label: 'No traffic yet', helper: 'Requests forwarded by pairs appear here' }">
+                <template #ts-cell="{ row }">
+                  <span class="font-mono text-xs">{{ new Date(row.original.ts).toLocaleString() }}</span>
+                </template>
+                <template #method-cell="{ row }">
+                  <UBadge :label="row.original.method" variant="subtle" color="neutral" />
+                </template>
+                <template #path-cell="{ row }">
+                  <span class="font-mono text-xs">{{ row.original.path }}</span>
+                </template>
+                <template #pairPath-cell="{ row }">
+                  <UBadge v-if="row.original.pairPath" :label="row.original.pairPath" variant="subtle" color="primary" />
+                </template>
+                <template #status-cell="{ row }">
+                  <UBadge :label="String(row.original.status)" variant="subtle" :color="statusColor(row.original.status)" />
+                </template>
+                <template #durationMs-cell="{ row }">
+                  <span class="font-mono text-xs text-muted">{{ row.original.durationMs }}ms</span>
+                </template>
+                <template #clientIp-cell="{ row }">
+                  <span class="font-mono text-xs text-muted">{{ row.original.clientIp || '—' }}</span>
+                </template>
+              </UTable>
+              <div v-if="logs.length >= logLimit" class="mt-4 flex justify-center">
+                <UButton variant="soft" label="Load more" :loading="logsBusy" @click="loadLogs(true)" />
+              </div>
+            </UCard>
+
+            <!-- SETTINGS -->
+            <UCard v-else-if="tab === 'settings'">
+              <template #header>
+                <UPageCard title="Settings" variant="subtle" :ui="{ root: 'p-0' }">
+                  <template #leading><UIcon name="i-lucide-settings" /></template>
+                </UPageCard>
+              </template>
+              <UForm :state="settingsForm" class="space-y-5" @submit="saveSettings">
+                <UFormField label="Access log retention (days)" name="logRetentionDays" help="0 = keep forever">
+                  <UInputNumber v-model="settingsForm.logRetentionDays" :min="0" :max="3650" class="w-full" />
+                </UFormField>
+
+                <USeparator>Authentication</USeparator>
+
+                <UFormField label="OIDC issuer URL" name="oidcIssuer" help="e.g. https://login.microsoftonline.com/<tenant>/v2.0 — empty = OIDC off">
+                  <UInput v-model="settingsForm.oidcIssuer" placeholder="https://issuer.example.com" icon="i-lucide-globe" class="w-full" />
+                </UFormField>
+                <UFormField label="OIDC client ID" name="oidcClientId">
+                  <UInput v-model="settingsForm.oidcClientId" icon="i-lucide-fingerprint" class="w-full" />
+                </UFormField>
+                <UFormField label="OIDC client secret" name="oidcClientSecret" :help="settingsSecretSet ? 'A secret is stored — leave blank to keep it' : 'No secret stored yet'">
+                  <UInput v-model="settingsForm.oidcClientSecret" type="password" icon="i-lucide-key-round" class="w-full" placeholder="••••••••" />
+                </UFormField>
+                <USwitch v-model="settingsForm.disablePasswordLogin" label="Disable email+password login" :disabled="!oidcReady" :help="oidcReady ? 'Requires OIDC fully configured' : 'Configure OIDC above first'" />
+                <UButton type="submit" icon="i-lucide-save" :loading="busy" label="Save settings" />
+              </UForm>
+            </UCard>
+
+            <!-- USERS -->
+            <UCard v-else-if="tab === 'users'">
+              <template #header>
+                <UPageCard title="Users" variant="subtle" :ui="{ root: 'p-0' }">
+                  <template #leading><UIcon name="i-lucide-users" /></template>
+                  <template #trailing>
+                    <UBadge variant="subtle" color="neutral" :label="`${users.length}`" />
+                  </template>
+                </UPageCard>
+              </template>
+              <UTable :data="userTable" :columns="userColumns">
+                <template #email-cell="{ row }">
+                  <span class="font-medium">{{ row.original.email }}</span>
+                </template>
+                <template #name-cell="{ row }">
+                  <span>{{ row.original.name }}</span>
+                </template>
+                <template #createdAt-cell="{ row }">
+                  <span class="text-xs text-muted">{{ new Date(row.original.createdAt).toLocaleDateString() }}</span>
+                </template>
+                <template #authFlags-cell="{ row }">
+                  <div class="flex gap-1">
+                    <UBadge v-if="row.original.hasPassword" label="password" variant="subtle" color="neutral" />
+                    <UBadge v-if="row.original.oidcLinked" label="oidc" variant="subtle" color="primary" />
+                    <UBadge :label="`${row.original.sessionCount} sess.`" variant="subtle" color="neutral" />
+                  </div>
+                </template>
+                <template #userActions-cell="{ row }">
+                  <div class="flex justify-end gap-1">
+                    <UButton icon="i-lucide-key-round" variant="ghost" color="neutral" size="xs" label="Reset password" @click="resetPassword(row.original)" />
+                    <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="xs" :disabled="row.original.id === session?.user.id" @click="removeUser(row.original)" />
+                  </div>
+                </template>
+              </UTable>
+              <USeparator>Add a user</USeparator>
+              <UForm :state="newUser" class="grid gap-4 sm:grid-cols-2" @submit="addUser">
+                <UFormField label="Email" name="email">
+                  <UInput v-model="newUser.email" type="email" icon="i-lucide-mail" class="w-full" required />
+                </UFormField>
+                <UFormField label="Name" name="name">
+                  <UInput v-model="newUser.name" icon="i-lucide-user" class="w-full" required />
+                </UFormField>
+                <UFormField label="Password" name="password" help="min 8 chars">
+                  <UInput v-model="newUser.password" type="password" icon="i-lucide-lock" class="w-full" required />
+                </UFormField>
+                <div class="flex items-end justify-end">
+                  <UButton type="submit" icon="i-lucide-user-plus" :loading="busy" label="Create user" />
+                </div>
+              </UForm>
+            </UCard>
+
+            <!-- PAIRS (editor + list) -->
+            <template v-else>
             <!-- editor -->
             <UCard>
               <template #header>
@@ -133,6 +254,7 @@
                 </template>
               </UTable>
             </UCard>
+            </template>
           </UPageBody>
         </UPage>
       </template>
@@ -149,6 +271,55 @@ interface SessionPayload { user: SessionUser, session: { expiresAt: string } }
 interface AuthConfig { passwordEnabled: boolean, oidcEnabled: boolean }
 
 const toast = useToast()
+
+// ---- tabs ----
+const tab = ref<'pairs' | 'settings' | 'users' | 'logs'>('pairs')
+const tabItems = [
+  { label: 'Pairs', icon: 'i-lucide-list', value: 'pairs' as const },
+  { label: 'Settings', icon: 'i-lucide-settings', value: 'settings' as const },
+  { label: 'Users', icon: 'i-lucide-users', value: 'users' as const },
+  { label: 'Logs', icon: 'i-lucide-scroll-text', value: 'logs' as const },
+]
+
+// ---- users ----
+interface AdminUser { id: string, name: string, email: string, emailVerified: boolean, createdAt: string, sessionCount: number, hasPassword: boolean, oidcLinked: boolean }
+const users = ref<AdminUser[]>([])
+const newUser = reactive({ email: '', name: '', password: '' })
+const userColumns = [
+  { accessorKey: 'email', header: 'Email' },
+  { accessorKey: 'name', header: 'Name' },
+  { accessorKey: 'createdAt', header: 'Created' },
+  { accessorKey: 'authFlags', header: 'Auth' },
+  { id: 'userActions', header: '' },
+]
+const userTable = computed(() => users.value)
+
+// ---- logs ----
+interface LogRow { id: number, ts: string, pairId: number | null, pairPath: string | null, method: string, path: string, status: number, durationMs: number, clientIp: string | null, userAgent: string | null }
+const logs = ref<LogRow[]>([])
+const logsBusy = ref(false)
+const logLimit = 100
+const logColumns = [
+  { accessorKey: 'ts', header: 'Time' },
+  { accessorKey: 'method', header: 'Method' },
+  { accessorKey: 'path', header: 'Path' },
+  { accessorKey: 'pairPath', header: 'Pair' },
+  { accessorKey: 'status', header: 'Status' },
+  { accessorKey: 'durationMs', header: 'Took' },
+  { accessorKey: 'clientIp', header: 'Client' },
+]
+const logTable = computed(() => logs.value)
+
+function statusColor(status: number): 'success' | 'warning' | 'error' {
+  if (status >= 500) return 'error'
+  if (status >= 400) return 'warning'
+  return 'success'
+}
+
+// ---- settings ----
+const settingsForm = reactive({ logRetentionDays: 30, oidcIssuer: '', oidcClientId: '', oidcClientSecret: '', disablePasswordLogin: false })
+const settingsSecretSet = ref(false)
+const oidcReady = computed(() => settingsForm.oidcIssuer.trim().length > 0 && settingsForm.oidcClientId.trim().length > 0 && (settingsForm.oidcClientSecret.length > 0 || settingsSecretSet.value))
 
 const loginState = reactive({ email: '', password: '' })
 const loginError = ref('')
@@ -195,7 +366,11 @@ onMounted(async () => {
   try {
     const s = await $fetch<SessionPayload | null>('/_auth/get-session')
     session.value = s?.user ? s : null
-    if (session.value) await load()
+    if (session.value) {
+      await load()
+      loadUsers().catch(() => {})
+      loadSettings().catch(() => {})
+    }
   }
   catch { /* not signed in */ }
 })
@@ -218,8 +393,110 @@ async function login() {
   busy.value = false
 }
 
-function oidcLogin() {
-  window.location.href = '/_auth/oauth2/oidc'
+async function oidcLogin() {
+  // better-auth social sign-in returns the provider's authorize URL
+  try {
+    const res = await $fetch<{ url: string }>('/_auth/sign-in/social', {
+      method: 'POST',
+      body: { provider: 'oidc', callbackURL: '/_admin' },
+    })
+    if (res.url) window.location.href = res.url
+  }
+  catch {
+    toast.add({ title: 'SSO unavailable', description: 'OIDC provider not reachable', color: 'error' })
+  }
+}
+
+async function loadUsers() {
+  const data = await $fetch<{ users: AdminUser[] }>('/api/users')
+  users.value = data.users
+}
+
+async function addUser() {
+  busy.value = true
+  try {
+    await $fetch('/api/users', { method: 'POST', body: { ...newUser } })
+    newUser.email = ''
+    newUser.name = ''
+    newUser.password = ''
+    await loadUsers()
+    toast.add({ title: 'User created', color: 'success' })
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({ title: 'Create failed', description: err.data?.statusMessage || err.message, color: 'error' })
+  }
+  busy.value = false
+}
+
+async function removeUser(u: AdminUser) {
+  if (!confirm(`Delete ${u.email} and all their sessions?`)) return
+  try {
+    await $fetch(`/api/users/${encodeURIComponent(u.id)}`, { method: 'DELETE' })
+    await loadUsers()
+    toast.add({ title: 'User deleted', color: 'success' })
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({ title: 'Delete failed', description: err.data?.statusMessage || err.message, color: 'error' })
+  }
+}
+
+async function resetPassword(u: AdminUser) {
+  const pw = prompt(`New password for ${u.email} (min 8 chars)`)
+  if (!pw) return
+  try {
+    await $fetch(`/api/users/${encodeURIComponent(u.id)}/password`, { method: 'PUT', body: { password: pw } })
+    toast.add({ title: 'Password updated', color: 'success' })
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({ title: 'Reset failed', description: err.data?.statusMessage || err.message, color: 'error' })
+  }
+}
+
+async function loadLogs(append = false) {
+  logsBusy.value = true
+  try {
+    const beforeId = append && logs.value.length ? logs.value[logs.value.length - 1]?.id : undefined
+    const data = await $fetch<{ entries: LogRow[] }>('/api/logs', {
+      query: { limit: logLimit, ...(beforeId !== undefined ? { beforeId } : {}) },
+    })
+    logs.value = append ? [...logs.value, ...data.entries] : data.entries
+  }
+  catch { /* ignore */ }
+  logsBusy.value = false
+}
+
+async function loadSettings() {
+  const s = await $fetch<{ oidcIssuer: string, oidcClientId: string, oidcClientSecretSet: boolean, disablePasswordLogin: boolean, logRetentionDays: number }>('/api/settings')
+  settingsForm.oidcIssuer = s.oidcIssuer
+  settingsForm.oidcClientId = s.oidcClientId
+  settingsForm.oidcClientSecret = ''
+  settingsSecretSet.value = s.oidcClientSecretSet
+  settingsForm.disablePasswordLogin = s.disablePasswordLogin
+  settingsForm.logRetentionDays = s.logRetentionDays
+}
+
+async function saveSettings() {
+  busy.value = true
+  try {
+    const body: Record<string, unknown> = {
+      oidcIssuer: settingsForm.oidcIssuer.trim(),
+      oidcClientId: settingsForm.oidcClientId.trim(),
+      disablePasswordLogin: settingsForm.disablePasswordLogin,
+      logRetentionDays: settingsForm.logRetentionDays,
+    }
+    if (settingsForm.oidcClientSecret.trim() !== '') body.oidcClientSecret = settingsForm.oidcClientSecret.trim()
+    await $fetch('/api/settings', { method: 'PUT', body })
+    toast.add({ title: 'Settings saved', color: 'success' })
+    await loadSettings()
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({ title: 'Save failed', description: err.data?.statusMessage || err.message, color: 'error' })
+  }
+  busy.value = false
 }
 
 async function logout() {
@@ -240,6 +517,9 @@ function hostOf(target: string) {
 
 watch(isWildcard, (w) => {
   if (!w && form.stripPrefix) form.stripPrefix = false
+})
+watch(tab, (t) => {
+  if (t === 'logs' && logs.value.length === 0) loadLogs().catch(() => {})
 })
 
 function edit(p: PairRow) {

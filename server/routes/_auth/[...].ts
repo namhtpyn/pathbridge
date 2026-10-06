@@ -1,7 +1,8 @@
 // Mount better-auth under /_auth/* — basePath is /_auth in the auth config,
+import { resolveAuthPolicy } from '../../utils/auth'
 // so the handler expects the FULL original path; no rewriting needed.
 import type { H3Event } from 'h3'
-import { auth } from '../../utils/auth'
+import { getAuth } from '../../utils/auth'
 
 function headerValue(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined
@@ -28,6 +29,23 @@ function buildIncomingRequest(event: H3Event, body: ArrayBuffer | undefined): Re
 }
 
 export default defineEventHandler(async (event) => {
+  // Runtime policy gate (DB-backed, editable in Settings):
+  //  - password sign-in rejected when password login is disabled
+  //  - OIDC endpoints 404 unless OIDC is fully configured
+  const full = event.node.req.url ?? ''
+  if (event.method === 'POST' && full.includes('/_auth/sign-in/email')) {
+    const { passwordEnabled } = await resolveAuthPolicy()
+    if (!passwordEnabled) {
+      throw createError({ statusCode: 403, statusMessage: 'password login is disabled' })
+    }
+  }
+  if (full.includes('/_auth/oauth2/oidc')) {
+    const { oidcEnabled } = await resolveAuthPolicy()
+    if (!oidcEnabled) {
+      throw createError({ statusCode: 404, statusMessage: 'OIDC not configured' })
+    }
+  }
+
   const raw = event.method !== 'GET' && event.method !== 'HEAD'
     ? await readRawBody(event, false)
     : undefined
@@ -37,6 +55,7 @@ export default defineEventHandler(async (event) => {
     body = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as ArrayBuffer
   }
 
+  const auth = await getAuth()
   const res = await auth.handler(buildIncomingRequest(event, body))
 
   res.headers.forEach((v, k) => setResponseHeader(event, k, v))

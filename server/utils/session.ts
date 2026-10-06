@@ -1,6 +1,6 @@
 // Session guard for internal APIs — returns the typed session or throws 401.
 import type { H3Event } from 'h3'
-import { auth } from './auth'
+import { getAuth } from './auth'
 import type { Session } from './auth'
 
 export type AppSession = Session
@@ -14,6 +14,7 @@ export async function requireSession(event: H3Event): Promise<AppSession> {
     else headers.set(k, v)
   }
 
+  const auth = await getAuth()
   const session = await auth.api.getSession({ headers })
   if (!session) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
