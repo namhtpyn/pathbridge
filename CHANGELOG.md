@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/namhtpyn/pathbridge/compare/v1.0.0...v1.0.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* wire release outputs via semantic-release-action; docker on dispatch ([23ecef5](https://github.com/namhtpyn/pathbridge/commit/23ecef5faa316d0a13b8cde52061e32a354f6e2a))
+
 # 1.0.0 (2026-10-06)
 
 
