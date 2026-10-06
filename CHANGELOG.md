@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/namhtpyn/pathbridge/compare/v1.7.0...v1.8.0) (2026-10-06)
+
+
+### Features
+
+* admin at /admin, root redirect, reserved-path guards ([3bf6fe2](https://github.com/namhtpyn/pathbridge/commit/3bf6fe21b7963f073068e8532fdfa5c9c7d6255a))
+
 # [1.7.0](https://github.com/namhtpyn/pathbridge/compare/v1.6.0...v1.7.0) (2026-10-06)
 
 
