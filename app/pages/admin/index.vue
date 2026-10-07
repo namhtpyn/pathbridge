@@ -327,7 +327,7 @@
                 :description="`${publicOrigin}/auth/oauth2/oidc/callback`"
               >
                 <template #description>
-                  <span class="font-mono text-xs break-all">{{ publicOrigin }}/auth/oauth2/oidc/callback</span>
+                  <span class="font-mono text-xs break-all">{{ publicOrigin }}/auth/callback/oidc</span>
                   <span class="block mt-1 text-xs opacity-80">Register this exact URL as the allowed redirect/callback in your OIDC provider.</span>
                 </template>
               </UAlert>
@@ -1291,11 +1291,17 @@ async function login() {
 
 async function oidcLogin() {
   try {
+    // generic-oauth plugin client method -> POST /auth/sign-in/oauth2
+    // (the old /auth/sign-in/social call built the wrong callback path
+    //  /auth/callback/oidc instead of /auth/oauth2/oidc/callback)
+    // generic-oauth registers the provider as a first-class social provider:
+    // standard signIn.social + callback/:id endpoints (per plugin source 1.7.x)
     const res = await $fetch<{ url: string }>('/auth/sign-in/social', {
       method: 'POST',
       body: { provider: 'oidc', callbackURL: '/admin' },
     })
-    if (res.url) window.location.href = res.url
+    if (res?.url) window.location.href = res.url
+    else throw new Error('no authorization url returned')
   }
   catch {
     toast.add({ title: 'SSO unavailable', description: 'OIDC provider not reachable', color: 'error' })
