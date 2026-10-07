@@ -408,6 +408,21 @@
                   </UPopover></template>
                   <USelect v-model="userEditForm.role" :items="roleOptions" class="w-full" />
                 </UFormField>
+              <UFormField name="emailVerifiedEdit">
+                <template #label>Email verified</template>
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+                    <template #default>
+                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+                    </template>
+                    <template #content>
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                        <p class="text-xs font-semibold text-white">Email verified</p>
+                        <p class="text-xs text-zinc-200">OIDC accounts auto-link to existing users only when the local account is verified.</p>
+                      </div>
+                    </template>
+                  </UPopover></template>
+                <USwitch v-model="userEditForm.emailVerified" label="Email is verified" />
+              </UFormField>
                 <div class="flex items-end justify-end gap-2">
                   <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="userEditOpen = false" />
                   <UButton type="submit" icon="i-lucide-check" :loading="busy" label="Save changes" />
@@ -707,7 +722,7 @@
                 <UInput v-model="oidcForm.label" icon="i-lucide-tag" class="w-full" placeholder="Azure AD" />
               </UFormField>
               <UFormField name="oidcIssuer2" label="Issuer URL" required>
-                <UInput v-model="oidcForm.issuer" icon="i-lucide-globe" class="w-full" placeholder="https://login.microsoftonline.com/<tenant>/v2.0" />
+                <UInput v-model="oidcForm.issuer" icon="i-lucide-globe" class="w-full" placeholder="https://issuer.example.com" />
               </UFormField>
               <UFormField name="oidcClientId2" label="Client ID" required>
                 <UInput v-model="oidcForm.clientId" class="w-full" />
@@ -1103,9 +1118,9 @@ function validatePair(state: typeof form): Array<{ name: string, message: string
 // ---------- users ----------
 const users = ref<AdminUser[]>([])
 const showAddUser = ref(false)
-const newUser = reactive({ email: '', name: '', password: '', role: 'viewer' })
+const newUser = reactive({ email: '', name: '', password: '', role: 'viewer', emailVerified: true })
 const userEditOpen = ref(false)
-const userEditForm = reactive({ id: '', name: '', email: '', role: 'viewer' })
+const userEditForm = reactive({ id: '', name: '', email: '', role: 'viewer', emailVerified: true })
 const roleOptions = computed(() => roles.value.map(r => ({ label: r.name, value: r.name })))
 
 function openUserEditor(u: AdminUser) {
@@ -1113,16 +1128,18 @@ function openUserEditor(u: AdminUser) {
   userEditForm.name = u.name
   userEditForm.email = u.email
   userEditForm.role = u.role
+  userEditForm.emailVerified = u.emailVerified
   userEditOpen.value = true
 }
 
 async function saveUserEdit() {
   busy.value = true
   try {
-    const body: Record<string, string> = {}
+    const body: Record<string, string | boolean> = {}
     if (userEditForm.name.trim()) body.name = userEditForm.name.trim()
     if (userEditForm.email.trim()) body.email = userEditForm.email.trim()
     if (can('roles', 'update')) body.role = userEditForm.role
+    body.emailVerified = userEditForm.emailVerified
     await $fetch(`/api/users/${encodeURIComponent(userEditForm.id)}`, { method: 'PUT', body })
     await loadUsers()
     userEditOpen.value = false
@@ -1415,7 +1432,7 @@ async function loadUsers() {
 async function addUser() {
   busy.value = true
   try {
-    const body: Record<string, string> = { email: newUser.email.trim(), name: newUser.name.trim(), password: newUser.password }
+    const body: Record<string, string | boolean> = { email: newUser.email.trim(), name: newUser.name.trim(), password: newUser.password, emailVerified: newUser.emailVerified }
     if (can('roles', 'update')) body.role = newUser.role
     await $fetch('/api/users', { method: 'POST', body })
     newUser.email = ''

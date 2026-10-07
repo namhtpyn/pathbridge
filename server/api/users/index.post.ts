@@ -8,6 +8,7 @@ const bodySchema = z.strictObject({
   name: z.string().min(1).max(100),
   password: z.string().min(8).max(128),
   role: z.string().regex(/^[a-z0-9][a-z0-9,-]*[a-z0-9]$/, 'unknown role(s)').optional(),
+  emailVerified: z.boolean().optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -32,7 +33,7 @@ export default defineEventHandler(async (event) => {
     }
   }
   try {
-    await createUser(parsed.data.email, parsed.data.name, parsed.data.password, role)
+    await createUser(parsed.data.email, parsed.data.name, parsed.data.password, role, parsed.data.emailVerified ?? true)
     return { ok: true }
   }
   catch (e: unknown) {
