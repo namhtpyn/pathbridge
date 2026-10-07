@@ -1,3 +1,10 @@
+## [1.22.1](https://github.com/namhtpyn/pathbridge/compare/v1.22.0...v1.22.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* correct OIDC redirect URI hint to /auth/callback/oidc ([8f43c98](https://github.com/namhtpyn/pathbridge/commit/8f43c988071c97ed4b3ad73beec30604504ffd5c))
+
 # [1.22.0](https://github.com/namhtpyn/pathbridge/compare/v1.21.1...v1.22.0) (2026-10-07)
 
 
