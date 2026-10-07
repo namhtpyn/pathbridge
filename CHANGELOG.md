@@ -1,3 +1,10 @@
+# [1.20.0](https://github.com/namhtpyn/pathbridge/compare/v1.19.0...v1.20.0) (2026-10-07)
+
+
+### Features
+
+* user editing + role assignment on create ([778a115](https://github.com/namhtpyn/pathbridge/commit/778a115e524086b0e2b870f52125b05621481422))
+
 # [1.19.0](https://github.com/namhtpyn/pathbridge/compare/v1.18.0...v1.19.0) (2026-10-07)
 
 
