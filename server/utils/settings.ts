@@ -5,7 +5,9 @@ import { db } from '../db'
 import { settings } from '../db/schema'
 
 export interface AppSettings {
-  /** OIDC issuer URL; empty = OIDC off */
+  /** multi-provider registry; JSON string of OidcProvider[] (utils/oidc.ts) */
+  oidcProviders: string
+  /** legacy single-provider config; migrated lazily into oidcProviders */
   oidcIssuer: string
   oidcClientId: string
   /** write-only via API; stored plaintext (better-auth needs the real value) */
@@ -17,6 +19,7 @@ export interface AppSettings {
 }
 
 const DEFAULTS: AppSettings = {
+  oidcProviders: '',
   oidcIssuer: '',
   oidcClientId: '',
   oidcClientSecret: '',
