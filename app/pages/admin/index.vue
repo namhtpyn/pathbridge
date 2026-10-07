@@ -7,7 +7,7 @@
           <div class="flex size-12 items-center justify-center rounded-2xl bg-primary shadow-sm">
             <UIcon name="i-lucide-arrow-left-right" class="size-6 text-inverted" />
           </div>
-          <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">pathbridge</h1>
+          <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Pathbridge</h1>
           <p class="text-sm text-zinc-500">Path forwarding for external upstreams</p>
         </div>
 
@@ -36,7 +36,7 @@
             <UIcon name="i-lucide-arrow-left-right" class="size-5 text-primary" />
           </div>
           <div class="flex flex-col">
-            <span class="text-sm font-semibold leading-tight text-zinc-900 dark:text-white">pathbridge</span>
+            <span class="text-sm font-semibold leading-tight text-zinc-900 dark:text-white">Pathbridge</span>
             <span class="text-xs leading-tight text-zinc-400">{{ activePairCount }} active pairs</span>
           </div>
         </div>
@@ -318,6 +318,18 @@
                   <UInput v-model="settingsForm.oidcClientSecret" type="password" icon="i-lucide-key-round" class="w-full" placeholder="••••••••" />
                 </UFormField>
               </div>
+              <UAlert
+                icon="i-lucide-link"
+                color="info"
+                variant="subtle"
+                title="Redirect URI"
+                :description="`${publicOrigin}/auth/oauth2/oidc/callback`"
+              >
+                <template #description>
+                  <span class="font-mono text-xs break-all">{{ publicOrigin }}/auth/oauth2/oidc/callback</span>
+                  <span class="block mt-1 text-xs opacity-80">Register this exact URL as the allowed redirect/callback in your OIDC provider.</span>
+                </template>
+              </UAlert>
               <UAlert v-if="settingsEnvOidc" icon="i-lucide-info" color="info" variant="subtle" title="OIDC is also configured via environment variables" description="Settings values take precedence." />
               <div class="flex items-center gap-1.5">
                 <USwitch v-model="settingsForm.disablePasswordLogin" :disabled="!oidcReady" label="Disable email + password login" />
@@ -922,6 +934,7 @@ const permissionRows = computed<{ resource: string, action: string }[]>(() => {
 })
 
 import type { TableColumn } from '@nuxt/ui'
+import { useAuth } from '~/composables/useAuth'
 import { getGroupedRowModel } from '@tanstack/vue-table'
 
 const permissionColumns: TableColumn<{ resource: string, action: string }>[] = [
@@ -1152,6 +1165,12 @@ function fmtTime(iso: string): string {
 
 // ---------- settings ----------
 const settingsForm = reactive({ logRetentionDays: 30, oidcIssuer: '', oidcClientId: '', oidcClientSecret: '', disablePasswordLogin: false })
+const publicOrigin = computed(() => {
+  if (import.meta.server) {
+    try { return useRequestURL().origin } catch { return '' }
+  }
+  return window.location.origin
+})
 const settingsSecretSet = ref(false)
 const settingsEnvOidc = ref(false)
 const oidcReady = computed(() => settingsForm.oidcIssuer.trim().length > 0 && settingsForm.oidcClientId.trim().length > 0 && (settingsForm.oidcClientSecret.length > 0 || settingsSecretSet.value))
@@ -1176,27 +1195,24 @@ async function boot() {
 }
 
 // ---------- lifecycle ----------
-// Session is resolved during SSR (useAsyncData) so the first paint already
-// knows auth state - no login-form flash on refresh. The browser cookie is
-// forwarded server-side via the request event.
-const { data: ssrSession } = await useAsyncData('admin-session', async () => {
-  const ev = useRequestEvent()
-  try {
-    return await $fetch<SessionPayload | null>('/auth/get-session', {
-      headers: ev?.node.req ? { cookie: ev.node.req.headers.cookie ?? '' } : {},
-    })
-  }
-  catch { return null }
-})
-if (ssrSession.value?.user) {
-  session.value = ssrSession.value
+// Session resolved during SSR via better-auth's Nuxt integration:
+// authClient.useSession(useFetch) forwards cookies server-side and hydrates
+// the payload, so the first paint already knows auth state.
+const authClient = useAuth()
+const { data: ssrSession } = await authClient.useSession(useFetch)
+if (ssrSession.value) {
+  session.value = ssrSession.value as unknown as SessionPayload
   await loadPerms()
   await boot()
 }
 
+// keep the session ref in sync with the client (sign-in/out reactivity)
+watch(() => ssrSession.value, (s) => {
+  session.value = (s ?? null) as unknown as SessionPayload | null
+})
+
 onMounted(async () => {
   if (!session.value) {
-    // client-side fallback (e.g. client-side navigation without SSR data)
     try {
       const s = await $fetch<SessionPayload | null>('/auth/get-session')
       session.value = s?.user ? s : null
@@ -1224,11 +1240,10 @@ async function login() {
   busy.value = true
   loginError.value = ''
   try {
-    const res = await $fetch<SessionPayload>('/auth/sign-in/email', {
-      method: 'POST',
-      body: { email: loginState.email, password: loginState.password },
-    })
-    session.value = res
+    const res = await useAuth().signIn.email({ email: loginState.email, password: loginState.password })
+    if (res.error) throw new Error(res.error.message || 'invalid credentials')
+    const s = await $fetch<SessionPayload | null>('/auth/get-session')
+    session.value = s?.user ? s : null
     await loadPerms()
     await boot()
   }
@@ -1252,8 +1267,9 @@ async function oidcLogin() {
 }
 
 async function logout() {
-  await $fetch('/auth/sign-out', { method: 'POST' }).catch(() => {})
+  await useAuth().signOut().catch(() => {})
   session.value = null
+  perms.value = {}
   pairs.value = []
 }
 
