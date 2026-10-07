@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/namhtpyn/pathbridge/compare/v1.13.0...v1.14.0) (2026-10-07)
+
+
+### Features
+
+* single builtin role, hover popovers, role modal help ([8fb3ce0](https://github.com/namhtpyn/pathbridge/commit/8fb3ce00ae5d8c01fe350a14a08bbf8eb42a9e78))
+
 # [1.13.0](https://github.com/namhtpyn/pathbridge/compare/v1.12.3...v1.13.0) (2026-10-07)
 
 
