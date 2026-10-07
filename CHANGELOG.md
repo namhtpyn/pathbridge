@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/namhtpyn/pathbridge/compare/v1.26.1...v1.27.0) (2026-10-07)
+
+
+### Features
+
+* email-verified toggle in user modals; rewrite README ([193e523](https://github.com/namhtpyn/pathbridge/commit/193e5231be880dc06e84b7d569e718c6b7332633))
+
 ## [1.26.1](https://github.com/namhtpyn/pathbridge/compare/v1.26.0...v1.26.1) (2026-10-07)
 
 
