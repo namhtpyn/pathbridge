@@ -1,3 +1,10 @@
+# [1.24.0](https://github.com/namhtpyn/pathbridge/compare/v1.23.0...v1.24.0) (2026-10-07)
+
+
+### Features
+
+* show app version on login screen and topbar ([12f9696](https://github.com/namhtpyn/pathbridge/commit/12f969665e645a7e5e0915a4432e91d10adb45a9))
+
 # [1.23.0](https://github.com/namhtpyn/pathbridge/compare/v1.22.3...v1.23.0) (2026-10-07)
 
 
