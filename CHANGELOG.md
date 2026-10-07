@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/namhtpyn/pathbridge/compare/v1.11.0...v1.12.0) (2026-10-07)
+
+
+### Features
+
+* profile modal — self-service name, email, and password change ([9b03a16](https://github.com/namhtpyn/pathbridge/commit/9b03a16eca450b56bad92916ca1f28eac8faf65e))
+
 # [1.11.0](https://github.com/namhtpyn/pathbridge/compare/v1.10.0...v1.11.0) (2026-10-07)
 
 
