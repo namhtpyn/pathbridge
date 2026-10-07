@@ -1,3 +1,10 @@
+# [1.22.0](https://github.com/namhtpyn/pathbridge/compare/v1.21.1...v1.22.0) (2026-10-07)
+
+
+### Features
+
+* unify all record lists on UTable ([3840514](https://github.com/namhtpyn/pathbridge/commit/3840514599e841ba433087d821258997f2b00e9b))
+
 ## [1.21.1](https://github.com/namhtpyn/pathbridge/compare/v1.21.0...v1.21.1) (2026-10-07)
 
 
