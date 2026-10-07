@@ -1,3 +1,10 @@
+# [1.23.0](https://github.com/namhtpyn/pathbridge/compare/v1.22.3...v1.23.0) (2026-10-07)
+
+
+### Features
+
+* seed default admin account on fresh container boot ([b62f76c](https://github.com/namhtpyn/pathbridge/commit/b62f76c33364d839357e91c96b6a062fc96f1d08))
+
 ## [1.22.3](https://github.com/namhtpyn/pathbridge/compare/v1.22.2...v1.22.3) (2026-10-07)
 
 
