@@ -1,3 +1,15 @@
+# [1.21.0](https://github.com/namhtpyn/pathbridge/compare/v1.20.1...v1.21.0) (2026-10-07)
+
+
+### Bug Fixes
+
+* drop unused sharp dep (lockfile sync) ([d43a559](https://github.com/namhtpyn/pathbridge/commit/d43a559a088e2a37323ea4ba2727a60c06447421))
+
+
+### Features
+
+* better-auth nuxt integration, branding, favicon, OIDC redirect hint ([8aebe89](https://github.com/namhtpyn/pathbridge/commit/8aebe895115897e66e04cf1d391328df57cc6c25))
+
 ## [1.20.1](https://github.com/namhtpyn/pathbridge/compare/v1.20.0...v1.20.1) (2026-10-07)
 
 
