@@ -375,11 +375,58 @@
                   </UPopover></template>
                 <UInput v-model="newUser.password" type="password" icon="i-lucide-lock" class="w-full" />
               </UFormField>
+              <UFormField v-if="can('roles', 'update')" name="role">
+                <template #label>Role</template>
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+                    <template #default>
+                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+                    </template>
+                    <template #content>
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                        <p class="text-xs font-semibold text-white">Role</p>
+                        <p class="text-xs text-zinc-200">Role assigned to the new user. Defaults to viewer. Requires roles:update permission.</p>
+                      </div>
+                    </template>
+                  </UPopover></template>
+                <USelect v-model="newUser.role" :items="roleOptions" class="w-full" />
+              </UFormField>
               <div class="flex items-end justify-end gap-2">
                 <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="showAddUser = false" />
                 <UButton type="submit" icon="i-lucide-user-plus" :loading="busy" label="Create user" />
               </div>
             </UForm>
+            </template>
+          </UModal>
+
+          <UModal v-model:open="userEditOpen" :title="`Edit ${userEditForm.name || userEditForm.email}`" description="Update name, email or role">
+            <template #body>
+              <UForm :state="userEditForm" class="grid gap-5" @submit="saveUserEdit">
+                <UFormField label="Name" name="name">
+                  <UInput v-model="userEditForm.name" icon="i-lucide-user" class="w-full" />
+                </UFormField>
+                <UFormField label="Email" name="email">
+                  <UInput v-model="userEditForm.email" type="email" icon="i-lucide-mail" class="w-full" />
+                </UFormField>
+                <UFormField v-if="can('roles', 'update')" name="role">
+                  <template #label>Role</template>
+                  <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+                    <template #default>
+                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+                    </template>
+                    <template #content>
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                        <p class="text-xs font-semibold text-white">Role</p>
+                        <p class="text-xs text-zinc-200">Changing role takes effect on the user's next request. Comma-join multiple roles if needed.</p>
+                      </div>
+                    </template>
+                  </UPopover></template>
+                  <USelect v-model="userEditForm.role" :items="roleOptions" class="w-full" />
+                </UFormField>
+                <div class="flex items-end justify-end gap-2">
+                  <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="userEditOpen = false" />
+                  <UButton type="submit" icon="i-lucide-check" :loading="busy" label="Save changes" />
+                </div>
+              </UForm>
             </template>
           </UModal>
 
@@ -401,6 +448,7 @@
                   <span class="flex items-center gap-1" title="Active sessions"><UIcon name="i-lucide-monitor-smartphone" class="size-3" />{{ u.sessionCount }}</span>
                 </div>
                 <div class="flex shrink-0 items-center justify-end gap-2 self-end sm:self-auto">
+                  <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit user" :disabled="!can('users', 'update')" @click="openUserEditor(u)" />
                   <UButton icon="i-lucide-key-round" variant="ghost" color="neutral" size="sm" label="Reset password" @click="resetPassword(u)" />
                   <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete user" :disabled="u.id === session.user.id" @click="removeUser(u)" />
                 </div>
@@ -1010,6 +1058,36 @@ function validatePair(state: typeof form): Array<{ name: string, message: string
 const users = ref<AdminUser[]>([])
 const showAddUser = ref(false)
 const newUser = reactive({ email: '', name: '', password: '', role: 'viewer' })
+const userEditOpen = ref(false)
+const userEditForm = reactive({ id: '', name: '', email: '', role: 'viewer' })
+const roleOptions = computed(() => roles.value.map(r => ({ label: r.name, value: r.name })))
+
+function openUserEditor(u: AdminUser) {
+  userEditForm.id = u.id
+  userEditForm.name = u.name
+  userEditForm.email = u.email
+  userEditForm.role = u.role
+  userEditOpen.value = true
+}
+
+async function saveUserEdit() {
+  busy.value = true
+  try {
+    const body: Record<string, string> = {}
+    if (userEditForm.name.trim()) body.name = userEditForm.name.trim()
+    if (userEditForm.email.trim()) body.email = userEditForm.email.trim()
+    if (can('roles', 'update')) body.role = userEditForm.role
+    await $fetch(`/api/users/${encodeURIComponent(userEditForm.id)}`, { method: 'PUT', body })
+    await loadUsers()
+    userEditOpen.value = false
+    toast.add({ title: 'User updated', color: 'success' })
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({ title: 'Update failed', description: err.data?.statusMessage || err.message, color: 'error' })
+  }
+  busy.value = false
+}
 
 function validateNewUser(state: typeof newUser): Array<{ name: string, message: string }> {
   const errors: Array<{ name: string, message: string }> = []
@@ -1238,7 +1316,9 @@ async function loadUsers() {
 async function addUser() {
   busy.value = true
   try {
-    await $fetch('/api/users', { method: 'POST', body: { ...newUser } })
+    const body: Record<string, string> = { email: newUser.email.trim(), name: newUser.name.trim(), password: newUser.password }
+    if (can('roles', 'update')) body.role = newUser.role
+    await $fetch('/api/users', { method: 'POST', body })
     newUser.email = ''
     newUser.name = ''
     newUser.password = ''
