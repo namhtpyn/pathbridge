@@ -1,3 +1,10 @@
+## [1.22.2](https://github.com/namhtpyn/pathbridge/compare/v1.22.1...v1.22.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* resolve auth-config during SSR before login form render ([3b040d2](https://github.com/namhtpyn/pathbridge/commit/3b040d2dd844740d3a41cbf3496355351f2616bc))
+
 ## [1.22.1](https://github.com/namhtpyn/pathbridge/compare/v1.22.0...v1.22.1) (2026-10-07)
 
 
