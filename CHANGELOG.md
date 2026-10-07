@@ -1,3 +1,10 @@
+## [1.20.1](https://github.com/namhtpyn/pathbridge/compare/v1.20.0...v1.20.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* resolve session during SSR - no login-form flash on refresh ([da15b5e](https://github.com/namhtpyn/pathbridge/commit/da15b5e2872cc52e1521d35267a0cb2ad40f6c12))
+
 # [1.20.0](https://github.com/namhtpyn/pathbridge/compare/v1.19.0...v1.20.0) (2026-10-07)
 
 
