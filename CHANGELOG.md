@@ -1,3 +1,10 @@
+## [1.26.1](https://github.com/namhtpyn/pathbridge/compare/v1.26.0...v1.26.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* uuid-only provider ids, rename field to Name, drop redirect URIs alert ([d95116b](https://github.com/namhtpyn/pathbridge/commit/d95116b37d69a95f20b8cb5bc28ee82b59c7d916))
+
 # [1.26.0](https://github.com/namhtpyn/pathbridge/compare/v1.25.0...v1.26.0) (2026-10-07)
 
 
