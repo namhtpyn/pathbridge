@@ -156,7 +156,26 @@ export type AppSessionLike = Awaited<ReturnType<typeof requireSession>>
 export async function requireUser(event: H3Event): Promise<{ session: AppSessionLike, user: ResolvedUser }> {
   const session = await requireSession(event)
   const role = (session.user as unknown as { role?: string | null }).role ?? 'viewer'
-  const user = await resolveUser({ id: session.user.id, email: session.user.email, role })
+  let user = await resolveUser({ id: session.user.id, email: session.user.email, role })
+
+  // API-key scoping: a key's permissions can only NARROW the owner's grants,
+  // never expand them (a key is a credential of its owner, not a new principal).
+  const keyPerms = (session as unknown as { apiKeyPermissions?: Record<string, string[]> | null }).apiKeyPermissions
+  if (keyPerms && Object.keys(keyPerms).length > 0) {
+    const narrowed = new Map<Resource, Set<string>>()
+    for (const [resource, statements] of Object.entries(keyPerms)) {
+      if (!(resource in STATEMENTS)) continue
+      const ownerGrants = user.grants.get(resource as Resource)
+      if (!ownerGrants) continue // key cannot grant what the owner lacks
+      const allowed: readonly string[] = STATEMENTS[resource as Resource]
+      const set = new Set<string>()
+      for (const st of statements) {
+        if (allowed.includes(st) && ownerGrants.has(st)) set.add(st)
+      }
+      if (set.size > 0) narrowed.set(resource as Resource, set)
+    }
+    user = { ...user, grants: narrowed }
+  }
   return { session, user }
 }
 

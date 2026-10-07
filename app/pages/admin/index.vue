@@ -793,6 +793,85 @@
             </UFormField>
             <UButton :loading="pwBusy" color="neutral" label="Change password" icon="i-lucide-key-round" size="sm" class="mt-1" @click="changePassword" />
           </div>
+          <USeparator />
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">API keys</h3>
+              <UButton icon="i-lucide-plus" size="sm" label="Create key" @click="openKeyEditor()" />
+            </div>
+            <p class="text-xs text-zinc-500">Keys act as you but can be scoped to fewer permissions — never more. Shown once at creation.</p>
+            <p v-if="apiKeys.length === 0" class="text-sm text-zinc-400">No keys yet.</p>
+            <div v-else class="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800/60 dark:border-zinc-800">
+              <div v-for="k in apiKeys" :key="k.id" class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ k.name }}</span>
+                    <UBadge variant="subtle" color="neutral" size="sm" class="font-mono">{{ k.start }}…</UBadge>
+                    <UBadge v-if="k.expiresAt" variant="subtle" color="warning" size="sm">expires {{ new Date(k.expiresAt).toLocaleDateString() }}</UBadge>
+                    <UBadge v-else variant="subtle" color="neutral" size="sm">no expiry</UBadge>
+                  </div>
+                  <div class="mt-0.5 text-xs text-zinc-400">
+                    {{ k.lastRequest ? `last used ${new Date(k.lastRequest).toLocaleString()}` : 'never used' }} · {{ k.requestCount }} requests
+                  </div>
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                  <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Revoke key" @click="revokeKey(k)" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- API key editor modal -->
+    <UModal :open="keyEditorOpen" title="Create API key" description="Scoped keys can only narrow your own permissions" @update:open="v => keyEditorOpen = v">
+      <template #body>
+        <UForm :state="keyForm" class="space-y-4" @submit="createKey">
+          <UFormField name="keyName" label="Name" required>
+            <UInput v-model="keyForm.name" icon="i-lucide-tag" class="w-full" placeholder="ci-deploy" />
+          </UFormField>
+          <UFormField name="keyExpiry" label="Expires in (days)" help="0 or empty = no expiry">
+            <UInputNumber v-model="keyForm.expiresInDays" :min="0" :max="365" class="w-full" />
+          </UFormField>
+          <USeparator />
+          <div>
+            <div class="mb-2 flex items-center justify-between">
+              <span class="text-sm font-medium text-zinc-900 dark:text-white">Permission scope</span>
+              <USwitch v-model="keyForm.scoped" label="Restrict permissions" size="sm" />
+            </div>
+            <p v-if="!keyForm.scoped" class="text-xs text-zinc-500">Key inherits all your permissions ({{ session?.user.email }}).</p>
+            <div v-else class="grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-3 gap-y-1.5 text-xs">
+              <span class="font-medium text-zinc-400">resource</span>
+              <span class="text-center text-zinc-400">read</span>
+              <span class="text-center text-zinc-400">update</span>
+              <span class="text-center text-zinc-400">create/delete</span>
+              <template v-for="res in keyScopeResources" :key="res">
+                <span class="font-mono text-zinc-500">{{ res }}</span>
+                <span class="text-center"><UCheckbox :model-value="keyScopeHas(res, 'read')" @update:model-value="(v: boolean | 'indeterminate') => keyScopeToggle(res, 'read', v === true)" /></span>
+                <span class="text-center"><UCheckbox :model-value="keyScopeHas(res, 'update')" @update:model-value="(v: boolean | 'indeterminate') => keyScopeToggle(res, 'update', v === true)" /></span>
+                <span class="text-center"><UCheckbox :model-value="keyScopeHas(res, 'create') || keyScopeHas(res, 'delete')" :disabled="true" @update:model-value="(v: boolean | 'indeterminate') => keyScopeToggle(res, 'create', v === true)" /></span>
+              </template>
+            </div>
+            <p class="mt-2 text-xs text-zinc-400">Scope is always <span class="font-mono">:all</span>; intersection with your role is applied server-side anyway.</p>
+          </div>
+          <div class="flex justify-end gap-2">
+            <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="keyEditorOpen = false" />
+            <UButton type="submit" icon="i-lucide-key-round" :loading="busy" label="Create key" />
+          </div>
+        </UForm>
+      </template>
+    </UModal>
+
+    <!-- key created: show once -->
+    <UModal :open="!!createdKeyValue" title="API key created" description="Copy it now — it will not be shown again" @update:open="v => !v && (createdKeyValue = '')">
+      <template #body>
+        <div class="space-y-3">
+          <UInput :model-value="createdKeyValue" readonly class="w-full font-mono" />
+          <div class="flex justify-end gap-2">
+            <UButton icon="i-lucide-copy" color="neutral" label="Copy" @click="copyCreatedKey" />
+            <UButton label="Done" @click="createdKeyValue = ''" />
+          </div>
         </div>
       </template>
     </UModal>
@@ -872,11 +951,83 @@ const profile = reactive({ name: '', email: '' })
 const pwForm = reactive({ current: '', next: '', confirm: '' })
 const pwBusy = ref(false)
 
+// ---- API keys (profile modal) ----
+interface ApiKeyRow { id: string, name: string, start: string, enabled: boolean, expiresAt: string | null, lastRequest: string | null, requestCount: number, permissions: Record<string, string[]> | null }
+const apiKeys = ref<ApiKeyRow[]>([])
+const keyEditorOpen = ref(false)
+const keyForm = reactive({ name: '', expiresInDays: 0, scoped: false, scope: {} as Record<string, string[]> })
+const createdKeyValue = ref('')
+const keyScopeResources = ['pairs', 'users', 'roles', 'settings', 'logs']
+
+async function loadApiKeys() {
+  try {
+    const r = await $fetch<{ keys: ApiKeyRow[] }>('/api/keys')
+    apiKeys.value = r.keys
+  }
+  catch { apiKeys.value = [] }
+}
+
+function openKeyEditor() {
+  keyForm.name = ''
+  keyForm.expiresInDays = 0
+  keyForm.scoped = false
+  keyForm.scope = {}
+  keyEditorOpen.value = true
+}
+
+function keyScopeHas(res: string, action: string): boolean {
+  return (keyForm.scope[res] ?? []).some(st => st.startsWith(`${action}:`))
+}
+
+function keyScopeToggle(res: string, action: string, v: boolean) {
+  const cur = new Set(keyForm.scope[res] ?? [])
+  for (const st of [...cur]) if (st.startsWith(`${action}:`)) cur.delete(st)
+  if (v) cur.add(`${action}:all`)
+  if (cur.size > 0) keyForm.scope[res] = [...cur]
+  else delete keyForm.scope[res]
+}
+
+async function createKey() {
+  busy.value = true
+  try {
+    const body: Record<string, unknown> = { name: keyForm.name.trim() }
+    if (keyForm.expiresInDays && keyForm.expiresInDays > 0) body.expiresIn = keyForm.expiresInDays * 86400
+    if (keyForm.scoped && Object.keys(keyForm.scope).length > 0) body.permissions = keyForm.scope
+    const r = await $fetch<{ key: string }>('/api/keys', { method: 'POST', body })
+    createdKeyValue.value = r.key
+    keyEditorOpen.value = false
+    await loadApiKeys()
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({ title: 'Create failed', description: err.data?.statusMessage || err.message, color: 'error' })
+  }
+  busy.value = false
+}
+
+async function revokeKey(k: ApiKeyRow) {
+  try {
+    await $fetch(`/api/keys/${encodeURIComponent(k.id)}`, { method: 'DELETE' })
+    toast.add({ title: 'Key revoked', color: 'success' })
+    await loadApiKeys()
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({ title: 'Revoke failed', description: err.data?.statusMessage || err.message, color: 'error' })
+  }
+}
+
+function copyCreatedKey() {
+  navigator.clipboard?.writeText(createdKeyValue.value)
+  toast.add({ title: 'Copied', color: 'success' })
+}
+
 function openProfile() {
   profile.name = session.value?.user.name ?? ''
   profile.email = session.value?.user.email ?? ''
   pwForm.current = ''; pwForm.next = ''; pwForm.confirm = ''
   profileOpen.value = true
+  loadApiKeys()
 }
 
 async function saveProfile() {
