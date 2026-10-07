@@ -1,3 +1,10 @@
+## [1.21.1](https://github.com/namhtpyn/pathbridge/compare/v1.21.0...v1.21.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* forward cookie during SSR data fetches ([0f89486](https://github.com/namhtpyn/pathbridge/commit/0f894861829a43b26bb1c3f7ce9252377fd737a0))
+
 # [1.21.0](https://github.com/namhtpyn/pathbridge/compare/v1.20.1...v1.21.0) (2026-10-07)
 
 
