@@ -1,3 +1,20 @@
+# [2.0.0](https://github.com/namhtpyn/pathbridge/compare/v1.30.0...v2.0.0) (2026-10-07)
+
+
+### Bug Fixes
+
+* **release:** restore ! breaking-marker parsing in commit headers ([27face0](https://github.com/namhtpyn/pathbridge/commit/27face00f14cc1891d8f96a8744117362fc9c8da))
+
+
+### Features
+
+* rename pair -> route across the app ([59a67ed](https://github.com/namhtpyn/pathbridge/commit/59a67edd7838853c36c31b976c6327eea288fc5c))
+
+
+### BREAKING CHANGES
+
+* rename pair -> route across the app
+
 # [1.30.0](https://github.com/namhtpyn/pathbridge/compare/v1.29.0...v1.30.0) (2026-10-07)
 
 
