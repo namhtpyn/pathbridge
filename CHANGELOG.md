@@ -1,3 +1,10 @@
+# [1.25.0](https://github.com/namhtpyn/pathbridge/compare/v1.24.1...v1.25.0) (2026-10-07)
+
+
+### Features
+
+* multiple OIDC providers ([262dff9](https://github.com/namhtpyn/pathbridge/commit/262dff9fe0047046e6d3c31ccf2b3b3ecca0dbf9))
+
 ## [1.24.1](https://github.com/namhtpyn/pathbridge/compare/v1.24.0...v1.24.1) (2026-10-07)
 
 
