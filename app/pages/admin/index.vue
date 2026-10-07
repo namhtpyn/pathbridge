@@ -1176,22 +1176,43 @@ async function boot() {
 }
 
 // ---------- lifecycle ----------
+// Session is resolved during SSR (useAsyncData) so the first paint already
+// knows auth state - no login-form flash on refresh. The browser cookie is
+// forwarded server-side via the request event.
+const { data: ssrSession } = await useAsyncData('admin-session', async () => {
+  const ev = useRequestEvent()
+  try {
+    return await $fetch<SessionPayload | null>('/auth/get-session', {
+      headers: ev?.node.req ? { cookie: ev.node.req.headers.cookie ?? '' } : {},
+    })
+  }
+  catch { return null }
+})
+if (ssrSession.value?.user) {
+  session.value = ssrSession.value
+  await loadPerms()
+  await boot()
+}
+
 onMounted(async () => {
+  if (!session.value) {
+    // client-side fallback (e.g. client-side navigation without SSR data)
+    try {
+      const s = await $fetch<SessionPayload | null>('/auth/get-session')
+      session.value = s?.user ? s : null
+      if (session.value) {
+        await loadPerms()
+        await boot()
+      }
+    }
+    catch { /* not signed in */ }
+  }
   try {
     authConfig.value = await $fetch<AuthConfig>('/api/auth-config')
   }
   catch {
     authConfig.value = { passwordEnabled: true, oidcEnabled: false }
   }
-  try {
-    const s = await $fetch<SessionPayload | null>('/auth/get-session')
-    session.value = s?.user ? s : null
-    if (session.value) {
-      await loadPerms()
-      await boot()
-    }
-  }
-  catch { /* not signed in */ }
 })
 
 watch(isWildcard, (w) => {
