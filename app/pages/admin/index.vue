@@ -1242,6 +1242,16 @@ if (ssrSession.value) {
   await boot()
 }
 
+// auth-config gates the login form (password vs SSO) - resolve during SSR
+// so the form renders correctly on first paint, no post-hydration flip
+try {
+  const cfgHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+  authConfig.value = await $fetch<AuthConfig>('/api/auth-config', { headers: cfgHeaders })
+}
+catch {
+  authConfig.value = { passwordEnabled: true, oidcEnabled: false }
+}
+
 // keep the session ref in sync with the client (sign-in/out reactivity)
 watch(() => ssrSession.value, (s) => {
   session.value = (s ?? null) as unknown as SessionPayload | null
@@ -1259,11 +1269,13 @@ onMounted(async () => {
     }
     catch { /* not signed in */ }
   }
-  try {
-    authConfig.value = await $fetch<AuthConfig>('/api/auth-config')
-  }
-  catch {
-    authConfig.value = { passwordEnabled: true, oidcEnabled: false }
+  if (!authConfig.value) {
+    try {
+      authConfig.value = await $fetch<AuthConfig>('/api/auth-config')
+    }
+    catch {
+      authConfig.value = { passwordEnabled: true, oidcEnabled: false }
+    }
   }
 })
 
