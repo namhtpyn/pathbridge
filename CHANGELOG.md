@@ -1,3 +1,10 @@
+## [1.27.1](https://github.com/namhtpyn/pathbridge/compare/v1.27.0...v1.27.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* trust configured OIDC providers for account linking ([04777c9](https://github.com/namhtpyn/pathbridge/commit/04777c9e489ac62fb49ece17f10d965b5d1ab7c5))
+
 # [1.27.0](https://github.com/namhtpyn/pathbridge/compare/v1.26.1...v1.27.0) (2026-10-07)
 
 
