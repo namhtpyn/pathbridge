@@ -500,36 +500,65 @@
                     </template>
                 </UPopover></template>
                   <div class="w-full space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-                    <table class="w-full text-sm">
-                        <thead>
-                          <tr class="border-b border-zinc-200 dark:border-zinc-800">
-                            <th class="py-2 pr-3 text-left font-mono text-xs uppercase tracking-wide text-zinc-400">Resource</th>
-                            <th class="px-2 py-2 text-left font-mono text-xs uppercase tracking-wide text-zinc-400">Action</th>
-                            <th class="w-16 px-2 py-2 text-center text-xs font-medium text-zinc-400">None</th>
-                            <th class="w-16 px-2 py-2 text-center text-xs font-medium text-zinc-400">Own</th>
-                            <th class="w-16 px-2 py-2 text-center text-xs font-medium text-zinc-400">All</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <template v-for="(stmts, res) in (vocabulary as Record<string, string[]>)" :key="res">
-                            <tr v-for="(acts, ri) in resourceActions(String(res ?? ''))" :key="String(res) + acts" class="border-b border-zinc-100 last:border-0 dark:border-zinc-800/60">
-                              <td class="py-2 pr-3 font-mono text-xs font-medium text-zinc-700 dark:text-zinc-300" :class="ri === 0 ? '' : 'text-transparent'">{{ res }}</td>
-                              <td class="px-2 py-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">{{ acts }}</td>
-                              <td v-for="sc in ['none', 'own', 'all']" :key="sc" class="px-2 py-2 text-center">
-                                <URadioGroup
-                                  v-if="sc === 'none' || scopeAvailable(String(res ?? ''), acts, sc)"
-                                  :model-value="scopeFor(String(res ?? ''), acts)"
-                                  :items="[{ label: '', value: sc }]"
-                                  variant="list"
-                                  :name="`${res}-${acts}-${sc}`"
-                                  :ui="{ fieldset: 'justify-center', indicator: sc === 'none' ? 'text-zinc-400' : '' }"
-                                  @update:model-value="() => setScope(String(res), acts, sc as 'none' | 'own' | 'all')"
-                                />
-                              </td>
-                            </tr>
-                          </template>
-                        </tbody>
-                      </table>
+                    <UTable
+                        :data="permissionRows"
+                        :columns="permissionColumns"
+                        :grouping="['resource']"
+                        :grouping-options="{ groupedColumnMode: false, getGroupedRowModel: getGroupedRowModel() }"
+                        :ui="{ root: 'min-w-full', td: 'empty:p-0' }"
+                      >
+                        <template #resource-cell="{ row }">
+                          <div v-if="row.getIsGrouped()" class="flex items-center gap-2">
+                            <UButton
+                              variant="ghost" color="neutral" size="xs"
+                              :icon="row.getIsExpanded() ? 'i-lucide-minus' : 'i-lucide-plus'"
+                              aria-label="Toggle group"
+                              @click="row.toggleExpanded()"
+                            />
+                            <span class="font-mono text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">{{ row.original.resource }}</span>
+                          </div>
+                          <span v-else class="invisible">&middot;</span>
+                        </template>
+                        <template #action-cell="{ row }">
+                          <span v-if="!row.getIsGrouped()" class="font-mono text-xs text-zinc-500 dark:text-zinc-400">{{ row.original.action }}</span>
+                        </template>
+                        <template #none-cell="{ row }">
+                          <div v-if="!row.getIsGrouped()" class="flex justify-center">
+                            <URadioGroup
+                              :model-value="scopeFor(row.original.resource, row.original.action)"
+                              :items="[{ label: '', value: 'none' }]"
+                              variant="list"
+                              :name="`${row.original.resource}-${row.original.action}-none`"
+                              :ui="{ fieldset: 'justify-center' }"
+                              @update:model-value="() => setScope(row.original.resource, row.original.action, 'none')"
+                            />
+                          </div>
+                        </template>
+                        <template #own-cell="{ row }">
+                          <div v-if="!row.getIsGrouped() && scopeAvailable(row.original.resource, row.original.action, 'own')" class="flex justify-center">
+                            <URadioGroup
+                              :model-value="scopeFor(row.original.resource, row.original.action)"
+                              :items="[{ label: '', value: 'own' }]"
+                              variant="list"
+                              :name="`${row.original.resource}-${row.original.action}-own`"
+                              :ui="{ fieldset: 'justify-center' }"
+                              @update:model-value="() => setScope(row.original.resource, row.original.action, 'own')"
+                            />
+                          </div>
+                        </template>
+                        <template #all-cell="{ row }">
+                          <div v-if="!row.getIsGrouped() && scopeAvailable(row.original.resource, row.original.action, 'all')" class="flex justify-center">
+                            <URadioGroup
+                              :model-value="scopeFor(row.original.resource, row.original.action)"
+                              :items="[{ label: '', value: 'all' }]"
+                              variant="list"
+                              :name="`${row.original.resource}-${row.original.action}-all`"
+                              :ui="{ fieldset: 'justify-center' }"
+                              @update:model-value="() => setScope(row.original.resource, row.original.action, 'all')"
+                            />
+                          </div>
+                        </template>
+                      </UTable>
                   </div>
                 </UFormField>
                 <div class="flex items-end justify-end gap-2">
@@ -799,6 +828,31 @@ function openRoleEditor(role?: RoleRow) {
   }
   roleModalOpen.value = true
 }
+
+/** Flat rows for the grouped permissions UTable. */
+const permissionRows = computed<{ resource: string, action: string }[]>(() => {
+  const rows: { resource: string, action: string }[] = []
+  for (const [resource, stmts] of Object.entries(vocabulary.value)) {
+    const actions: string[] = []
+    for (const st of stmts ?? []) {
+      const a = st.split(':')[0] ?? ''
+      if (a && !actions.includes(a)) actions.push(a)
+    }
+    for (const action of actions) rows.push({ resource, action })
+  }
+  return rows
+})
+
+import type { TableColumn } from '@nuxt/ui'
+import { getGroupedRowModel } from '@tanstack/vue-table'
+
+const permissionColumns: TableColumn<{ resource: string, action: string }>[] = [
+  { accessorKey: 'resource', header: 'Resource' },
+  { accessorKey: 'action', header: 'Action', meta: { class: { td: 'w-full' } } },
+  { id: 'none', header: 'None', meta: { class: { th: 'text-center w-16', td: 'text-center' } } },
+  { id: 'own', header: 'Own', meta: { class: { th: 'text-center w-16', td: 'text-center' } } },
+  { id: 'all', header: 'All', meta: { class: { th: 'text-center w-16', td: 'text-center' } } },
+]
 
 /** Actions available for a resource, derived from the statement vocabulary. */
 function resourceActions(resource: string): string[] {
