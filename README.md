@@ -60,6 +60,22 @@ Requests to `/hook*` are proxied to `https://api.example.com*`. Optional
 per-pair settings: strip the prefix before forwarding, restrict HTTP methods,
 override the upstream Host header, add a note, disable.
 
+### MCP (AI agents)
+
+A [Model Context Protocol](https://modelcontextprotocol.io) server is built in
+at `/mcp` (streamable HTTP, stateless — auth on every request). Point any MCP
+client at it with an API key:
+
+```
+url:    https://your-host/mcp
+header: Authorization: Bearer <api key>
+```
+
+Tools: `list_pairs`, `create_pair`, `update_pair`, `delete_pair`, `get_logs`.
+A key inherits its owner's permissions, or a narrowed scope you choose when
+creating it — an agent key can be limited to exactly pairs CRUD + log reads,
+and nothing else.
+
 ### SSO (OIDC)
 
 Settings → Authentication → Add provider: name, issuer URL, client ID, client
