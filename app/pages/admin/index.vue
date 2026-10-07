@@ -500,16 +500,36 @@
                     </template>
                 </UPopover></template>
                   <div class="w-full space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-                    <div v-for="(stmts, res) in vocabulary" :key="res">
-                      <p class="mb-1.5 font-mono text-xs uppercase tracking-wide text-zinc-400">{{ res }}</p>
-                      <div class="flex flex-wrap gap-1.5">
-                        <UButton
-                          v-for="st in stmts" :key="st" size="xs" variant="soft"
-                          :color="(roleForm.statements[res] ?? []).includes(st) ? 'primary' : 'neutral'"
-                          :label="st" type="button" @click="toggleStatement(String(res), st)"
-                        />
-                      </div>
-                    </div>
+                    <table class="w-full text-sm">
+                        <thead>
+                          <tr class="border-b border-zinc-200 dark:border-zinc-800">
+                            <th class="py-2 pr-3 text-left font-mono text-xs uppercase tracking-wide text-zinc-400">Resource</th>
+                            <th class="px-2 py-2 text-left font-mono text-xs uppercase tracking-wide text-zinc-400">Action</th>
+                            <th class="w-16 px-2 py-2 text-center text-xs font-medium text-zinc-400">None</th>
+                            <th class="w-16 px-2 py-2 text-center text-xs font-medium text-zinc-400">Own</th>
+                            <th class="w-16 px-2 py-2 text-center text-xs font-medium text-zinc-400">All</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template v-for="(stmts, res) in (vocabulary as Record<string, string[]>)" :key="res">
+                            <tr v-for="(acts, ri) in resourceActions(String(res ?? ''))" :key="String(res) + acts" class="border-b border-zinc-100 last:border-0 dark:border-zinc-800/60">
+                              <td class="py-2 pr-3 font-mono text-xs font-medium text-zinc-700 dark:text-zinc-300" :class="ri === 0 ? '' : 'text-transparent'">{{ res }}</td>
+                              <td class="px-2 py-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">{{ acts }}</td>
+                              <td v-for="sc in ['none', 'own', 'all']" :key="sc" class="px-2 py-2 text-center">
+                                <URadioGroup
+                                  v-if="sc === 'none' || scopeAvailable(String(res ?? ''), acts, sc)"
+                                  :model-value="scopeFor(String(res ?? ''), acts)"
+                                  :items="[{ label: '', value: sc }]"
+                                  variant="list"
+                                  :name="`${res}-${acts}-${sc}`"
+                                  :ui="{ fieldset: 'justify-center', indicator: sc === 'none' ? 'text-zinc-400' : '' }"
+                                  @update:model-value="() => setScope(String(res), acts, sc as 'none' | 'own' | 'all')"
+                                />
+                              </td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
                   </div>
                 </UFormField>
                 <div class="flex items-end justify-end gap-2">
@@ -780,9 +800,37 @@ function openRoleEditor(role?: RoleRow) {
   roleModalOpen.value = true
 }
 
-function toggleStatement(resource: string, stmt: string) {
+/** Actions available for a resource, derived from the statement vocabulary. */
+function resourceActions(resource: string): string[] {
+  const stmts: string[] = vocabulary.value[resource] ?? []
+  const actions: string[] = []
+  for (const st of stmts) {
+    const a = st!.split(':')[0] ?? ''
+    if (a && !actions.includes(a)) actions.push(a)
+  }
+  return actions
+}
+
+/** Is action:scope a valid statement for this resource? */
+function scopeAvailable(resource: string, action: string, scope: string): boolean {
+  return (vocabulary.value[resource] ?? []).includes(`${action}:${scope}`)
+}
+
+/** Current radio value for a row: none | own | all (all beats own). */
+function scopeFor(resource: string, action: string): 'none' | 'own' | 'all' {
   const cur = roleForm.statements[resource] ?? []
-  roleForm.statements[resource] = cur.includes(stmt) ? cur.filter(s => s !== stmt) : [...cur, stmt]
+  if (cur.includes(`${action}:all`)) return 'all'
+  if (cur.includes(`${action}:own`)) return 'own'
+  return 'none'
+}
+
+/** Radio selection: exclusive none/own/all per resource+action. */
+function setScope(resource: string, action: string, scope: 'none' | 'own' | 'all') {
+  const cur = new Set(roleForm.statements[resource] ?? [])
+  cur.delete(`${action}:all`)
+  cur.delete(`${action}:own`)
+  if (scope !== 'none') cur.add(`${action}:${scope}`)
+  roleForm.statements[resource] = [...cur]
 }
 
 async function saveRole() {
