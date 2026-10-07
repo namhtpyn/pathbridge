@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/namhtpyn/pathbridge/compare/v1.15.0...v1.16.0) (2026-10-07)
+
+
+### Features
+
+* grouped permissions matrix via UTable ([96eda28](https://github.com/namhtpyn/pathbridge/commit/96eda28069cd06a5e408c13446e69c0b6a8490f3))
+
 # [1.15.0](https://github.com/namhtpyn/pathbridge/compare/v1.14.0...v1.15.0) (2026-10-07)
 
 
