@@ -22,11 +22,14 @@ export default defineEventHandler(async (event): Promise<{ pairs: PairRow[] }> =
   }
 
   const { path, target } = parsed.data
-  const u = new URL(target) // re-parsed; schema guaranteed http(s) origin-only
+  const u = new URL(target) // re-parsed; schema guaranteed http(s), no query/hash
+
+  // keep origin+path (path prefix is forwarded); strip any trailing slash on the path
+  const targetUrl = u.pathname === '/' ? u.origin : `${u.origin}${u.pathname}`.replace(/\/+$/, '')
 
   const row = {
     path,
-    target: u.origin,
+    target: targetUrl,
     upstreamHost: parsed.data.upstreamHost ?? null,
     stripPrefix: parsed.data.stripPrefix,
     methods: parsed.data.methods ?? null,
