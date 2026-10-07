@@ -1,3 +1,4 @@
+import type { H3Event } from 'h3'
 // POST|GET /mcp — Model Context Protocol server (streamable HTTP transport).
 // Auth: the same requireSession as the REST API — Bearer API key (scoped,
 // intersected with owner role) or session cookie. Tools = pairs CRUD + logs.
@@ -8,7 +9,7 @@ import { toolListPairs, toolUpsertPair, toolUpdatePairById, toolDeletePair, tool
 import { requireSession } from '../../utils/session'
 
 // stateless mode: one transport per request, no session store
-async function handle(event: H3Event): Promise<Response> {
+async function handle(event: H3Event): Promise<void> {
   // authenticate BEFORE building the server; 401s surface as HTTP, not tool errors
   await requireSession(event)
 
@@ -31,25 +32,25 @@ async function handle(event: H3Event): Promise<Response> {
   server.tool(
     'create_pair',
     'Create a forwarding pair (or update the existing pair at the same path). Fields: path (e.g. "/hook" or "/hook/*"), target (http(s) URL), optional upstreamHost, stripPrefix (wildcard only), methods (e.g. ["GET","HEAD"]), note, enabled.',
-    mcpSchemas.createPair.shape as Record<string, never>,
+    mcpSchemas.createPair.shape as unknown as Record<string, ZodType>,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolUpsertPair(headers, input), null, 2) }] }),
   )
   server.tool(
     'update_pair',
     'Update an existing pair by numeric id. Same fields as create_pair plus required id; path rename allowed.',
-    mcpSchemas.updatePair.shape as Record<string, never>,
+    mcpSchemas.updatePair.shape as unknown as Record<string, ZodType>,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolUpdatePairById(headers, input), null, 2) }] }),
   )
   server.tool(
     'delete_pair',
     'Delete a forwarding pair by numeric id (preferred) or path.',
-    mcpSchemas.deletePair.shape as Record<string, never>,
+    mcpSchemas.deletePair.shape as unknown as Record<string, ZodType>,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolDeletePair(headers, input), null, 2) }] }),
   )
   server.tool(
     'get_logs',
     'Read access-log entries for forwarded traffic. Optional limit (default 100) and pairId filter; scoped to what the key may read.',
-    mcpSchemas.getLogs.shape as Record<string, never>,
+    mcpSchemas.getLogs.shape as unknown as Record<string, ZodType>,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolGetLogs(headers, input ?? {}), null, 2) }] }),
   )
 
@@ -66,7 +67,7 @@ async function handle(event: H3Event): Promise<Response> {
   try { parsedBody = raw === '' ? undefined : JSON.parse(raw) } catch { parsedBody = undefined }
   await transport.handleRequest(event.node.req, event.node.res, parsedBody)
   // per-request transport in stateless mode; h3 must not write another response
-  event.node.res.headersSent || event.node.res.end()
+  if (!event.node.res.headersSent) event.node.res.end()
   return
 }
 
