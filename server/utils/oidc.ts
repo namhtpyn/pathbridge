@@ -20,8 +20,16 @@ export type OidcProviderPublic = Omit<OidcProvider, 'clientSecret'> & { secretSe
 /** ids that would collide with better-auth core routes or other schemes */
 const RESERVED_IDS = new Set(['email', 'credential', 'oauth2', 'callback', 'error', 'ok', 'api-key'])
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const SLUG_RE = /^[a-z][a-z0-9-]{1,31}$/
+
 export function validProviderId(id: string): boolean {
-  return /^[a-z][a-z0-9-]{1,31}$/.test(id) && !RESERVED_IDS.has(id)
+  return (UUID_RE.test(id) || SLUG_RE.test(id)) && !RESERVED_IDS.has(id)
+}
+
+/** opaque provider id for new providers; the callback path is not user-facing */
+export function newProviderId(): string {
+  return crypto.randomUUID()
 }
 
 let migrated = false

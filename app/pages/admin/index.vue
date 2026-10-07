@@ -295,10 +295,9 @@
                   <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">
                       <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ prov.label }}</span>
-                      <UBadge variant="subtle" color="neutral" size="sm" class="font-mono">{{ prov.id }}</UBadge>
                       <UBadge v-if="!prov.secretSet" variant="subtle" color="warning" size="sm">no secret</UBadge>
                     </div>
-                    <div class="mt-0.5 truncate text-xs font-mono text-zinc-500">{{ prov.issuer }}</div>
+                    <div class="mt-0.5 truncate text-xs font-mono text-zinc-500">{{ publicOrigin }}/auth/callback/{{ prov.id }}</div>
                   </div>
                   <div class="flex shrink-0 items-center gap-2">
                     <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit provider" :disabled="!can('settings', 'update')" @click="openOidcEditor(prov)" />
@@ -714,12 +713,9 @@
         </div>
       </main>
         <!-- OIDC provider editor modal (settings tab) -->
-        <UModal :open="oidcEditorOpen" :title="oidcEditingId ? `Edit ${oidcEditingId}` : 'Add OIDC provider'" description="Provider id becomes the callback path: /auth/callback/<id>" @update:open="v => oidcEditorOpen = v">
+        <UModal :open="oidcEditorOpen" :title="oidcEditingId ? `Edit ${oidcEditingId}` : 'Add OIDC provider'" description="Register the redirect URL shown after saving in your OIDC provider" @update:open="v => oidcEditorOpen = v">
           <template #body>
             <UForm :state="oidcForm" class="space-y-4" @submit="saveOidcProvider">
-              <UFormField name="oidcId" label="Provider id" required help="lowercase slug, e.g. azure, google, authentik">
-                <UInput v-model="oidcForm.id" icon="i-lucide-fingerprint" class="w-full" :disabled="!!oidcEditingId" placeholder="azure" />
-              </UFormField>
               <UFormField name="oidcLabel" label="Button label" required help="Shown on the login button">
                 <UInput v-model="oidcForm.label" icon="i-lucide-tag" class="w-full" placeholder="Azure AD" />
               </UFormField>
