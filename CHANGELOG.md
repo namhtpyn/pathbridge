@@ -1,3 +1,10 @@
+## [1.12.1](https://github.com/namhtpyn/pathbridge/compare/v1.12.0...v1.12.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* align role form with the app's form pattern ([7b20f02](https://github.com/namhtpyn/pathbridge/commit/7b20f02a8939e51861817b3ea1797fcdd911fc44))
+
 # [1.12.0](https://github.com/namhtpyn/pathbridge/compare/v1.11.0...v1.12.0) (2026-10-07)
 
 
