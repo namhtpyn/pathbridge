@@ -54,7 +54,7 @@ export async function toolListPairs(headers: Headers) {
   // read:all sees everything; read:own only their pairs
   const grants = user.grants.get('pairs') ?? new Set<string>()
   if (grants.has('read:all')) return { pairs: all }
-  return { pairs: all.filter(p => p.userId === user.userId) }
+  return { pairs: all.filter(p => (p as unknown as { userId?: string }).userId === user.userId) }
 }
 
 export async function toolUpsertPair(headers: Headers, input: unknown) {
@@ -110,7 +110,8 @@ export async function toolUpdatePairById(headers: Headers, input: unknown) {
   const existing = await db.query.pairs.findFirst({ where: { id: data.id } })
   if (!existing) throw new Error('pair not found')
   await requireRecordPermission(eventFor(headers), 'pairs', 'update', existing)
-  const clash = await db.query.pairs.findFirst({ where: { AND: [{ path: data.path }, { id: { ne: data.id } }] }, columns: { id: true } })
+  const pairId: number = data.id as number
+  const clash = await db.query.pairs.findFirst({ where: { AND: [{ path: data.path }, { id: { ne: pairId } }] }, columns: { id: true } })
   if (clash) throw new Error(`a pair already exists at ${data.path}`)
   const u = new URL(data.target)
   const targetUrl = u.pathname === '/' ? u.origin : `${u.origin}${u.pathname}`.replace(/\/+$/, '')
@@ -123,8 +124,8 @@ export async function toolUpdatePairById(headers: Headers, input: unknown) {
     note: data.note !== undefined ? data.note.slice(0, 200) : null,
     enabled: data.enabled,
     updatedAt: new Date().toISOString(),
-  }).where(eq(pairs.id, data.id))
-  return { pair: await db.query.pairs.findFirst({ where: { id: data.id } }) }
+  }).where(eq(pairs.id, pairId))
+  return { pair: await db.query.pairs.findFirst({ where: { id: pairId } }) }
 }
 
 export async function toolDeletePair(headers: Headers, input: unknown) {
