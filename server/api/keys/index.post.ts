@@ -28,8 +28,9 @@ export default defineEventHandler(async (event) => {
   if (permissions) {
     for (const [resource, statements] of Object.entries(permissions)) {
       if (!(resource in STATEMENTS)) throw createError({ statusCode: 400, statusMessage: `unknown resource: ${resource}` })
+      const vocab: readonly string[] = STATEMENTS[resource as keyof typeof STATEMENTS]
       for (const st of statements) {
-        if (!STATEMENTS[resource as keyof typeof STATEMENTS].includes(st)) {
+        if (!vocab.includes(st)) {
           throw createError({ statusCode: 400, statusMessage: `unknown statement ${resource}:${st}` })
         }
       }
