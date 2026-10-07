@@ -1,3 +1,10 @@
+# [1.17.0](https://github.com/namhtpyn/pathbridge/compare/v1.16.0...v1.17.0) (2026-10-07)
+
+
+### Features
+
+* master radio group on resource rows ([de5c88f](https://github.com/namhtpyn/pathbridge/commit/de5c88f9b863f94b7f1ddae53e04ada743cdec0b))
+
 # [1.16.0](https://github.com/namhtpyn/pathbridge/compare/v1.15.0...v1.16.0) (2026-10-07)
 
 
