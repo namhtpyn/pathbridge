@@ -1,3 +1,10 @@
+# [1.11.0](https://github.com/namhtpyn/pathbridge/compare/v1.10.0...v1.11.0) (2026-10-07)
+
+
+### Features
+
+* role-based access control — runtime roles, own/all scopes, permission-gated UI ([1e3cb27](https://github.com/namhtpyn/pathbridge/commit/1e3cb27399bd3043f19c14270f58db74ec1c0eb7))
+
 # [1.10.0](https://github.com/namhtpyn/pathbridge/compare/v1.9.2...v1.10.0) (2026-10-06)
 
 
