@@ -1,3 +1,17 @@
+# [1.30.0](https://github.com/namhtpyn/pathbridge/compare/v1.29.0...v1.30.0) (2026-10-07)
+
+
+### Bug Fixes
+
+* import ZodType in MCP route ([8aa0478](https://github.com/namhtpyn/pathbridge/commit/8aa0478bd5937fbb195fcb41ef38ca852f786e62))
+* MCP route types for CI typecheck ([ee4766f](https://github.com/namhtpyn/pathbridge/commit/ee4766fc9d070e731c645ddb97881e5c9b75da99))
+* type-level PairRow/drizzle issues in MCP tools ([72f2f3f](https://github.com/namhtpyn/pathbridge/commit/72f2f3f9e67c6249ff18616eab31be8dbd99c983))
+
+
+### Features
+
+* built-in MCP server at /mcp for AI agents ([1ad7f30](https://github.com/namhtpyn/pathbridge/commit/1ad7f30f365c47a42174c6bed0690e4977c15208))
+
 # [1.29.0](https://github.com/namhtpyn/pathbridge/compare/v1.28.0...v1.29.0) (2026-10-07)
 
 
