@@ -77,13 +77,8 @@
             <UButton v-if="can('pairs', 'create')" icon="i-lucide-plus" label="New pair" @click="openEditor()" />
           </div>
 
-          <UCard v-if="editing" :ui="{ root: 'shadow-sm' }">
-            <template #header>
-              <div class="flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">{{ editing === 'new' ? 'Create pair' : `Edit ${editing}` }}</h3>
-                <UButton icon="i-lucide-x" variant="ghost" color="neutral" size="xs" aria-label="Close editor" @click="reset" />
-              </div>
-            </template>
+          <UModal :open="!!editing" :title="editing === 'new' ? 'Create pair' : `Edit ${editing}`" @update:open="v => !v && reset()">
+            <template #body>
             <UForm :state="form" :validate="validatePair" class="grid gap-5 sm:grid-cols-2" @submit="save">
               <UFormField name="path">
                 <template #label><span class="flex items-center gap-1.5">Path
@@ -199,11 +194,12 @@
                 <USwitch v-model="form.enabled" label="Enabled" />
               </div>
               <div class="flex justify-end gap-2 sm:col-span-2">
-                <UButton variant="ghost" color="neutral" label="Cancel" @click="reset" />
+                <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="reset" />
                 <UButton type="submit" :loading="busy" :label="editing === 'new' ? 'Add pair' : 'Save changes'" />
               </div>
             </UForm>
-          </UCard>
+            </template>
+          </UModal>
 
           <UCard v-if="pairs.length" :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
             <ul class="divide-y divide-zinc-100 dark:divide-zinc-800/60">
@@ -354,7 +350,8 @@
             <UButton icon="i-lucide-user-plus" label="Add user" @click="showAddUser = !showAddUser" />
           </div>
 
-          <UCard v-if="showAddUser" :ui="{ root: 'shadow-sm' }">
+          <UModal :open="showAddUser" title="Add user" description="Create a new account and assign its role" @update:open="v => showAddUser = v">
+            <template #body>
             <UForm :state="newUser" :validate="validateNewUser" class="grid gap-5 sm:grid-cols-2" @submit="addUser">
               <UFormField label="Email" name="email">
                 <UInput v-model="newUser.email" type="email" icon="i-lucide-mail" class="w-full" />
@@ -379,11 +376,12 @@
                 <UInput v-model="newUser.password" type="password" icon="i-lucide-lock" class="w-full" />
               </UFormField>
               <div class="flex items-end justify-end gap-2">
-                <UButton variant="ghost" color="neutral" label="Cancel" @click="showAddUser = false" />
+                <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="showAddUser = false" />
                 <UButton type="submit" icon="i-lucide-user-plus" :loading="busy" label="Create user" />
               </div>
             </UForm>
-          </UCard>
+            </template>
+          </UModal>
 
           <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
             <ul class="divide-y divide-zinc-100 dark:divide-zinc-800/60">
@@ -413,12 +411,12 @@
 
         <!-- ============ ROLES ============ -->
         <div v-else-if="tab === 'roles'" class="space-y-6">
-          <div class="flex items-center justify-between gap-3">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
-              <h2 class="text-lg font-semibold">Roles</h2>
+              <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Roles</h2>
               <p class="text-sm text-zinc-500">Bundle permissions; assign to users in the Users tab.</p>
             </div>
-            <UButton icon="i-lucide-plus" :disabled="!can('roles', 'create')" @click="openRoleEditor">New role</UButton>
+            <UButton icon="i-lucide-plus" label="New role" class="self-end sm:self-auto" :disabled="!can('roles', 'create')" @click="openRoleEditor" />
           </div>
 
           <div class="space-y-3">
@@ -437,11 +435,13 @@
                   </template>
                 </div>
               </div>
-              <UButton
-                icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" aria-label="Delete role"
-                :disabled="r.builtin || !can('roles', 'delete')"
-                @click="deleteRole(r)"
-              />
+              <div class="flex shrink-0 items-start justify-end">
+                <UButton
+                  icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" aria-label="Delete role"
+                  :disabled="r.builtin || !can('roles', 'delete')"
+                  @click="deleteRole(r)"
+                />
+              </div>
             </div>
           </div>
 
@@ -486,8 +486,10 @@
                 {{ logFilter ? `Filtered by pair ${logFilter.path}` : 'All forwarded traffic' }}
               </p>
             </div>
-            <UButton v-if="logFilter" variant="soft" color="neutral" icon="i-lucide-x" label="Clear filter" @click="logFilter = null; loadLogs()" />
-            <UButton v-else icon="i-lucide-refresh-cw" variant="ghost" color="neutral" label="Refresh" :loading="logsBusy" @click="loadLogs()" />
+            <div class="flex items-center gap-2 self-end sm:self-auto">
+              <UButton v-if="logFilter" variant="soft" color="neutral" icon="i-lucide-x" label="Clear filter" @click="logFilter = null; loadLogs()" />
+              <UButton icon="i-lucide-refresh-cw" variant="soft" color="neutral" label="Refresh" :loading="logsBusy" @click="loadLogs()" />
+            </div>
           </div>
 
           <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
@@ -559,7 +561,7 @@
     </UModal>
 
     <!-- profile modal -->
-    <UModal v-model:open="profileOpen" title="Profile" @update:open="openProfile">
+    <UModal v-model:open="profileOpen" title="Profile" description="Your account settings">
       <template #body>
         <div class="space-y-6">
           <div class="space-y-3">
