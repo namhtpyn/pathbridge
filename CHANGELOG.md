@@ -1,3 +1,10 @@
+# [1.29.0](https://github.com/namhtpyn/pathbridge/compare/v1.28.0...v1.29.0) (2026-10-07)
+
+
+### Features
+
+* key scope editor uses the grouped permission matrix ([07dbf74](https://github.com/namhtpyn/pathbridge/commit/07dbf74ee0837c64b018c13a76624c77989fcf27))
+
 # [1.28.0](https://github.com/namhtpyn/pathbridge/compare/v1.27.1...v1.28.0) (2026-10-07)
 
 
