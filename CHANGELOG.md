@@ -1,3 +1,10 @@
+## [1.24.1](https://github.com/namhtpyn/pathbridge/compare/v1.24.0...v1.24.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* canonicalize email_verified for password users at boot ([6ccf3c6](https://github.com/namhtpyn/pathbridge/commit/6ccf3c64358d50f5d335f3c3c876ae3b3095e11c))
+
 # [1.24.0](https://github.com/namhtpyn/pathbridge/compare/v1.23.0...v1.24.0) (2026-10-07)
 
 
