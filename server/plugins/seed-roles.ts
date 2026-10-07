@@ -16,9 +16,9 @@ const BUILTIN = [
   },
   {
     name: 'viewer',
-    description: 'Read own pairs (default for new users)',
+    description: 'Read own routes (default for new users)',
     statements: {
-      pairs: ['read:own'],
+      routes: ['read:own'],
     },
   },
 ]

@@ -13,7 +13,7 @@ or when you want a stable public hostname in front of changing backends.
 - **SSO** — one or more OIDC providers, per-provider login buttons
 - **Users & roles** — RBAC with a permission matrix; custom roles
 - **API keys** — programmatic access for scripts and agents
-- **Access logs** — per-pair request log with status and latency
+- **Access logs** — per-route request log with status and latency
 - Single SQLite file, single container
 
 ## Quick start
@@ -50,14 +50,14 @@ admin UI at runtime.
 
 ### Forwarding
 
-Add a pair in the admin UI (or via `PUT /api/pairs`):
+Add a route in the admin UI (or via `PUT /api/routes`):
 
 ```json
 { "path": "/hook", "target": "https://api.example.com" }
 ```
 
 Requests to `/hook*` are proxied to `https://api.example.com*`. Optional
-per-pair settings: strip the prefix before forwarding, restrict HTTP methods,
+per-route settings: strip the prefix before forwarding, restrict HTTP methods,
 override the upstream Host header, add a note, disable.
 
 ### MCP (AI agents)
@@ -71,9 +71,9 @@ url:    https://your-host/mcp
 header: Authorization: Bearer <api key>
 ```
 
-Tools: `list_pairs`, `create_pair`, `update_pair`, `delete_pair`, `get_logs`.
+Tools: `list_routes`, `create_route`, `update_route`, `delete_route`, `get_logs`.
 A key inherits its owner's permissions, or a narrowed scope you choose when
-creating it — an agent key can be limited to exactly pairs CRUD + log reads,
+creating it — an agent key can be limited to exactly routes CRUD + log reads,
 and nothing else.
 
 ### SSO (OIDC)

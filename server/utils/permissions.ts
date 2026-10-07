@@ -23,7 +23,7 @@ export type Scope = typeof SCOPES[number]
 // ---- static vocabulary ----------------------------------------------------
 
 export const STATEMENTS = {
-  pairs: ['create:all', 'read:own', 'read:all', 'update:own', 'update:all', 'delete:own', 'delete:all'],
+  routes: ['create:all', 'read:own', 'read:all', 'update:own', 'update:all', 'delete:own', 'delete:all'],
   logs: ['read:own', 'read:all', 'delete:own', 'delete:all'],
   settings: ['read:all', 'update:all'],
   users: ['create:all', 'read:all', 'update:all', 'delete:all'],

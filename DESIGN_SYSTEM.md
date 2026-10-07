@@ -18,7 +18,7 @@ Single-page admin (`app/pages/admin/index.vue`) on **Nuxt UI v4** only — no cu
 ```
 
 - Tabs: `<button>` with `UIcon` + label; active = `border-primary text-primary`, inactive = zinc-500.
-- Tab order: Pairs, Settings, Users, Roles, Logs. Tabs render ONLY what the user's permissions allow (`can()` from `/api/me`).
+- Tab order: Routes, Settings, Users, Roles, Logs. Tabs render ONLY what the user's permissions allow (`can()` from `/api/me`).
 
 ## Component map (use exactly these)
 
@@ -32,13 +32,13 @@ Single-page admin (`app/pages/admin/index.vue`) on **Nuxt UI v4** only — no cu
 | Radio matrix | `URadioGroup variant="list"` with unlabeled single-item arrays (see permission matrices) |
 | Button | `UButton`; primary = label only; destructive in tables = `variant="ghost" color="error" size="sm"` + `aria-label` |
 | Confirmation | `UModal` (NEVER native `confirm()`) |
-| Status chip | `UBadge variant="subtle"`; monospace for code-ish values (`pairs:read:all`, verbs) |
+| Status chip | `UBadge variant="subtle"`; monospace for code-ish values (`routes:read:all`, verbs) |
 | Feedback | `useToast()` → `toast.add({ title, color: 'success'|'error'|'neutral' })` |
 | Hover help | `UPopover mode="hover"` around a `i-lucide-info` icon — inside the field's `#hint` slot, NEVER `#label` (reka-ui `<Label :for>` swallows clicks/focus); `USwitch` has no `#hint` slot → wrap switch + icon in a flex `<div>` outside the label |
 
 ## Form pattern (THE law)
 
-Every form — pair editor, user create, role create, profile — follows the same shape:
+Every form — route editor, user create, role create, profile — follows the same shape:
 
 1. `UForm :state="…" :validate="validateX" @submit="saveX"` (client validation is UX only; backend re-validates).
 2. `UFormField label="…" name="…" hint="optional guidance"`, each field full-width inside `class="w-full"`.
@@ -49,12 +49,12 @@ Every form — pair editor, user create, role create, profile — follows the sa
 
 ## Tables & lists
 
-- **Every record list is a `UTable`** (v1.22.0 unified: pairs, users, roles, logs — no mixed card lists, no hand-rolled HTML tables). Wrap in `UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }"`.
+- **Every record list is a `UTable`** (v1.22.0 unified: routes, users, roles, logs — no mixed card lists, no hand-rolled HTML tables). Wrap in `UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }"`.
 - Column defs are typed `TableColumn<T>[]` with `meta: { class: { td: 'w-full' } }` on the flexible column and a trailing empty-header `id: 'actions'` column for right-aligned row actions.
 - Custom cells via `#<accessor>-cell` slots (`#path-cell`, `#user-cell`, `#actions-cell`…) keeping badges, monospace chips and stacked text inside cells.
 - **Permission matrices (role editor, API-key scope) use UTable grouped rows**: `:grouping="['resource']"` + `getGroupedRowModel()` with `groupedColumnMode: false` (NOT 'remove' — remove deletes the grouping column and its cell slot never renders). Group row = expand toggle + resource name; member rows = `action` + None/Own/All `URadioGroup` columns (one radio per column, `variant="list"`, `:ui="{ fieldset: 'justify-center' }"`). Scope cells hide entirely when the vocabulary (roles) or the caller's own grants (key scoping) don't allow them.
-- Every action button gets an `aria-label` (agents + screen readers): `aria-label="Edit pair"`, `"Delete pair"`.
-- Empty state: centered `i-lucide-*` icon, short heading, one-line hint; CTA button only if the user has the create permission; neutral copy for read-only users ("No pairs yet" — not "Create your first pair").
+- Every action button gets an `aria-label` (agents + screen readers): `aria-label="Edit route"`, `"Delete route"`.
+- Empty state: centered `i-lucide-*` icon, short heading, one-line hint; CTA button only if the user has the create permission; neutral copy for read-only users ("No routes yet" — not "Create your first route").
 
 ## Modals
 

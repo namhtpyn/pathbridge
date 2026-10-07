@@ -9,8 +9,8 @@ import { lt, desc, eq, and, type SQL } from 'drizzle-orm'
 export interface AccessLogRow {
   id: number
   ts: string
-  pairId: number | null
-  pairPath: string | null
+  routeId: number | null
+  routePath: string | null
   method: string
   path: string
   status: number
@@ -20,8 +20,8 @@ export interface AccessLogRow {
 }
 
 export function recordAccess(entry: {
-  pairId: number | null
-  pairPath: string | null
+  routeId: number | null
+  routePath: string | null
   method: string
   path: string
   status: number
@@ -33,10 +33,10 @@ export function recordAccess(entry: {
   db.insert(accessLog).values(entry).catch(() => {})
 }
 
-export async function queryAccessLog(opts: { limit?: number, pairId?: number, beforeId?: number }): Promise<AccessLogRow[]> {
+export async function queryAccessLog(opts: { limit?: number, routeId?: number, beforeId?: number }): Promise<AccessLogRow[]> {
   const limit = Math.min(opts.limit ?? 100, 1000)
   const conditions: SQL[] = []
-  if (opts.pairId !== undefined) conditions.push(eq(accessLog.pairId, opts.pairId))
+  if (opts.routeId !== undefined) conditions.push(eq(accessLog.routeId, opts.routeId))
   if (opts.beforeId !== undefined) conditions.push(lt(accessLog.id, opts.beforeId))
   const rows = await db.select().from(accessLog)
     .where(conditions.length ? and(...conditions) : undefined)
