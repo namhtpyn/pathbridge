@@ -22,8 +22,9 @@ A mapping from a public path on this host to an upstream target origin.
 **Path grammar**
 - Exact: `/hook` — matches that path only.
 - Wildcard: `/hook/*` — matches `/hook` and everything under it. `*` must be trailing; no mid-path wildcards.
-- `/` and any `/admin*` path are RESERVED and rejected by the schema.
-- Reserved prefixes (unclaimable, served by the app): `/_api /_auth /_health /api /admin` (historical underscore forms are rejected too).
+- `/`, any `/admin*`, `/auth*`, `/health*` path is rejected by the schema (collides with app routes).
+- Any path starting with `/_` is rejected outright (defensive namespace; the historical `/_api /_auth /_health` routes died in the admin rename).
+- `/api` is in the middleware RESERVED list (app API always wins over any pair), but the schema currently does NOT block claiming `/api` — a pair there would be silently shadowed. Known wart; decide: block in schema or drop from RESERVED.
 
 **stripPrefix** (wildcard-only): off = forward the full original path; on = remove the pair's base (`/zalo/oa/x` → upstream `/oa/x`). Query string is NEVER touched.
 
