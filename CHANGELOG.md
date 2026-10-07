@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/namhtpyn/pathbridge/compare/v1.12.3...v1.13.0) (2026-10-07)
+
+
+### Features
+
+* role editing, target path support, popovers for field help ([e6da368](https://github.com/namhtpyn/pathbridge/commit/e6da368e2b312610471e59678d0e7810beadd65e))
+
 ## [1.12.3](https://github.com/namhtpyn/pathbridge/compare/v1.12.2...v1.12.3) (2026-10-07)
 
 
