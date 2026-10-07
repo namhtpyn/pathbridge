@@ -2,7 +2,7 @@
 import { z } from 'zod'
 import { setSetting, getSettings } from '../../utils/settings'
 import { rebuildAuth } from '../../utils/auth'
-import { requireSession } from '../../utils/session'
+import { requirePermission } from '../../utils/permissions'
 
 const bodySchema = z.strictObject({
   oidcIssuer: z.string().max(512).optional(),
@@ -13,7 +13,7 @@ const bodySchema = z.strictObject({
 })
 
 export default defineEventHandler(async (event) => {
-  await requireSession(event)
+  await requirePermission(event, 'settings', 'update')
   const body: unknown = await readBody(event)
   const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {

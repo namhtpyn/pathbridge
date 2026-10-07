@@ -74,7 +74,7 @@
               <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Pairs</h2>
               <p class="text-sm text-zinc-500">Route incoming paths to upstream origins</p>
             </div>
-            <UButton icon="i-lucide-plus" label="New pair" @click="openEditor()" />
+            <UButton v-if="can('pairs', 'create')" icon="i-lucide-plus" label="New pair" @click="openEditor()" />
           </div>
 
           <UCard v-if="editing" :ui="{ root: 'shadow-sm' }">
@@ -224,8 +224,8 @@
                 </div>
                 <div class="flex shrink-0 items-center justify-end gap-2 self-end sm:self-auto">
                   <UButton icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" label="Logs" @click="viewPairLogs(p)" />
-                  <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit pair" @click="edit(p)" />
-                  <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete pair" @click="remove(p)" />
+                  <UButton v-if="can('pairs', 'update')" icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit pair" @click="edit(p)" />
+                  <UButton v-if="can('pairs', 'delete')" icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete pair" @click="remove(p)" />
                 </div>
               </li>
             </ul>
@@ -234,7 +234,7 @@
             <UIcon name="i-lucide-route" class="mx-auto size-8 text-zinc-300" />
             <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No pairs yet</p>
             <p class="mt-1 text-xs text-zinc-500">Create a pair to start forwarding requests</p>
-            <UButton class="mt-4" icon="i-lucide-plus" label="Create your first pair" @click="openEditor()" />
+            <UButton v-if="can('pairs', 'create')" class="mt-4" icon="i-lucide-plus" :label="can('pairs', 'create') ? 'Create your first pair' : 'No pairs yet'" @click="openEditor()" />
           </div>
         </div>
 
@@ -392,6 +392,7 @@
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2">
                     <span class="truncate text-sm font-medium text-zinc-900 dark:text-white">{{ u.name }}</span>
+                    <UBadge class="font-mono" variant="subtle" color="neutral" size="sm">{{ u.role }}</UBadge>
                     <UBadge v-if="u.id === session.user.id" label="you" variant="subtle" color="primary" size="sm" />
                   </div>
                   <div class="truncate text-xs text-zinc-500">{{ u.email }}</div>
@@ -408,6 +409,71 @@
               </li>
             </ul>
           </UCard>
+        </div>
+
+        <!-- ============ ROLES ============ -->
+        <div v-else-if="tab === 'roles'" class="space-y-6">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold">Roles</h2>
+              <p class="text-sm text-zinc-500">Bundle permissions; assign to users in the Users tab.</p>
+            </div>
+            <UButton icon="i-lucide-plus" :disabled="!can('roles', 'create')" @click="openRoleEditor">New role</UButton>
+          </div>
+
+          <div class="space-y-3">
+            <div v-for="r in roles" :key="r.id" class="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800 sm:flex-row sm:items-start sm:justify-between">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-mono text-sm font-medium">{{ r.name }}</span>
+                  <UBadge v-if="r.builtin" color="neutral" variant="outline" size="sm" class="text-zinc-400">builtin</UBadge>
+                </div>
+                <p v-if="r.description" class="mt-1 text-sm text-zinc-500">{{ r.description }}</p>
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                  <template v-for="(stmts, res) in r.statements" :key="res">
+                    <UBadge v-for="st in stmts" :key="res + st" variant="subtle" size="sm" class="font-mono">
+                      {{ res }}:{{ st }}
+                    </UBadge>
+                  </template>
+                </div>
+              </div>
+              <UButton
+                icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" aria-label="Delete role"
+                :disabled="r.builtin || !can('roles', 'delete')"
+                @click="deleteRole(r)"
+              />
+            </div>
+          </div>
+
+          <UModal v-model:open="roleModalOpen" title="New role">
+            <template #body>
+              <div class="space-y-4">
+                <UFormField label="Name" hint="lowercase, hyphens">
+                  <UInput v-model="roleForm.name" placeholder="e.g. auditor" class="w-full" />
+                </UFormField>
+                <UFormField label="Description">
+                  <UInput v-model="roleForm.description" placeholder="optional" class="w-full" />
+                </UFormField>
+                <div>
+                  <p class="mb-2 text-sm font-medium">Permissions</p>
+                  <div v-for="(stmts, res) in vocabulary" :key="res" class="mb-3">
+                    <p class="mb-1 font-mono text-xs uppercase tracking-wide text-zinc-400">{{ res }}</p>
+                    <div class="flex flex-wrap gap-1.5">
+                      <UButton
+                        v-for="st in stmts" :key="st" size="xs" variant="soft"
+                        :color="(roleForm.statements[res] ?? []).includes(st) ? 'primary' : 'neutral'"
+                        :label="st" @click="toggleStatement(String(res), st)"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div class="flex justify-end gap-2">
+                  <UButton variant="ghost" color="neutral" @click="roleModalOpen = false">Cancel</UButton>
+                  <UButton :loading="busy" :disabled="!roleForm.name" @click="saveRole">Create</UButton>
+                </div>
+              </div>
+            </template>
+          </UModal>
         </div>
 
         <!-- ============ LOGS ============ -->
@@ -491,8 +557,6 @@
       </template>
     </UModal>
 
-    <!-- toasts -->
-    <UNotifications />
   </div>
 </template>
 
@@ -503,7 +567,7 @@ import { pairSubmitSchema } from '~/utils/pair-form'
 interface SessionUser { id: string, name?: string | null, email: string }
 interface SessionPayload { user: SessionUser, session: { expiresAt: string } }
 interface AuthConfig { passwordEnabled: boolean, oidcEnabled: boolean }
-interface AdminUser { id: string, name: string, email: string, emailVerified: boolean, createdAt: string, sessionCount: number, hasPassword: boolean, oidcLinked: boolean }
+interface AdminUser { id: string, name: string, email: string, emailVerified: boolean, role: string, createdAt: string, sessionCount: number, hasPassword: boolean, oidcLinked: boolean }
 interface LogRow { id: number, ts: string, pairId: number | null, pairPath: string | null, method: string, path: string, status: number, durationMs: number, clientIp: string | null, userAgent: string | null }
 
 const toast = useToast()
@@ -512,18 +576,26 @@ const toast = useToast()
 const loginState = reactive({ email: '', password: '' })
 const loginError = ref('')
 const session = ref<SessionPayload | null>(null)
+const perms = ref<Record<string, string[]>>({})
+function can(resource: string, action: string, scope: 'own' | 'all' | 'any' = 'any') {
+  const set = perms.value[resource] ?? []
+  if (set.includes(`${action}:all`)) return true
+  if (scope === 'any' || scope === 'own') return set.includes(`${action}:own`)
+  return false
+}
 const pairs = ref<PairRow[]>([])
 const busy = ref(false)
 const editing = ref('')
 const authConfig = ref<AuthConfig | null>(null)
 
-const tab = ref<'pairs' | 'settings' | 'users' | 'logs'>('pairs')
-const tabs = [
-  { label: 'Pairs', icon: 'i-lucide-route', value: 'pairs' as const },
-  { label: 'Settings', icon: 'i-lucide-settings', value: 'settings' as const },
-  { label: 'Users', icon: 'i-lucide-users', value: 'users' as const },
-  { label: 'Logs', icon: 'i-lucide-scroll-text', value: 'logs' as const },
-]
+const tab = ref<'pairs' | 'settings' | 'users' | 'roles' | 'logs'>('pairs')
+const tabs = computed(() => [
+  { label: 'Pairs', icon: 'i-lucide-route', value: 'pairs' as const, show: can('pairs', 'read') },
+  { label: 'Settings', icon: 'i-lucide-settings', value: 'settings' as const, show: can('settings', 'read') },
+  { label: 'Users', icon: 'i-lucide-users', value: 'users' as const, show: can('users', 'read') },
+  { label: 'Roles', icon: 'i-lucide-shield', value: 'roles' as const, show: can('roles', 'read') },
+  { label: 'Logs', icon: 'i-lucide-scroll-text', value: 'logs' as const, show: can('logs', 'read') },
+].filter(t => t.show))
 
 const userMenuItems = computed(() => [[
   { label: session.value?.user.email, icon: 'i-lucide-user', disabled: true, class: 'opacity-60' },
@@ -531,6 +603,62 @@ const userMenuItems = computed(() => [[
 ]])
 
 const activePairCount = computed(() => pairs.value.filter(p => p.enabled).length)
+
+
+// ---------- roles ----------
+interface RoleRow { id: string, name: string, description: string | null, statements: Record<string, string[]>, builtin: boolean }
+const roles = ref<RoleRow[]>([])
+const vocabulary = ref<Record<string, string[]>>({})
+const roleModalOpen = ref(false)
+const roleForm = reactive({ name: '', description: '', statements: {} as Record<string, string[]> })
+
+async function loadRoles() {
+  const data = await $fetch<{ roles: RoleRow[], vocabulary: Record<string, string[]> }>('/api/roles')
+  roles.value = data.roles
+  vocabulary.value = data.vocabulary
+}
+
+function openRoleEditor() {
+  roleForm.name = ''
+  roleForm.description = ''
+  roleForm.statements = {}
+  roleModalOpen.value = true
+}
+
+function toggleStatement(resource: string, stmt: string) {
+  const cur = roleForm.statements[resource] ?? []
+  roleForm.statements[resource] = cur.includes(stmt) ? cur.filter(s => s !== stmt) : [...cur, stmt]
+}
+
+async function saveRole() {
+  busy.value = true
+  try {
+    await $fetch('/api/roles', {
+      method: 'POST',
+      body: { name: roleForm.name.trim().toLowerCase(), description: roleForm.description.trim() || null, statements: roleForm.statements },
+    })
+    await loadRoles()
+    roleModalOpen.value = false
+    toast.add({ title: 'Role created', color: 'success' })
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({ title: 'Create failed', description: err.data?.statusMessage || err.message, color: 'error' })
+  }
+  busy.value = false
+}
+
+async function deleteRole(r: RoleRow) {
+  try {
+    await $fetch(`/api/roles/${encodeURIComponent(r.id)}`, { method: 'DELETE' })
+    await loadRoles()
+    toast.add({ title: 'Role deleted', color: 'success' })
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({ title: 'Delete failed', description: err.data?.statusMessage || err.message, color: 'error' })
+  }
+}
 
 // ---------- pair form ----------
 const allVerbs = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const
@@ -561,7 +689,7 @@ function validatePair(state: typeof form): Array<{ name: string, message: string
 // ---------- users ----------
 const users = ref<AdminUser[]>([])
 const showAddUser = ref(false)
-const newUser = reactive({ email: '', name: '', password: '' })
+const newUser = reactive({ email: '', name: '', password: '', role: 'viewer' })
 
 function validateNewUser(state: typeof newUser): Array<{ name: string, message: string }> {
   const errors: Array<{ name: string, message: string }> = []
@@ -630,6 +758,25 @@ const settingsSecretSet = ref(false)
 const settingsEnvOidc = ref(false)
 const oidcReady = computed(() => settingsForm.oidcIssuer.trim().length > 0 && settingsForm.oidcClientId.trim().length > 0 && (settingsForm.oidcClientSecret.length > 0 || settingsSecretSet.value))
 
+async function loadPerms() {
+  try {
+    const me = await $fetch<{ permissions: Record<string, string[]> }>('/api/me')
+    perms.value = me.permissions ?? {}
+  }
+  catch { perms.value = {} }
+}
+
+async function boot() {
+  await Promise.all([
+    can('pairs', 'read') ? load() : Promise.resolve(),
+    can('users', 'read') ? loadUsers().catch(() => {}) : Promise.resolve(),
+    can('roles', 'read') ? loadRoles().catch(() => {}) : Promise.resolve(),
+    can('settings', 'read') ? loadSettings().catch(() => {}) : Promise.resolve(),
+  ])
+  const first = tabs.value[0]
+  if (first && !tabs.value.some(t => t.value === tab.value)) tab.value = first.value
+}
+
 // ---------- lifecycle ----------
 onMounted(async () => {
   try {
@@ -642,9 +789,8 @@ onMounted(async () => {
     const s = await $fetch<SessionPayload | null>('/auth/get-session')
     session.value = s?.user ? s : null
     if (session.value) {
-      await load()
-      loadUsers().catch(() => {})
-      loadSettings().catch(() => {})
+      await loadPerms()
+      await boot()
     }
   }
   catch { /* not signed in */ }
@@ -664,9 +810,8 @@ async function login() {
       body: { email: loginState.email, password: loginState.password },
     })
     session.value = res
-    await load()
-    loadUsers().catch(() => {})
-    loadSettings().catch(() => {})
+    await loadPerms()
+    await boot()
   }
   catch {
     loginError.value = 'Invalid email or password'
@@ -777,6 +922,7 @@ async function addUser() {
     newUser.email = ''
     newUser.name = ''
     newUser.password = ''
+    newUser.role = 'viewer'
     showAddUser.value = false
     await loadUsers()
     toast.add({ title: 'User created', color: 'success' })
