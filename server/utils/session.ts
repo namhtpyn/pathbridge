@@ -44,6 +44,10 @@ export async function requireSession(event: H3Event): Promise<AppSession> {
                 userId: u.id,
                 expiresAt: res.key?.expiresAt instanceof Date ? res.key.expiresAt : new Date(8640000000000000),
               },
+              // key-scoped permissions (Record<string,string[]>, same grammar as
+              // role statements). Never expands access: permissions.ts intersects
+              // these with the owner role's grants.
+              apiKeyPermissions: (res.key as { permissions?: Record<string, string[]> } | undefined)?.permissions ?? null,
             } as AppSession
           }
         }
