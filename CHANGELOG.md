@@ -1,3 +1,10 @@
+## [1.22.3](https://github.com/namhtpyn/pathbridge/compare/v1.22.2...v1.22.3) (2026-10-07)
+
+
+### Bug Fixes
+
+* OIDC first login unable_to_create_user - scope first-user gate to password sign-up ([e3711ae](https://github.com/namhtpyn/pathbridge/commit/e3711aeace6ef798ccb03785745d71ced8015e62))
+
 ## [1.22.2](https://github.com/namhtpyn/pathbridge/compare/v1.22.1...v1.22.2) (2026-10-07)
 
 
