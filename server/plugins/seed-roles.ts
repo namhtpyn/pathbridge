@@ -8,16 +8,17 @@ const BUILTIN = [
   {
     name: 'admin',
     description: 'Full access to everything',
+    // :all only - "action:all" implies "action:own", so own-scoped
+    // statements are redundant for the admin role
     statements: Object.fromEntries(
-      Object.entries(STATEMENTS).map(([r, actions]) => [r, [...actions]]),
+      Object.entries(STATEMENTS).map(([r, actions]) => [r, actions.filter(a => a.endsWith(':all'))]),
     ),
   },
   {
     name: 'viewer',
-    description: 'Read-only on own records (default for new users)',
+    description: 'Read own pairs (default for new users)',
     statements: {
       pairs: ['read:own'],
-      logs: ['read:own'],
     },
   },
 ]
@@ -30,16 +31,23 @@ export default defineEventHandler(async () => {
   const existing = await db.query.roles.findMany()
   const now = new Date().toISOString()
   for (const r of BUILTIN) {
-    if (existing.some(e => e.name === r.name)) continue
-    await db.insert(rolesTable).values({
-      id: crypto.randomUUID(),
-      name: r.name,
-      description: r.description,
-      statements: r.statements,
-      builtin: true,
-      createdAt: now,
-      updatedAt: now,
-    })
+    const row = existing.find(e => e.name === r.name)
+    if (!row) {
+      await db.insert(rolesTable).values({
+        id: crypto.randomUUID(),
+        name: r.name,
+        description: r.description,
+        statements: r.statements,
+        builtin: true,
+        createdAt: now,
+        updatedAt: now,
+      })
+      continue
+    }
+    // canonicalize: builtin roles are tamper-proof; boot resets any drift
+    await db.update(rolesTable)
+      .set({ description: r.description, statements: r.statements, builtin: true, updatedAt: now })
+      .where(eq(rolesTable.name, r.name))
   }
   for (const name of DEMOTED) {
     await db.update(rolesTable)
