@@ -841,19 +841,98 @@
               <USwitch v-model="keyForm.scoped" label="Restrict permissions" size="sm" />
             </div>
             <p v-if="!keyForm.scoped" class="text-xs text-zinc-500">Key inherits all your permissions ({{ session?.user.email }}).</p>
-            <div v-else class="grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-x-3 gap-y-1.5 text-xs">
-              <span class="font-medium text-zinc-400">resource</span>
-              <span class="text-center text-zinc-400">read</span>
-              <span class="text-center text-zinc-400">update</span>
-              <span class="text-center text-zinc-400">create/delete</span>
-              <template v-for="res in keyScopeResources" :key="res">
-                <span class="font-mono text-zinc-500">{{ res }}</span>
-                <span class="text-center"><UCheckbox :model-value="keyScopeHas(res, 'read')" @update:model-value="(v: boolean | 'indeterminate') => keyScopeToggle(res, 'read', v === true)" /></span>
-                <span class="text-center"><UCheckbox :model-value="keyScopeHas(res, 'update')" @update:model-value="(v: boolean | 'indeterminate') => keyScopeToggle(res, 'update', v === true)" /></span>
-                <span class="text-center"><UCheckbox :model-value="keyScopeHas(res, 'create') || keyScopeHas(res, 'delete')" :disabled="true" @update:model-value="(v: boolean | 'indeterminate') => keyScopeToggle(res, 'create', v === true)" /></span>
-              </template>
+            <div v-else class="w-full space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+              <p class="text-xs text-zinc-400">Only permissions you have are shown — a key can never exceed its owner.</p>
+              <UTable
+                :data="keyPermissionRows"
+                :columns="permissionColumns"
+                :grouping="['resource']"
+                :grouping-options="{ groupedColumnMode: false, getGroupedRowModel: getGroupedRowModel() }"
+                :ui="{ root: 'min-w-full', td: 'empty:p-0' }"
+              >
+                <template #resource-cell="{ row }">
+                  <div v-if="row.getIsGrouped()" class="flex items-center gap-2">
+                    <UButton
+                      variant="ghost" color="neutral" size="xs"
+                      :icon="row.getIsExpanded() ? 'i-lucide-minus' : 'i-lucide-plus'"
+                      aria-label="Toggle group"
+                      @click="row.toggleExpanded()"
+                    />
+                    <span class="font-mono text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">{{ row.original.resource }}</span>
+                  </div>
+                  <span v-else class="invisible">&middot;</span>
+                </template>
+                <template #action-cell="{ row }">
+                  <span v-if="!row.getIsGrouped()" class="font-mono text-xs text-zinc-500 dark:text-zinc-400">{{ row.original.action }}</span>
+                </template>
+                <template #none-cell="{ row }">
+                  <div v-if="row.getIsGrouped()" class="flex justify-center">
+                    <URadioGroup
+                      :model-value="keyMasterScopeFor(row.original.resource)"
+                      :items="[{ label: '', value: 'none' }]"
+                      variant="list"
+                      :name="`key-${row.original.resource}-master-none`"
+                      :ui="{ fieldset: 'justify-center' }"
+                      @update:model-value="() => setKeyMasterScope(row.original.resource, 'none')"
+                    />
+                  </div>
+                  <div v-else class="flex justify-center">
+                    <URadioGroup
+                      :model-value="keyScopeFor(row.original.resource, row.original.action)"
+                      :items="[{ label: '', value: 'none' }]"
+                      variant="list"
+                      :name="`key-${row.original.resource}-${row.original.action}-none`"
+                      :ui="{ fieldset: 'justify-center' }"
+                      @update:model-value="() => setKeyScope(row.original.resource, row.original.action, 'none')"
+                    />
+                  </div>
+                </template>
+                <template #own-cell="{ row }">
+                  <div v-if="row.getIsGrouped() && keyMasterOwnAvailable(row.original.resource)" class="flex justify-center">
+                    <URadioGroup
+                      :model-value="keyMasterScopeFor(row.original.resource)"
+                      :items="[{ label: '', value: 'own' }]"
+                      variant="list"
+                      :name="`key-${row.original.resource}-master-own`"
+                      :ui="{ fieldset: 'justify-center' }"
+                      @update:model-value="() => setKeyMasterScope(row.original.resource, 'own')"
+                    />
+                  </div>
+                  <div v-else-if="!row.getIsGrouped() && iHave(row.original.resource, `${row.original.action}:own`)" class="flex justify-center">
+                    <URadioGroup
+                      :model-value="keyScopeFor(row.original.resource, row.original.action)"
+                      :items="[{ label: '', value: 'own' }]"
+                      variant="list"
+                      :name="`key-${row.original.resource}-${row.original.action}-own`"
+                      :ui="{ fieldset: 'justify-center' }"
+                      @update:model-value="() => setKeyScope(row.original.resource, row.original.action, 'own')"
+                    />
+                  </div>
+                </template>
+                <template #all-cell="{ row }">
+                  <div v-if="row.getIsGrouped() && keyMasterAllAvailable(row.original.resource)" class="flex justify-center">
+                    <URadioGroup
+                      :model-value="keyMasterScopeFor(row.original.resource)"
+                      :items="[{ label: '', value: 'all' }]"
+                      variant="list"
+                      :name="`key-${row.original.resource}-master-all`"
+                      :ui="{ fieldset: 'justify-center' }"
+                      @update:model-value="() => setKeyMasterScope(row.original.resource, 'all')"
+                    />
+                  </div>
+                  <div v-else-if="!row.getIsGrouped() && iHave(row.original.resource, `${row.original.action}:all`)" class="flex justify-center">
+                    <URadioGroup
+                      :model-value="keyScopeFor(row.original.resource, row.original.action)"
+                      :items="[{ label: '', value: 'all' }]"
+                      variant="list"
+                      :name="`key-${row.original.resource}-${row.original.action}-all`"
+                      :ui="{ fieldset: 'justify-center' }"
+                      @update:model-value="() => setKeyScope(row.original.resource, row.original.action, 'all')"
+                    />
+                  </div>
+                </template>
+              </UTable>
             </div>
-            <p class="mt-2 text-xs text-zinc-400">Scope is always <span class="font-mono">:all</span>; intersection with your role is applied server-side anyway.</p>
           </div>
           <div class="flex justify-end gap-2">
             <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="keyEditorOpen = false" />
@@ -975,16 +1054,71 @@ function openKeyEditor() {
   keyEditorOpen.value = true
 }
 
-function keyScopeHas(res: string, action: string): boolean {
-  return (keyForm.scope[res] ?? []).some(st => st.startsWith(`${action}:`))
+/** rows for the key scope matrix: only resource:action pairs the CURRENT user has */
+const keyPermissionRows = computed<{ resource: string, action: string }[]>(() => {
+  const rows: { resource: string, action: string }[] = []
+  for (const [resource, statements] of Object.entries(perms.value)) {
+    const actions: string[] = []
+    for (const st of statements ?? []) {
+      const a = st!.split(':')[0] ?? ''
+      if (a && !actions.includes(a)) actions.push(a)
+    }
+    for (const action of actions) rows.push({ resource, action })
+  }
+  return rows
+})
+
+/** does the current user hold resource:statement (all implies own)? */
+function iHave(resource: string, statement: string): boolean {
+  const mine = perms.value[resource] ?? []
+  if (mine.includes(statement)) return true
+  if (statement.endsWith(':own') && mine.includes(statement.replace(':own', ':all'))) return true
+  return false
 }
 
-function keyScopeToggle(res: string, action: string, v: boolean) {
-  const cur = new Set(keyForm.scope[res] ?? [])
-  for (const st of [...cur]) if (st.startsWith(`${action}:`)) cur.delete(st)
-  if (v) cur.add(`${action}:all`)
-  if (cur.size > 0) keyForm.scope[res] = [...cur]
-  else delete keyForm.scope[res]
+/** key radio state for a row: none | own | all */
+function keyScopeFor(resource: string, action: string): 'none' | 'own' | 'all' {
+  const cur = keyForm.scope[resource] ?? []
+  if (cur.includes(`${action}:all`)) return 'all'
+  if (cur.includes(`${action}:own`)) return 'own'
+  return 'none'
+}
+
+/** master radio for a resource group; mixed when actions disagree */
+function keyMasterScopeFor(resource: string): 'none' | 'own' | 'all' | 'mixed' {
+  const actions = (keyPermissionRows.value.find(r => r.resource === resource) ? keyPermissionRows.value.filter(r => r.resource === resource).map(r => r.action) : [])
+  if (!actions.length) return 'none'
+  const scopes = actions.map(a => keyScopeFor(resource, a))
+  const first = scopes[0] ?? 'none'
+  if (scopes.every(x => x === first)) return first
+  return 'mixed'
+}
+
+function setKeyScope(resource: string, action: string, scope: 'none' | 'own' | 'all') {
+  const cur = new Set(keyForm.scope[resource] ?? [])
+  cur.delete(`${action}:all`)
+  cur.delete(`${action}:own`)
+  if (scope !== 'none') cur.add(`${action}:${scope}`)
+  if (cur.size > 0) keyForm.scope[resource] = [...cur]
+  else delete keyForm.scope[resource]
+}
+
+function setKeyMasterScope(resource: string, scope: 'none' | 'own' | 'all') {
+  const rows = keyPermissionRows.value.filter(r => r.resource === resource)
+  for (const r of rows) {
+    if (scope === 'none') { setKeyScope(resource, r.action, 'none'); continue }
+    if (scope === 'own' && !iHave(resource, `${r.action}:own`)) { setKeyScope(resource, r.action, 'none'); continue }
+    if (scope === 'all' && !iHave(resource, `${r.action}:all`)) { setKeyScope(resource, r.action, 'none'); continue }
+    setKeyScope(resource, r.action, scope)
+  }
+}
+
+function keyMasterOwnAvailable(resource: string): boolean {
+  return keyPermissionRows.value.some(r => r.resource === resource && iHave(resource, `${r.action}:own`))
+}
+
+function keyMasterAllAvailable(resource: string): boolean {
+  return keyPermissionRows.value.some(r => r.resource === resource && iHave(resource, `${r.action}:all`))
 }
 
 async function createKey() {
