@@ -66,6 +66,9 @@ interface Auth {
         remaining?: number | null
       } | null
     }>
+    createApiKey: (opts: { body: Record<string, unknown> }) => Promise<{ key: string, referenceId: string }>
+    listApiKeys: (opts: { headers: Headers }) => Promise<{ apiKeys: Array<{ id: string, name: string, start: string, enabled: boolean, expiresAt: string | null, lastRequest: string | null, requestCount: number, permissions: Record<string, string[]> | null }> }>
+    deleteApiKey: (opts: { body: { keyId: string } }) => Promise<unknown>
   }
 }
 let instance: Auth | null = null
