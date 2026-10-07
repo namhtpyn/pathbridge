@@ -7,7 +7,9 @@
           <div class="flex size-12 items-center justify-center rounded-2xl bg-primary shadow-sm">
             <UIcon name="i-lucide-arrow-left-right" class="size-6 text-inverted" />
           </div>
-          <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Pathbridge</h1>
+          <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Pathbridge
+              <span class="font-mono align-middle text-xs font-normal text-zinc-400">v{{ appVersion }}</span>
+            </h1>
           <p class="text-sm text-zinc-500">Path forwarding for external upstreams</p>
         </div>
 
@@ -36,7 +38,9 @@
             <UIcon name="i-lucide-arrow-left-right" class="size-5 text-primary" />
           </div>
           <div class="flex flex-col">
-            <span class="text-sm font-semibold leading-tight text-zinc-900 dark:text-white">Pathbridge</span>
+            <span class="text-sm font-semibold leading-tight text-zinc-900 dark:text-white">Pathbridge
+              <span class="font-mono text-[10px] font-normal text-zinc-400">v{{ appVersion }}</span>
+            </span>
             <span class="text-xs leading-tight text-zinc-400">{{ activePairCount }} active pairs</span>
           </div>
         </div>
@@ -833,6 +837,7 @@ const pairColumns: TableColumn<PairRow>[] = [
 const busy = ref(false)
 const editing = ref('')
 const authConfig = ref<AuthConfig | null>(null)
+const appVersion = ref('dev')
 
 const tab = ref<'pairs' | 'settings' | 'users' | 'roles' | 'logs'>('pairs')
 const tabs = computed(() => [
@@ -1250,6 +1255,15 @@ try {
 }
 catch {
   authConfig.value = { passwordEnabled: true, oidcEnabled: false }
+}
+
+// version chip in the wordmark (APP_VERSION baked into the image)
+try {
+  const vHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+  appVersion.value = (await $fetch<{ version: string }>('/api/version', { headers: vHeaders })).version
+}
+catch {
+  appVersion.value = 'dev'
 }
 
 // keep the session ref in sync with the client (sign-in/out reactivity)
