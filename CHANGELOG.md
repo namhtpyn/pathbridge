@@ -1,3 +1,15 @@
+# [1.28.0](https://github.com/namhtpyn/pathbridge/compare/v1.27.1...v1.28.0) (2026-10-07)
+
+
+### Bug Fixes
+
+* widen Auth interface for api-key methods (CI typecheck) ([ba4c138](https://github.com/namhtpyn/pathbridge/commit/ba4c13814c500b150f5dd58b094e1510ea883058))
+
+
+### Features
+
+* API keys with per-key permission scoping ([06c500c](https://github.com/namhtpyn/pathbridge/commit/06c500cc34fc173cc5f650f078946e491918e34a))
+
 ## [1.27.1](https://github.com/namhtpyn/pathbridge/compare/v1.27.0...v1.27.1) (2026-10-07)
 
 
