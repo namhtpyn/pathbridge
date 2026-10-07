@@ -12,15 +12,6 @@ const BUILTIN = [
       Object.entries(STATEMENTS).map(([r, actions]) => [r, [...actions]]),
     ),
   },
-]
-
-// Roles demoted from builtin in earlier versions: boot converts them to
-// regular editable/deletable roles so existing assignments keep working.
-const DEMOTED = ['operator', 'viewer']
-
-// viewer is the default role for new users: seeded as a REGULAR role so
-// admins can edit or delete it, but a fresh install still has a sane default.
-const SEEDED_REGULAR = [
   {
     name: 'viewer',
     description: 'Read-only on own records (default for new users)',
@@ -30,6 +21,10 @@ const SEEDED_REGULAR = [
     },
   },
 ]
+
+// Roles demoted from builtin in earlier versions: boot converts them to
+// regular editable/deletable roles so existing assignments keep working.
+const DEMOTED = ['operator']
 
 export default defineEventHandler(async () => {
   const existing = await db.query.roles.findMany()
@@ -46,22 +41,14 @@ export default defineEventHandler(async () => {
       updatedAt: now,
     })
   }
-  for (const r of SEEDED_REGULAR) {
-    if (existing.some(e => e.name === r.name)) continue
-    await db.insert(rolesTable).values({
-      id: crypto.randomUUID(),
-      name: r.name,
-      description: r.description,
-      statements: r.statements,
-      builtin: false,
-      createdAt: now,
-      updatedAt: now,
-    })
-  }
   for (const name of DEMOTED) {
     await db.update(rolesTable)
       .set({ builtin: false })
       .where(eq(rolesTable.name, name))
   }
+  // upgrade path: earlier versions seeded viewer as non-builtin
+  await db.update(rolesTable)
+    .set({ builtin: true })
+    .where(eq(rolesTable.name, 'viewer'))
   return true
 })
