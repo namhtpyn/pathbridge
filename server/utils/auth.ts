@@ -42,7 +42,7 @@ export async function resolveAuthPolicy(): Promise<AuthPolicy> {
   return { oidcEnabled, passwordEnabled, issuer, clientId, clientSecret }
 }
 
-async function anyUserExists(): Promise<boolean> {
+export async function anyUserExists(): Promise<boolean> {
   return await db.query.user.findFirst({ columns: { id: true } }).then(r => r != null)
 }
 
@@ -96,8 +96,10 @@ async function buildAuth(): Promise<Auth> {
     databaseHooks: {
       user: {
         create: {
-          // public deployments: first user claims the instance, sign-up closes after
-          before: async () => (await anyUserExists() ? false : undefined),
+          // first-user gate lives in routes/auth/[...].ts (blocks /auth/sign-up/email
+          // once any user exists) - a DB hook here would also kill OIDC first logins,
+          // which must be allowed whenever OIDC is configured.
+          before: undefined,
           after: async (user) => {
             // first user claims the instance -> admin role
             if (user && typeof user === 'object' && 'id' in user) {

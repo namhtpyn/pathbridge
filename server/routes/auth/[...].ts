@@ -1,5 +1,5 @@
 // Mount better-auth under /auth/* — basePath is /auth in the auth config,
-import { resolveAuthPolicy } from '../../utils/auth'
+import { resolveAuthPolicy, anyUserExists } from '../../utils/auth'
 // so the handler expects the FULL original path; no rewriting needed.
 import type { H3Event } from 'h3'
 import { getAuth } from '../../utils/auth'
@@ -33,6 +33,13 @@ export default defineEventHandler(async (event) => {
   //  - password sign-in rejected when password login is disabled
   //  - OIDC endpoints 404 unless OIDC is fully configured
   const full = event.node.req.url ?? ''
+  // public deployments: password sign-up closes after the first user claims the
+  // instance. OIDC user creation is NOT gated (admin enabled the provider).
+  if (event.method === 'POST' && full.includes('/auth/sign-up/email')) {
+    if (await anyUserExists()) {
+      throw createError({ statusCode: 403, statusMessage: 'sign-up is closed' })
+    }
+  }
   if (event.method === 'POST' && full.includes('/auth/sign-in/email')) {
     const { passwordEnabled } = await resolveAuthPolicy()
     if (!passwordEnabled) {
