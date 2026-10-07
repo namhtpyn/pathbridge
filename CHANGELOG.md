@@ -1,3 +1,10 @@
+## [1.12.3](https://github.com/namhtpyn/pathbridge/compare/v1.12.2...v1.12.3) (2026-10-07)
+
+
+### Bug Fixes
+
+* modal consistency, profile close bug, mobile button alignment ([59f7119](https://github.com/namhtpyn/pathbridge/commit/59f7119fd0b006a0df64ef84ab648dc8e75f7e49))
+
 ## [1.12.2](https://github.com/namhtpyn/pathbridge/compare/v1.12.1...v1.12.2) (2026-10-07)
 
 
