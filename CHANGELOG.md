@@ -1,3 +1,10 @@
+# [1.19.0](https://github.com/namhtpyn/pathbridge/compare/v1.18.0...v1.19.0) (2026-10-07)
+
+
+### Features
+
+* tighten builtin roles ([79a0e4e](https://github.com/namhtpyn/pathbridge/commit/79a0e4e9efeae557da4de343e9265e84724a4acb))
+
 # [1.18.0](https://github.com/namhtpyn/pathbridge/compare/v1.17.0...v1.18.0) (2026-10-07)
 
 
