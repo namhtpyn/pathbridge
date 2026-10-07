@@ -631,7 +631,7 @@ const tabs = computed(() => [
 
 const userMenuItems = computed(() => [[
   { label: session.value?.user.email, icon: 'i-lucide-user', disabled: true, class: 'opacity-60' },
-  { label: 'Profile', icon: 'i-lucide-id-card', onSelect: () => { profileOpen.value = true } },
+  { label: 'Profile', icon: 'i-lucide-id-card', onSelect: openProfile },
   { label: 'Sign out', icon: 'i-lucide-log-out', onSelect: logout },
 ]])
 
@@ -648,6 +648,7 @@ const pwBusy = ref(false)
 function openProfile() {
   profile.name = session.value?.user.name ?? ''
   profile.email = session.value?.user.email ?? ''
+  pwForm.current = ''; pwForm.next = ''; pwForm.confirm = ''
   profileOpen.value = true
 }
 
@@ -657,7 +658,11 @@ async function saveProfile() {
     const body: Record<string, string> = {}
     if (profile.name.trim() && profile.name !== session.value?.user.name) body.name = profile.name.trim()
     if (profile.email.trim() && profile.email !== session.value?.user.email) body.email = profile.email.trim()
-    if (Object.keys(body).length === 0) { busy.value = false; return }
+    if (Object.keys(body).length === 0) {
+      busy.value = false
+      toast.add({ title: 'No changes to save', color: 'neutral' })
+      return
+    }
     await $fetch('/auth/update-user', { method: 'POST', body })
     session.value = { ...session.value!, user: { ...session.value!.user, ...body } }
     toast.add({ title: 'Profile updated', color: 'success' })
