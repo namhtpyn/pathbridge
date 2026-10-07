@@ -74,90 +74,90 @@
               <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Pairs</h2>
               <p class="text-sm text-zinc-500">Route incoming paths to upstream origins</p>
             </div>
-            <UButton v-if="can('pairs', 'create')" icon="i-lucide-plus" label="New pair" @click="openEditor()" />
+            <UButton v-if="can('pairs', 'create')" icon="i-lucide-plus" label="New pair" class="self-end sm:self-auto" @click="openEditor()" />
           </div>
 
           <UModal :open="!!editing" :title="editing === 'new' ? 'Create pair' : `Edit ${editing}`" @update:open="v => !v && reset()">
             <template #body>
             <UForm :state="form" :validate="validatePair" class="grid gap-5 sm:grid-cols-2" @submit="save">
               <UFormField name="path">
-                <template #label><span class="flex items-center gap-1.5">Path
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+                <template #label>Path</template>
+                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
                   <template #default>
                     <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                   </template>
                   <template #content>
-                    <div class="max-w-64 space-y-1.5">
+                    <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                       <p class="text-xs font-semibold text-white">Path</p>
                       <p class="text-xs text-zinc-200">The incoming request path this pair claims. Exact paths match only themselves. End with <code>/*</code> to match everything beneath.</p>
                     <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. /hook, /hook/*, /</p>
                     </div>
                   </template>
-                </UTooltip></span></template>
+                </UPopover></template>
                 <UInput v-model="form.path" placeholder="/hook or /hook/*" icon="i-lucide-slash" class="w-full" />
                 <template #help><span>{{ pathHelp }}</span></template>
               </UFormField>
               <UFormField name="target">
-                <template #label><span class="flex items-center gap-1.5">Target origin
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+                <template #label>Target origin</template>
+                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
                   <template #default>
                     <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                   </template>
                   <template #content>
-                    <div class="max-w-64 space-y-1.5">
+                    <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                       <p class="text-xs font-semibold text-white">Target origin</p>
-                      <p class="text-xs text-zinc-200">Absolute http(s) URL of the upstream to forward to. Must be an origin only — no path, query, or fragment.</p>
+                      <p class="text-xs text-zinc-200">Absolute http(s) URL of the upstream. A path here becomes a prefix on every forwarded request. No query or fragment.</p>
                     <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. https://api.example.com</p>
                     </div>
                   </template>
-                </UTooltip></span></template>
+                </UPopover></template>
                 <UInput v-model="form.target" placeholder="https://api.example.com" icon="i-lucide-globe" class="w-full" />
               </UFormField>
               <UFormField name="upstreamHost">
-                <template #label><span class="flex items-center gap-1.5">Host header override
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+                <template #label>Host header override</template>
+                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
                   <template #default>
                     <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                   </template>
                   <template #content>
-                    <div class="max-w-64 space-y-1.5">
+                    <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                       <p class="text-xs font-semibold text-white">Host header override</p>
                       <p class="text-xs text-zinc-200">Host header sent to the upstream. Leave empty to use the target's own hostname. Some services (CDNs, SNI-based routers) need a specific value.</p>
                     <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. api.example.com:8443</p>
                     </div>
                   </template>
-                </UTooltip></span></template>
+                </UPopover></template>
                 <UInput v-model="form.upstreamHost" placeholder="api.example.com" icon="i-lucide-server" class="w-full" />
               </UFormField>
               <UFormField name="note">
-                <template #label><span class="flex items-center gap-1.5">Note
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+                <template #label>Note</template>
+                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
                   <template #default>
                     <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                   </template>
                   <template #content>
-                    <div class="max-w-64 space-y-1.5">
+                    <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                       <p class="text-xs font-semibold text-white">Note</p>
                       <p class="text-xs text-zinc-200">Free-form reminder of what this pair is for — shown only in this admin list.</p>
                     <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. webhooks from partner X</p>
                     </div>
                   </template>
-                </UTooltip></span></template>
+                </UPopover></template>
                 <UInput v-model="form.note" placeholder="webhooks from partner X" icon="i-lucide-notebook-pen" class="w-full" />
               </UFormField>
               <UFormField name="methods">
-                <template #label><span class="flex items-center gap-1.5">Allowed methods
-                  <UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+                <template #label>Allowed methods</template>
+                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
                     <template #content>
-                      <div class="max-w-64 space-y-1.5">
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                         <p class="text-xs font-semibold text-white">Allowed methods</p>
                         <p class="text-xs text-zinc-200">Only the selected HTTP verbs are forwarded; anything else gets 405. Leave "All" on to forward everything.</p>
                       </div>
                     </template>
-                  </UTooltip></span></template>
+                  </UPopover></template>
                 <div class="flex flex-wrap items-center gap-2">
                   <UCheckbox v-model="form.methodsAll" label="All" @update:model-value="() => { if (form.methodsAll) form.methods = [] }" />
                   <template v-for="verb in allVerbs" :key="verb">
@@ -176,21 +176,21 @@
                 </div>
               </UFormField>
               <div class="flex flex-wrap items-center gap-x-6 gap-y-3 sm:col-span-2">
-                <USwitch v-model="form.stripPrefix" :disabled="!isWildcard">
-                <template #label><span class="flex items-center gap-1.5">Strip prefix
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
-                  <template #default>
-                    <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                  </template>
-                  <template #content>
-                    <div class="max-w-64 space-y-1.5">
-                      <p class="text-xs font-semibold text-white">Strip prefix</p>
-                      <p class="text-xs text-zinc-200">Remove the pair’s base path before forwarding, so <code>/hook/x</code> arrives upstream as <code>/x</code>. Wildcard pairs only.</p>
-                    <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. /hook/* + strip → upstream sees /x</p>
-                    </div>
-                  </template>
-                </UTooltip></span></template>
-              </USwitch>
+                <div class="flex items-center gap-1.5">
+                  <USwitch v-model="form.stripPrefix" :disabled="!isWildcard" label="Strip prefix" />
+                  <UPopover :content="{ side: 'top', align: 'center' }">
+                    <template #default>
+                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+                    </template>
+                    <template #content>
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                        <p class="text-xs font-semibold text-white">Strip prefix</p>
+                        <p class="text-xs text-zinc-200">Remove the pair’s base path before forwarding, so <code>/hook/x</code> arrives upstream as <code>/x</code>. Wildcard pairs only.</p>
+                        <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. /hook/* + strip → upstream sees /x</p>
+                      </div>
+                    </template>
+                  </UPopover>
+                </div>
                 <USwitch v-model="form.enabled" label="Enabled" />
               </div>
               <div class="flex justify-end gap-2 sm:col-span-2">
@@ -251,18 +251,18 @@
             <UForm :state="settingsForm" class="space-y-5" @submit="saveSettings">
               <UFormField name="logRetentionDays">
                 <template #label><span class="flex items-center gap-1.5">Retention (days)
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+<UPopover :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
                     <template #content>
-                      <div class="max-w-64 space-y-1.5">
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                         <p class="text-xs font-semibold text-white">Retention</p>
                         <p class="text-xs text-zinc-200">Access-log entries older than this many days are deleted automatically (sweeper runs every 6 hours).</p>
                       <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. 30 (default) · 0 = keep forever</p>
                       </div>
                     </template>
-                  </UTooltip></span></template>
+                  </UPopover></span></template>
                 <UInputNumber v-model="settingsForm.logRetentionDays" :min="0" :max="3650" class="w-full max-w-48" />
               </UFormField>
               <USeparator />
@@ -271,67 +271,67 @@
                 <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Authentication</h3>
               </div>
               <UFormField name="oidcIssuer">
-                <template #label><span class="flex items-center gap-1.5">OIDC issuer URL
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+                <template #label>OIDC issuer URL</template>
+                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
                     <template #content>
-                      <div class="max-w-64 space-y-1.5">
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                         <p class="text-xs font-semibold text-white">OIDC issuer</p>
                         <p class="text-xs text-zinc-200">Base URL of your OpenID Connect provider. pathbridge fetches <code>/.well-known/openid-configuration</code> from it. Takes precedence over the env vars.</p>
                       <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. https://login.microsoftonline.com/&lt;tenant&gt;/v2.0</p>
                       </div>
                     </template>
-                  </UTooltip></span></template>
+                  </UPopover></template>
                 <UInput v-model="settingsForm.oidcIssuer" placeholder="https://issuer.example.com" icon="i-lucide-globe" class="w-full" />
               </UFormField>
               <div class="grid gap-5 sm:grid-cols-2">
                 <UFormField name="oidcClientId">
-                  <template #label><span class="flex items-center gap-1.5">Client ID
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+                  <template #label>Client ID</template>
+                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
                     <template #content>
-                      <div class="max-w-64 space-y-1.5">
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                         <p class="text-xs font-semibold text-white">Client ID</p>
                         <p class="text-xs text-zinc-200">Public client identifier issued by your OIDC provider for this app.</p>
                       </div>
                     </template>
-                  </UTooltip></span></template>
+                  </UPopover></template>
                   <UInput v-model="settingsForm.oidcClientId" icon="i-lucide-fingerprint" class="w-full" />
                 </UFormField>
                 <UFormField name="oidcClientSecret">
-                  <template #label><span class="flex items-center gap-1.5">Client secret
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+                  <template #label>Client secret</template>
+                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
                     <template #content>
-                      <div class="max-w-64 space-y-1.5">
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                         <p class="text-xs font-semibold text-white">Client secret</p>
                         <p class="text-xs text-zinc-200">Secret shared with the provider. Stored server-side and never displayed again — leave blank to keep the stored one.</p>
                       </div>
                     </template>
-                  </UTooltip></span></template>
+                  </UPopover></template>
                   <UInput v-model="settingsForm.oidcClientSecret" type="password" icon="i-lucide-key-round" class="w-full" placeholder="••••••••" />
                 </UFormField>
               </div>
               <UAlert v-if="settingsEnvOidc" icon="i-lucide-info" color="info" variant="subtle" title="OIDC is also configured via environment variables" description="Settings values take precedence." />
               <USwitch v-model="settingsForm.disablePasswordLogin" :disabled="!oidcReady">
               <template #label><span class="flex items-center gap-1.5">Disable email + password login
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+<UPopover :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
                     <template #content>
-                      <div class="max-w-64 space-y-1.5">
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                         <p class="text-xs font-semibold text-white">Disable password login</p>
                         <p class="text-xs text-zinc-200">Turns off the email + password sign-in form entirely; everyone signs in via OIDC. Requires OIDC to be fully configured first — this prevents locking yourself out.</p>
                       </div>
                     </template>
-                  </UTooltip></span></template>
+                  </UPopover></span></template>
               </USwitch>
               <div class="flex justify-end">
                 <UButton type="submit" icon="i-lucide-save" :loading="busy" label="Save settings" />
@@ -347,7 +347,7 @@
               <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Users</h2>
               <p class="text-sm text-zinc-500">Who can manage this bridge</p>
             </div>
-            <UButton icon="i-lucide-user-plus" label="Add user" @click="showAddUser = !showAddUser" />
+            <UButton icon="i-lucide-user-plus" label="Add user" class="self-end sm:self-auto" @click="showAddUser = !showAddUser" />
           </div>
 
           <UModal :open="showAddUser" title="Add user" description="Create a new account and assign its role" @update:open="v => showAddUser = v">
@@ -360,19 +360,19 @@
                 <UInput v-model="newUser.name" icon="i-lucide-user" class="w-full" />
               </UFormField>
               <UFormField name="password">
-                <template #label><span class="flex items-center gap-1.5">Password
-<UTooltip :open-delay="100" :close-delay="50" :content="{ side: 'top', align: 'center' }">
+                <template #label>Password</template>
+                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
                     <template #content>
-                      <div class="max-w-64 space-y-1.5">
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                         <p class="text-xs font-semibold text-white">Password</p>
                         <p class="text-xs text-zinc-200">Initial password for the new user — they (or you) can change it later via Reset password.</p>
                       <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. min 8 characters</p>
                       </div>
                     </template>
-                  </UTooltip></span></template>
+                  </UPopover></template>
                 <UInput v-model="newUser.password" type="password" icon="i-lucide-lock" class="w-full" />
               </UFormField>
               <div class="flex items-end justify-end gap-2">
@@ -416,7 +416,7 @@
               <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Roles</h2>
               <p class="text-sm text-zinc-500">Bundle permissions; assign to users in the Users tab.</p>
             </div>
-            <UButton icon="i-lucide-plus" label="New role" class="self-end sm:self-auto" :disabled="!can('roles', 'create')" @click="openRoleEditor" />
+            <UButton icon="i-lucide-plus" label="New role" class="self-end sm:self-auto" :disabled="!can('roles', 'create')" @click="openRoleEditor()" />
           </div>
 
           <div class="space-y-3">
@@ -437,6 +437,11 @@
               </div>
               <div class="flex shrink-0 items-start justify-end">
                 <UButton
+                  icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit role"
+                  :disabled="r.builtin || !can('roles', 'update')"
+                  @click="openRoleEditor(r)"
+                />
+                <UButton
                   icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" aria-label="Delete role"
                   :disabled="r.builtin || !can('roles', 'delete')"
                   @click="deleteRole(r)"
@@ -445,11 +450,11 @@
             </div>
           </div>
 
-          <UModal v-model:open="roleModalOpen" title="New role" description="Bundle permissions into a reusable role">
+          <UModal v-model:open="roleModalOpen" :title="editingRoleId ? `Edit ${roleForm.name}` : 'New role'" :description="editingRoleId ? (builtinEdit ? 'Builtin roles cannot be modified' : 'Adjust description and permissions') : 'Bundle permissions into a reusable role'">
             <template #body>
               <UForm :state="roleForm" :validate="validateRole" class="grid gap-5" @submit="saveRole">
-                <UFormField label="Name" name="name" hint="lowercase, hyphens">
-                  <UInput v-model="roleForm.name" icon="i-lucide-shield" placeholder="e.g. auditor" class="w-full" />
+                <UFormField label="Name" name="name" hint="lowercase, hyphens; immutable">
+                  <UInput v-model="roleForm.name" icon="i-lucide-shield" placeholder="e.g. auditor" class="w-full" :disabled="!!editingRoleId" />
                 </UFormField>
                 <UFormField label="Description" name="description">
                   <UInput v-model="roleForm.description" icon="i-lucide-pen-line" placeholder="optional" class="w-full" />
@@ -470,7 +475,7 @@
                 </UFormField>
                 <div class="flex items-end justify-end gap-2">
                   <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="roleModalOpen = false" />
-                  <UButton type="submit" icon="i-lucide-plus" :loading="busy" label="Create role" />
+                  <UButton type="submit" :icon="editingRoleId ? 'i-lucide-check' : 'i-lucide-plus'" :loading="busy" :label="editingRoleId ? 'Save changes' : 'Create role'" />
                 </div>
               </UForm>
             </template>
@@ -487,8 +492,8 @@
               </p>
             </div>
             <div class="flex items-center gap-2 self-end sm:self-auto">
-              <UButton v-if="logFilter" variant="soft" color="neutral" icon="i-lucide-x" label="Clear filter" @click="logFilter = null; loadLogs()" />
-              <UButton icon="i-lucide-refresh-cw" variant="soft" color="neutral" label="Refresh" :loading="logsBusy" @click="loadLogs()" />
+              <UButton v-if="logFilter" variant="outline" color="neutral" icon="i-lucide-x" label="Clear filter" @click="logFilter = null; loadLogs()" />
+              <UButton icon="i-lucide-refresh-cw" variant="outline" color="neutral" label="Refresh" :loading="logsBusy" @click="loadLogs()" />
             </div>
           </div>
 
@@ -595,7 +600,7 @@
 </template>
 
 <script setup lang="ts">
-import type { PairRow, PairsResponse } from '../../shared/types'
+import type { PairRow, PairsResponse } from '../../../shared/types'
 import { pairSubmitSchema } from '~/utils/pair-form'
 
 interface SessionUser { id: string, name?: string | null, email: string }
@@ -704,6 +709,8 @@ const roles = ref<RoleRow[]>([])
 const vocabulary = ref<Record<string, string[]>>({})
 const roleModalOpen = ref(false)
 const roleForm = reactive({ name: '', description: '', statements: {} as Record<string, string[]> })
+const editingRoleId = ref<string | null>(null)
+const builtinEdit = computed(() => roles.value.find(r => r.id === editingRoleId.value)?.builtin ?? false)
 
 async function loadRoles() {
   const data = await $fetch<{ roles: RoleRow[], vocabulary: Record<string, string[]> }>('/api/roles')
@@ -718,10 +725,19 @@ function validateRole(state: { name: string }): Array<{ name: string, message: s
   return errs
 }
 
-function openRoleEditor() {
-  roleForm.name = ''
-  roleForm.description = ''
-  roleForm.statements = {}
+function openRoleEditor(role?: RoleRow) {
+  if (role) {
+    editingRoleId.value = role.id
+    roleForm.name = role.name
+    roleForm.description = role.description ?? ''
+    roleForm.statements = JSON.parse(JSON.stringify(role.statements ?? {}))
+  }
+  else {
+    editingRoleId.value = null
+    roleForm.name = ''
+    roleForm.description = ''
+    roleForm.statements = {}
+  }
   roleModalOpen.value = true
 }
 
@@ -733,17 +749,26 @@ function toggleStatement(resource: string, stmt: string) {
 async function saveRole() {
   busy.value = true
   try {
-    await $fetch('/api/roles', {
-      method: 'POST',
-      body: { name: roleForm.name.trim().toLowerCase(), description: roleForm.description.trim() || null, statements: roleForm.statements },
-    })
+    if (editingRoleId.value) {
+      await $fetch(`/api/roles/${encodeURIComponent(editingRoleId.value)}`, {
+        method: 'PUT',
+        body: { description: roleForm.description.trim() || null, statements: roleForm.statements },
+      })
+      toast.add({ title: 'Role updated', color: 'success' })
+    }
+    else {
+      await $fetch('/api/roles', {
+        method: 'POST',
+        body: { name: roleForm.name.trim().toLowerCase(), description: roleForm.description.trim() || null, statements: roleForm.statements },
+      })
+      toast.add({ title: 'Role created', color: 'success' })
+    }
     await loadRoles()
     roleModalOpen.value = false
-    toast.add({ title: 'Role created', color: 'success' })
   }
   catch (e: unknown) {
     const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Create failed', description: err.data?.statusMessage || err.message, color: 'error' })
+    toast.add({ title: editingRoleId.value ? 'Update failed' : 'Create failed', description: err.data?.statusMessage || err.message, color: 'error' })
   }
   busy.value = false
 }

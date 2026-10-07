@@ -64,6 +64,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 405, statusMessage: `Method ${event.method} not allowed for this pair` })
   }
 
+  // target may carry its own path prefix: https://upstream/base + request rest
   const target = best.target.replace(/\/+$/, '')
   let rest = path
   if (best.stripPrefix && best.path.endsWith('/*')) {

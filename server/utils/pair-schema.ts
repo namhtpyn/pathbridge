@@ -8,15 +8,17 @@
 // stripPrefix is only valid on wildcard paths (what would it strip otherwise?)
 import { z } from 'zod'
 
-const httpOrigin = z.string().min(1, 'target is required').max(2048).refine((t) => {
+// target: http(s) URL; a path is allowed and becomes the path prefix for
+// forwarded requests. No query/hash (query strings belong to the request).
+const httpTarget = z.string().min(1, 'target is required').max(2048).refine((t) => {
   try {
     const u = new URL(t)
     return (u.protocol === 'http:' || u.protocol === 'https:')
-      && (u.pathname === '/' || u.pathname === '')
+      && u.search === ''
       && u.hash === ''
   }
   catch { return false }
-}, 'target must be an http(s) origin only (no path)')
+}, 'target must be an http(s) URL without query or fragment')
 
 const validPairPath = z.string().min(1).max(512)
   .startsWith('/', 'path must start with "/"')
@@ -42,7 +44,7 @@ export const pairInputSchema = z.strictObject({
   /** When present: UPDATE this row (path rename allowed). Absent: upsert by path. */
   id: z.number().int().positive().optional(),
   path: validPairPath,
-  target: httpOrigin,
+  target: httpTarget,
   upstreamHost: z.string().min(1).max(253)
     .regex(/^[a-zA-Z0-9.-]+(:\d{1,5})?$/, 'upstreamHost must be host[:port]').optional(),
   stripPrefix: z.boolean().optional().default(false),
