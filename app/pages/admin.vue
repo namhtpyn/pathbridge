@@ -557,6 +557,37 @@
       </template>
     </UModal>
 
+    <!-- profile modal -->
+    <UModal v-model:open="profileOpen" title="Profile" @update:open="openProfile">
+      <template #body>
+        <div class="space-y-6">
+          <div class="space-y-3">
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Account</h3>
+            <UFormField label="Name" size="sm">
+              <UInput v-model="profile.name" icon="i-lucide-user" placeholder="Your name" class="w-full" />
+            </UFormField>
+            <UFormField label="Email" size="sm">
+              <UInput v-model="profile.email" type="email" icon="i-lucide-mail" placeholder="you@example.com" class="w-full" />
+            </UFormField>
+            <UButton :loading="busy" label="Save changes" icon="i-lucide-check" size="sm" class="mt-1" @click="saveProfile" />
+          </div>
+          <USeparator />
+          <div class="space-y-3">
+            <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Password</h3>
+            <UFormField label="Current password" size="sm">
+              <UInput v-model="pwForm.current" type="password" icon="i-lucide-lock" class="w-full" />
+            </UFormField>
+            <UFormField label="New password" size="sm">
+              <UInput v-model="pwForm.next" type="password" icon="i-lucide-lock" placeholder="min 8 characters" class="w-full" />
+            </UFormField>
+            <UFormField label="Confirm new password" size="sm">
+              <UInput v-model="pwForm.confirm" type="password" icon="i-lucide-lock" class="w-full" />
+            </UFormField>
+            <UButton :loading="pwBusy" color="neutral" label="Change password" icon="i-lucide-key-round" size="sm" class="mt-1" @click="changePassword" />
+          </div>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>
 
@@ -599,11 +630,65 @@ const tabs = computed(() => [
 
 const userMenuItems = computed(() => [[
   { label: session.value?.user.email, icon: 'i-lucide-user', disabled: true, class: 'opacity-60' },
+  { label: 'Profile', icon: 'i-lucide-id-card', onSelect: () => { profileOpen.value = true } },
   { label: 'Sign out', icon: 'i-lucide-log-out', onSelect: logout },
 ]])
 
 const activePairCount = computed(() => pairs.value.filter(p => p.enabled).length)
 
+
+
+// ---------- profile ----------
+const profileOpen = ref(false)
+const profile = reactive({ name: '', email: '' })
+const pwForm = reactive({ current: '', next: '', confirm: '' })
+const pwBusy = ref(false)
+
+function openProfile() {
+  profile.name = session.value?.user.name ?? ''
+  profile.email = session.value?.user.email ?? ''
+  profileOpen.value = true
+}
+
+async function saveProfile() {
+  busy.value = true
+  try {
+    const body: Record<string, string> = {}
+    if (profile.name.trim() && profile.name !== session.value?.user.name) body.name = profile.name.trim()
+    if (profile.email.trim() && profile.email !== session.value?.user.email) body.email = profile.email.trim()
+    if (Object.keys(body).length === 0) { busy.value = false; return }
+    await $fetch('/auth/update-user', { method: 'POST', body })
+    session.value = { ...session.value!, user: { ...session.value!.user, ...body } }
+    toast.add({ title: 'Profile updated', color: 'success' })
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string, message?: string }, message?: string }
+    toast.add({ title: 'Update failed', description: err.data?.statusMessage || err.data?.message || err.message, color: 'error' })
+  }
+  busy.value = false
+}
+
+async function changePassword() {
+  if (pwForm.next !== pwForm.confirm) {
+    toast.add({ title: 'Passwords do not match', color: 'error' })
+    return
+  }
+  if (pwForm.next.length < 8) {
+    toast.add({ title: 'Password too short', description: 'Minimum 8 characters', color: 'error' })
+    return
+  }
+  pwBusy.value = true
+  try {
+    await $fetch('/auth/change-password', { method: 'POST', body: { currentPassword: pwForm.current, newPassword: pwForm.next, revokeOtherSessions: true } })
+    pwForm.current = ''; pwForm.next = ''; pwForm.confirm = ''
+    toast.add({ title: 'Password changed', description: 'Other sessions were signed out', color: 'success' })
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string, message?: string }, message?: string }
+    toast.add({ title: 'Change failed', description: err.data?.statusMessage || err.data?.message || err.message, color: 'error' })
+  }
+  pwBusy.value = false
+}
 
 // ---------- roles ----------
 interface RoleRow { id: string, name: string, description: string | null, statements: Record<string, string[]>, builtin: boolean }
