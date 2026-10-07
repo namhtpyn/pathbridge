@@ -523,7 +523,17 @@
                           <span v-if="!row.getIsGrouped()" class="font-mono text-xs text-zinc-500 dark:text-zinc-400">{{ row.original.action }}</span>
                         </template>
                         <template #none-cell="{ row }">
-                          <div v-if="!row.getIsGrouped()" class="flex justify-center">
+                          <div v-if="row.getIsGrouped()" class="flex justify-center">
+                            <URadioGroup
+                              :model-value="masterScopeFor(row.original.resource)"
+                              :items="[{ label: '', value: 'none' }]"
+                              variant="list"
+                              :name="`${row.original.resource}-master-none`"
+                              :ui="{ fieldset: 'justify-center' }"
+                              @update:model-value="() => setMasterScope(row.original.resource, 'none')"
+                            />
+                          </div>
+                          <div v-else class="flex justify-center">
                             <URadioGroup
                               :model-value="scopeFor(row.original.resource, row.original.action)"
                               :items="[{ label: '', value: 'none' }]"
@@ -535,7 +545,17 @@
                           </div>
                         </template>
                         <template #own-cell="{ row }">
-                          <div v-if="!row.getIsGrouped() && scopeAvailable(row.original.resource, row.original.action, 'own')" class="flex justify-center">
+                          <div v-if="row.getIsGrouped() && masterOwnAvailable(row.original.resource)" class="flex justify-center">
+                            <URadioGroup
+                              :model-value="masterScopeFor(row.original.resource)"
+                              :items="[{ label: '', value: 'own' }]"
+                              variant="list"
+                              :name="`${row.original.resource}-master-own`"
+                              :ui="{ fieldset: 'justify-center' }"
+                              @update:model-value="() => setMasterScope(row.original.resource, 'own')"
+                            />
+                          </div>
+                          <div v-else-if="!row.getIsGrouped() && scopeAvailable(row.original.resource, row.original.action, 'own')" class="flex justify-center">
                             <URadioGroup
                               :model-value="scopeFor(row.original.resource, row.original.action)"
                               :items="[{ label: '', value: 'own' }]"
@@ -547,7 +567,17 @@
                           </div>
                         </template>
                         <template #all-cell="{ row }">
-                          <div v-if="!row.getIsGrouped() && scopeAvailable(row.original.resource, row.original.action, 'all')" class="flex justify-center">
+                          <div v-if="row.getIsGrouped()" class="flex justify-center">
+                            <URadioGroup
+                              :model-value="masterScopeFor(row.original.resource)"
+                              :items="[{ label: '', value: 'all' }]"
+                              variant="list"
+                              :name="`${row.original.resource}-master-all`"
+                              :ui="{ fieldset: 'justify-center' }"
+                              @update:model-value="() => setMasterScope(row.original.resource, 'all')"
+                            />
+                          </div>
+                          <div v-else-if="!row.getIsGrouped() && scopeAvailable(row.original.resource, row.original.action, 'all')" class="flex justify-center">
                             <URadioGroup
                               :model-value="scopeFor(row.original.resource, row.original.action)"
                               :items="[{ label: '', value: 'all' }]"
@@ -876,6 +906,30 @@ function scopeFor(resource: string, action: string): 'none' | 'own' | 'all' {
   if (cur.includes(`${action}:all`)) return 'all'
   if (cur.includes(`${action}:own`)) return 'own'
   return 'none'
+}
+
+/** Master radio state for a resource group: uniform scope, or 'mixed' (nothing checked). */
+function masterScopeFor(resource: string): 'none' | 'own' | 'all' | 'mixed' {
+  const actions = resourceActions(resource)
+  if (!actions.length) return 'none'
+  const scopes = actions.map(a => scopeFor(resource, a))
+  const first = scopes[0] ?? 'none'
+  if (scopes.every(x => x === first)) return first
+  return 'mixed'
+}
+
+/** Does any action of this resource support :own (master own visible)? */
+function masterOwnAvailable(resource: string): boolean {
+  return resourceActions(resource).some(a => scopeAvailable(resource, a, 'own'))
+}
+
+/** Master selection: set every action of the resource (own falls back to none where unavailable). */
+function setMasterScope(resource: string, scope: 'none' | 'own' | 'all') {
+  const next: string[] = []
+  for (const a of resourceActions(resource)) {
+    if (scope !== 'none' && scopeAvailable(resource, a, scope)) next.push(`${a}:${scope}`)
+  }
+  roleForm.statements[resource] = next
 }
 
 /** Radio selection: exclusive none/own/all per resource+action. */
