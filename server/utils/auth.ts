@@ -20,28 +20,24 @@ import { db } from '../db'
 import { user as userTable } from '../db/schema'
 import { authSchema } from '../db/schema'
 import { getSettings } from './settings'
+import { getOidcProviders, type OidcProvider } from './oidc'
 
 const env = process.env
 
 export interface AuthPolicy {
   oidcEnabled: boolean
   passwordEnabled: boolean
-  issuer: string | undefined
-  clientId: string | undefined
-  clientSecret: string | undefined
+  oidcProviders: OidcProvider[]
 }
 
 /** Settings-first, env-fallback policy resolution. */
 export async function resolveAuthPolicy(): Promise<AuthPolicy> {
   const s = await getSettings()
-  const issuer = s.oidcIssuer || env.OIDC_ISSUER
-  const clientId = s.oidcClientId || env.OIDC_CLIENT_ID
-  const clientSecret = s.oidcClientSecret || env.OIDC_CLIENT_SECRET
-  const oidcEnabled = Boolean(issuer && clientId && clientSecret)
+  const providers = await getOidcProviders()
+  const oidcEnabled = providers.length > 0
   const passwordEnabled = !(oidcEnabled && (s.disablePasswordLogin || env.OIDC_DISABLED_PASSWORD_LOGIN === 'true'))
-  return { oidcEnabled, passwordEnabled, issuer, clientId, clientSecret }
+  return { passwordEnabled, oidcEnabled, oidcProviders: providers }
 }
-
 export async function anyUserExists(): Promise<boolean> {
   return await db.query.user.findFirst({ columns: { id: true } }).then(r => r != null)
 }
@@ -78,7 +74,7 @@ let builtWith = ''
 function policyKey(p: AuthPolicy): string {
   // everything that feeds betterAuth() config — a stale instance would keep
   // serving the old OIDC secret. In-memory only; never logged.
-  return JSON.stringify([p.issuer, p.clientId, p.clientSecret, p.passwordEnabled])
+  return JSON.stringify([p.oidcProviders.map(x => [x.id, x.issuer, x.clientId, x.clientSecret]), p.passwordEnabled])
 }
 
 async function buildAuth(): Promise<Auth> {
@@ -127,15 +123,15 @@ async function buildAuth(): Promise<Auth> {
       bearer(),
       // long-lived revocable API keys (@better-auth/api-key)
       apiKey(),
-      ...(p.oidcEnabled
+      ...(p.oidcProviders.length > 0
         ? [
             genericOAuth({
-              config: [{
-                providerId: 'oidc',
-                discoveryUrl: `${p.issuer!.replace(/\/+$/, '')}/.well-known/openid-configuration`,
-                clientId: p.clientId!,
-                clientSecret: p.clientSecret!,
-              }],
+              config: p.oidcProviders.map(prov => ({
+                providerId: prov.id,
+                discoveryUrl: `${prov.issuer.replace(/\/+$/, '')}/.well-known/openid-configuration`,
+                clientId: prov.clientId,
+                clientSecret: prov.clientSecret,
+              })),
             }),
           ]
         : []),
