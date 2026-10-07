@@ -28,8 +28,11 @@ export default defineEventHandler(async (event) => {
   const seen = new Set<string>()
   for (const p of incoming) {
     const incomingId = p.id?.trim().toLowerCase() ?? ''
+    const prevId = existing.find(e => e.id === incomingId)
     const id = incomingId || newProviderId()
-    if (!validProviderId(id)) throw createError({ statusCode: 400, statusMessage: `invalid provider id: ${id}` })
+    // uuid-only for new providers; stored ids (incl. legacy slugs like the
+    // migrated 'oidc') pass through so their callback paths stay stable
+    if (!prevId && !validProviderId(id)) throw createError({ statusCode: 400, statusMessage: `invalid provider id: ${id}` })
     if (seen.has(id)) throw createError({ statusCode: 400, statusMessage: `duplicate provider id: ${id}` })
     seen.add(id)
     const prev = existing.find(e => e.id === id)
