@@ -1177,7 +1177,8 @@ const oidcReady = computed(() => settingsForm.oidcIssuer.trim().length > 0 && se
 
 async function loadPerms() {
   try {
-    const me = await $fetch<{ permissions: Record<string, string[]> }>('/api/me')
+    const headers = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+    const me = await $fetch<{ permissions: Record<string, string[]> }>('/api/me', { headers })
     perms.value = me.permissions ?? {}
   }
   catch { perms.value = {} }
@@ -1274,7 +1275,8 @@ async function logout() {
 }
 
 async function load() {
-  const data = await $fetch<PairsResponse>('/api/pairs')
+  const headers = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+  const data = await $fetch<PairsResponse>('/api/pairs', { headers })
   pairs.value = data.pairs
 }
 
