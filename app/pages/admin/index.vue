@@ -82,7 +82,7 @@
             <UForm :state="form" :validate="validatePair" class="grid gap-5 sm:grid-cols-2" @submit="save">
               <UFormField name="path">
                 <template #label>Path</template>
-                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                   <template #default>
                     <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                   </template>
@@ -99,7 +99,7 @@
               </UFormField>
               <UFormField name="target">
                 <template #label>Target origin</template>
-                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                   <template #default>
                     <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                   </template>
@@ -115,7 +115,7 @@
               </UFormField>
               <UFormField name="upstreamHost">
                 <template #label>Host header override</template>
-                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                   <template #default>
                     <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                   </template>
@@ -131,7 +131,7 @@
               </UFormField>
               <UFormField name="note">
                 <template #label>Note</template>
-                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                   <template #default>
                     <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                   </template>
@@ -147,7 +147,7 @@
               </UFormField>
               <UFormField name="methods">
                 <template #label>Allowed methods</template>
-                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
@@ -178,7 +178,7 @@
               <div class="flex flex-wrap items-center gap-x-6 gap-y-3 sm:col-span-2">
                 <div class="flex items-center gap-1.5">
                   <USwitch v-model="form.stripPrefix" :disabled="!isWildcard" label="Strip prefix" />
-                  <UPopover :content="{ side: 'top', align: 'center' }">
+                  <UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
@@ -250,19 +250,19 @@
             </template>
             <UForm :state="settingsForm" class="space-y-5" @submit="saveSettings">
               <UFormField name="logRetentionDays">
-                <template #label><span class="flex items-center gap-1.5">Retention (days)
-<UPopover :content="{ side: 'top', align: 'center' }">
+                <template #label>Retention (days)</template>
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
                     <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                         <p class="text-xs font-semibold text-white">Retention</p>
                         <p class="text-xs text-zinc-200">Access-log entries older than this many days are deleted automatically (sweeper runs every 6 hours).</p>
-                      <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. 30 (default) · 0 = keep forever</p>
+                        <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. 30 (default) · 0 = keep forever</p>
                       </div>
                     </template>
-                  </UPopover></span></template>
+                </UPopover></template>
                 <UInputNumber v-model="settingsForm.logRetentionDays" :min="0" :max="3650" class="w-full max-w-48" />
               </UFormField>
               <USeparator />
@@ -272,7 +272,7 @@
               </div>
               <UFormField name="oidcIssuer">
                 <template #label>OIDC issuer URL</template>
-                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
@@ -289,7 +289,7 @@
               <div class="grid gap-5 sm:grid-cols-2">
                 <UFormField name="oidcClientId">
                   <template #label>Client ID</template>
-                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
@@ -304,7 +304,7 @@
                 </UFormField>
                 <UFormField name="oidcClientSecret">
                   <template #label>Client secret</template>
-                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
@@ -319,9 +319,9 @@
                 </UFormField>
               </div>
               <UAlert v-if="settingsEnvOidc" icon="i-lucide-info" color="info" variant="subtle" title="OIDC is also configured via environment variables" description="Settings values take precedence." />
-              <USwitch v-model="settingsForm.disablePasswordLogin" :disabled="!oidcReady">
-              <template #label><span class="flex items-center gap-1.5">Disable email + password login
-<UPopover :content="{ side: 'top', align: 'center' }">
+              <div class="flex items-center gap-1.5">
+                <USwitch v-model="settingsForm.disablePasswordLogin" :disabled="!oidcReady" label="Disable email + password login" />
+                <UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
@@ -331,8 +331,8 @@
                         <p class="text-xs text-zinc-200">Turns off the email + password sign-in form entirely; everyone signs in via OIDC. Requires OIDC to be fully configured first — this prevents locking yourself out.</p>
                       </div>
                     </template>
-                  </UPopover></span></template>
-              </USwitch>
+                  </UPopover>
+              </div>
               <div class="flex justify-end">
                 <UButton type="submit" icon="i-lucide-save" :loading="busy" label="Save settings" />
               </div>
@@ -361,7 +361,7 @@
               </UFormField>
               <UFormField name="password">
                 <template #label>Password</template>
-                <template #hint><UPopover :content="{ side: 'top', align: 'center' }">
+                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                     <template #default>
                       <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
                     </template>
@@ -453,13 +453,52 @@
           <UModal v-model:open="roleModalOpen" :title="editingRoleId ? `Edit ${roleForm.name}` : 'New role'" :description="editingRoleId ? (builtinEdit ? 'Builtin roles cannot be modified' : 'Adjust description and permissions') : 'Bundle permissions into a reusable role'">
             <template #body>
               <UForm :state="roleForm" :validate="validateRole" class="grid gap-5" @submit="saveRole">
-                <UFormField label="Name" name="name" hint="lowercase, hyphens; immutable">
+                <UFormField name="name">
+                  <template #label>Name</template>
+                  <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+                    <template #default>
+                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+                    </template>
+                    <template #content>
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                        <p class="text-xs font-semibold text-white">Role name</p>
+                        <p class="text-xs text-zinc-200">Unique slug for the role. Assigned to users and API keys; immutable once created.</p>
+                        <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. auditor, deploy-eng</p>
+                      </div>
+                    </template>
+                </UPopover></template>
                   <UInput v-model="roleForm.name" icon="i-lucide-shield" placeholder="e.g. auditor" class="w-full" :disabled="!!editingRoleId" />
                 </UFormField>
-                <UFormField label="Description" name="description">
+                <UFormField name="description">
+                  <template #label>Description</template>
+                  <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+                    <template #default>
+                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+                    </template>
+                    <template #content>
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                        <p class="text-xs font-semibold text-white">Description</p>
+                        <p class="text-xs text-zinc-200">Free-form note explaining what this role is for. Shown in the roles list.</p>
+                        
+                      </div>
+                    </template>
+                </UPopover></template>
                   <UInput v-model="roleForm.description" icon="i-lucide-pen-line" placeholder="optional" class="w-full" />
                 </UFormField>
-                <UFormField label="Permissions" name="permissions" hint="click to toggle">
+                <UFormField name="permissions">
+                  <template #label>Permissions</template>
+                  <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+                    <template #default>
+                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+                    </template>
+                    <template #content>
+                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                        <p class="text-xs font-semibold text-white">Permissions</p>
+                        <p class="text-xs text-zinc-200">Statements follow action:scope. action:all implies action:own. Toggle the badges per resource; grey = granted, muted = off.</p>
+                        <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. read:all, update:own</p>
+                      </div>
+                    </template>
+                </UPopover></template>
                   <div class="w-full space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
                     <div v-for="(stmts, res) in vocabulary" :key="res">
                       <p class="mb-1.5 font-mono text-xs uppercase tracking-wide text-zinc-400">{{ res }}</p>

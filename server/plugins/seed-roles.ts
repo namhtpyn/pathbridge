@@ -1,5 +1,6 @@
 // Seed builtin roles at boot (idempotent).
 import { db } from '../db'
+import { eq } from 'drizzle-orm'
 import { roles as rolesTable } from '../db/schema'
 import { STATEMENTS } from '../utils/permissions'
 
@@ -11,17 +12,18 @@ const BUILTIN = [
       Object.entries(STATEMENTS).map(([r, actions]) => [r, [...actions]]),
     ),
   },
-  {
-    name: 'operator',
-    description: 'Manage own pairs, read logs',
-    statements: {
-      pairs: ['create:all', 'read:own', 'update:own', 'delete:own'],
-      logs: ['read:own'],
-    },
-  },
+]
+
+// Roles demoted from builtin in earlier versions: boot converts them to
+// regular editable/deletable roles so existing assignments keep working.
+const DEMOTED = ['operator', 'viewer']
+
+// viewer is the default role for new users: seeded as a REGULAR role so
+// admins can edit or delete it, but a fresh install still has a sane default.
+const SEEDED_REGULAR = [
   {
     name: 'viewer',
-    description: 'Read-only on own records',
+    description: 'Read-only on own records (default for new users)',
     statements: {
       pairs: ['read:own'],
       logs: ['read:own'],
@@ -43,6 +45,23 @@ export default defineEventHandler(async () => {
       createdAt: now,
       updatedAt: now,
     })
+  }
+  for (const r of SEEDED_REGULAR) {
+    if (existing.some(e => e.name === r.name)) continue
+    await db.insert(rolesTable).values({
+      id: crypto.randomUUID(),
+      name: r.name,
+      description: r.description,
+      statements: r.statements,
+      builtin: false,
+      createdAt: now,
+      updatedAt: now,
+    })
+  }
+  for (const name of DEMOTED) {
+    await db.update(rolesTable)
+      .set({ builtin: false })
+      .where(eq(rolesTable.name, name))
   }
   return true
 })
