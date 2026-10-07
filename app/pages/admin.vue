@@ -445,33 +445,34 @@
             </div>
           </div>
 
-          <UModal v-model:open="roleModalOpen" title="New role">
+          <UModal v-model:open="roleModalOpen" title="New role" description="Bundle permissions into a reusable role">
             <template #body>
-              <div class="space-y-4">
-                <UFormField label="Name" hint="lowercase, hyphens">
-                  <UInput v-model="roleForm.name" placeholder="e.g. auditor" class="w-full" />
+              <UForm :state="roleForm" :validate="validateRole" class="grid gap-5" @submit="saveRole">
+                <UFormField label="Name" name="name" hint="lowercase, hyphens">
+                  <UInput v-model="roleForm.name" icon="i-lucide-shield" placeholder="e.g. auditor" class="w-full" />
                 </UFormField>
-                <UFormField label="Description">
-                  <UInput v-model="roleForm.description" placeholder="optional" class="w-full" />
+                <UFormField label="Description" name="description">
+                  <UInput v-model="roleForm.description" icon="i-lucide-pen-line" placeholder="optional" class="w-full" />
                 </UFormField>
-                <div>
-                  <p class="mb-2 text-sm font-medium">Permissions</p>
-                  <div v-for="(stmts, res) in vocabulary" :key="res" class="mb-3">
-                    <p class="mb-1 font-mono text-xs uppercase tracking-wide text-zinc-400">{{ res }}</p>
-                    <div class="flex flex-wrap gap-1.5">
-                      <UButton
-                        v-for="st in stmts" :key="st" size="xs" variant="soft"
-                        :color="(roleForm.statements[res] ?? []).includes(st) ? 'primary' : 'neutral'"
-                        :label="st" @click="toggleStatement(String(res), st)"
-                      />
+                <UFormField label="Permissions" name="permissions" hint="click to toggle">
+                  <div class="w-full space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+                    <div v-for="(stmts, res) in vocabulary" :key="res">
+                      <p class="mb-1.5 font-mono text-xs uppercase tracking-wide text-zinc-400">{{ res }}</p>
+                      <div class="flex flex-wrap gap-1.5">
+                        <UButton
+                          v-for="st in stmts" :key="st" size="xs" variant="soft"
+                          :color="(roleForm.statements[res] ?? []).includes(st) ? 'primary' : 'neutral'"
+                          :label="st" type="button" @click="toggleStatement(String(res), st)"
+                        />
+                      </div>
                     </div>
                   </div>
+                </UFormField>
+                <div class="flex items-end justify-end gap-2">
+                  <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="roleModalOpen = false" />
+                  <UButton type="submit" icon="i-lucide-plus" :loading="busy" label="Create role" />
                 </div>
-                <div class="flex justify-end gap-2">
-                  <UButton variant="ghost" color="neutral" @click="roleModalOpen = false">Cancel</UButton>
-                  <UButton :loading="busy" :disabled="!roleForm.name" @click="saveRole">Create</UButton>
-                </div>
-              </div>
+              </UForm>
             </template>
           </UModal>
         </div>
@@ -701,6 +702,13 @@ async function loadRoles() {
   const data = await $fetch<{ roles: RoleRow[], vocabulary: Record<string, string[]> }>('/api/roles')
   roles.value = data.roles
   vocabulary.value = data.vocabulary
+}
+
+function validateRole(state: { name: string }): Array<{ name: string, message: string }> {
+  const errs: Array<{ name: string, message: string }> = []
+  if (!state.name.trim()) errs.push({ name: 'name', message: 'Name is required' })
+  else if (!/^[a-z0-9][a-z0-9-]{1,31}$/.test(state.name.trim())) errs.push({ name: 'name', message: '2-32 chars: lowercase letters, digits, hyphens' })
+  return errs
 }
 
 function openRoleEditor() {
