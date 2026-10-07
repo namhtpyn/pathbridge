@@ -1,6 +1,6 @@
 # pathbridge — DESIGN_SYSTEM
 
-Single-page admin (`app/pages/admin.vue`) on **Nuxt UI v4** only — no custom CSS files, no pure HTML styling. Everything below is the convention an AI agent (or human) must follow when touching the UI.
+Single-page admin (`app/pages/admin/index.vue`) on **Nuxt UI v4** only — no custom CSS files, no pure HTML styling. Everything below is the convention an AI agent (or human) must follow when touching the UI.
 
 ## Stack & tokens
 
@@ -12,7 +12,7 @@ Single-page admin (`app/pages/admin.vue`) on **Nuxt UI v4** only — no custom C
 ## Layout skeleton
 
 ```
-<header>  sticky top bar: logo mark + "pathbridge" wordmark | right: active-pair count chip, avatar dropdown
+<header>  sticky top bar: logo mark + "Pathbridge v{APP_VERSION}" wordmark | right: avatar dropdown
 <nav>     horizontal tabs, underline style (border-b-2), scrollable on mobile
 <main>    max-w-6xl container, py-8, one <div v-if/else-if> per tab
 ```
@@ -28,11 +28,13 @@ Single-page admin (`app/pages/admin.vue`) on **Nuxt UI v4** only — no custom C
 | Form | `UForm` + `UFormField` (always — never bare inputs) |
 | Text input | `UInput` with `icon="i-lucide-*"` + placeholder, `class="w-full"` |
 | Select | `USelect` |
+| Switch | `USwitch` (+ `label`); needs help icon → flex wrapper OUTSIDE the label, popover law above |
+| Radio matrix | `URadioGroup variant="list"` with unlabeled single-item arrays (see permission matrices) |
 | Button | `UButton`; primary = label only; destructive in tables = `variant="ghost" color="error" size="sm"` + `aria-label` |
 | Confirmation | `UModal` (NEVER native `confirm()`) |
 | Status chip | `UBadge variant="subtle"`; monospace for code-ish values (`pairs:read:all`, verbs) |
 | Feedback | `useToast()` → `toast.add({ title, color: 'success'|'error'|'neutral' })` |
-| Hover help | `UTooltip :open-delay="100"` around a `i-lucide-info` icon inside the field's `#label` slot |
+| Hover help | `UPopover mode="hover"` around a `i-lucide-info` icon — inside the field's `#hint` slot, NEVER `#label` (reka-ui `<Label :for>` swallows clicks/focus); `USwitch` has no `#hint` slot → wrap switch + icon in a flex `<div>` outside the label |
 
 ## Form pattern (THE law)
 
@@ -47,8 +49,10 @@ Every form — pair editor, user create, role create, profile — follows the sa
 
 ## Tables & lists
 
-- Rows, not heavyweight tables: each record = one row/card with `divide-y` stack, flex column on mobile (`flex-col sm:flex-row`).
-- Row anatomy: identity (avatar/name + badges) → meta (`text-xs text-zinc-500`) → monospace chips → actions right.
+- **Every record list is a `UTable`** (v1.22.0 unified: pairs, users, roles, logs — no mixed card lists, no hand-rolled HTML tables). Wrap in `UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }"`.
+- Column defs are typed `TableColumn<T>[]` with `meta: { class: { td: 'w-full' } }` on the flexible column and a trailing empty-header `id: 'actions'` column for right-aligned row actions.
+- Custom cells via `#<accessor>-cell` slots (`#path-cell`, `#user-cell`, `#actions-cell`…) keeping badges, monospace chips and stacked text inside cells.
+- **Permission matrices (role editor, API-key scope) use UTable grouped rows**: `:grouping="['resource']"` + `getGroupedRowModel()` with `groupedColumnMode: false` (NOT 'remove' — remove deletes the grouping column and its cell slot never renders). Group row = expand toggle + resource name; member rows = `action` + None/Own/All `URadioGroup` columns (one radio per column, `variant="list"`, `:ui="{ fieldset: 'justify-center' }"`). Scope cells hide entirely when the vocabulary (roles) or the caller's own grants (key scoping) don't allow them.
 - Every action button gets an `aria-label` (agents + screen readers): `aria-label="Edit pair"`, `"Delete pair"`.
 - Empty state: centered `i-lucide-*` icon, short heading, one-line hint; CTA button only if the user has the create permission; neutral copy for read-only users ("No pairs yet" — not "Create your first pair").
 
