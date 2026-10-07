@@ -1,3 +1,10 @@
+# [1.18.0](https://github.com/namhtpyn/pathbridge/compare/v1.17.0...v1.18.0) (2026-10-07)
+
+
+### Features
+
+* viewer is builtin again (admin + viewer) ([a8f1d1f](https://github.com/namhtpyn/pathbridge/commit/a8f1d1f0c90e49303bc37c6234cf5c0e70d41e51))
+
 # [1.17.0](https://github.com/namhtpyn/pathbridge/compare/v1.16.0...v1.17.0) (2026-10-07)
 
 
