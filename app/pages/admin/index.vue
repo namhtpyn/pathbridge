@@ -305,19 +305,6 @@
                   </div>
                 </div>
               </div>
-              <UAlert
-                icon="i-lucide-link"
-                color="info"
-                variant="subtle"
-                title="Redirect URIs"
-              >
-                <template #description>
-                  <p class="text-xs opacity-80">Register this exact URL pattern for every provider (callback path is <code class="font-mono">/auth/callback/&lt;provider id&gt;</code>):</p>
-                  <ul class="mt-1 space-y-0.5">
-                    <li v-for="prov in oidcProviders" :key="prov.id" class="font-mono text-xs break-all">{{ publicOrigin }}/auth/callback/{{ prov.id }}</li>
-                  </ul>
-                </template>
-              </UAlert>
               <div class="flex items-center gap-1.5">
                 <USwitch v-model="settingsForm.disablePasswordLogin" :disabled="!oidcReady" label="Disable email + password login" />
                 <UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
@@ -716,7 +703,7 @@
         <UModal :open="oidcEditorOpen" :title="oidcEditingId ? `Edit ${oidcEditingId}` : 'Add OIDC provider'" description="Register the redirect URL shown after saving in your OIDC provider" @update:open="v => oidcEditorOpen = v">
           <template #body>
             <UForm :state="oidcForm" class="space-y-4" @submit="saveOidcProvider">
-              <UFormField name="oidcLabel" label="Button label" required help="Shown on the login button">
+              <UFormField name="oidcLabel" label="Name" required help="Shown on the login button">
                 <UInput v-model="oidcForm.label" icon="i-lucide-tag" class="w-full" placeholder="Azure AD" />
               </UFormField>
               <UFormField name="oidcIssuer2" label="Issuer URL" required>
