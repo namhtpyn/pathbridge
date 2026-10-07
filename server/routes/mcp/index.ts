@@ -4,7 +4,7 @@ import type { H3Event } from 'h3'
 // intersected with owner role) or session cookie. Tools = pairs CRUD + logs.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { z } from 'zod'
+import { z, type ZodType } from 'zod'
 import { toolListPairs, toolUpsertPair, toolUpdatePairById, toolDeletePair, toolGetLogs, mcpSchemas } from '../../utils/mcp/tools'
 import { requireSession } from '../../utils/session'
 
