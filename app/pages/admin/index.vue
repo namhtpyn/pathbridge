@@ -202,29 +202,30 @@
           </UModal>
 
           <UCard v-if="pairs.length" :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
-            <ul class="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-              <li v-for="p in pairs" :key="p.id" class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:gap-4">
-                <div class="min-w-0 flex-1">
+            <UTable :data="pairs" :columns="pairColumns">
+                <template #path-cell="{ row }">
                   <div class="flex items-center gap-2">
-                    <code class="rounded-md bg-primary/5 px-1.5 py-0.5 text-sm font-semibold text-primary">{{ p.path }}</code>
-                    <UBadge v-if="p.stripPrefix" label="strip" variant="subtle" color="warning" size="sm" />
-                    <span v-if="p.methods?.length" class="font-mono text-[10px] text-zinc-400">{{ p.methods.join(' ') }}</span>
-                    <UBadge v-if="!p.enabled" label="disabled" variant="subtle" color="error" size="sm" />
+                    <code class="rounded-md bg-primary/5 px-1.5 py-0.5 text-sm font-semibold text-primary">{{ row.original.path }}</code>
+                    <UBadge v-if="row.original.stripPrefix" label="strip" variant="subtle" color="warning" size="sm" />
+                    <UBadge v-if="!row.original.enabled" label="disabled" variant="subtle" color="error" size="sm" />
                   </div>
-                  <div class="mt-1 flex items-center gap-2 text-xs text-zinc-500">
-                    <UIcon name="i-lucide-arrow-right" class="size-3" />
-                    <span class="break-all font-mono">{{ p.target }}</span>
-                    <span v-if="p.upstreamHost" class="truncate">· host: {{ p.upstreamHost }}</span>
+                </template>
+                <template #target-cell="{ row }">
+                  <div class="text-xs text-zinc-500">
+                    <span class="break-all font-mono">{{ row.original.target }}</span>
+                    <span v-if="row.original.upstreamHost" class="block text-zinc-400">host: {{ row.original.upstreamHost }}</span>
+                    <span v-if="row.original.methods?.length" class="block font-mono text-[10px] text-zinc-400">{{ row.original.methods.join(' ') }}</span>
+                    <span v-if="row.original.note" class="block truncate text-zinc-400">{{ row.original.note }}</span>
                   </div>
-                  <p v-if="p.note" class="mt-1 truncate text-xs text-zinc-400">{{ p.note }}</p>
-                </div>
-                <div class="flex shrink-0 items-center justify-end gap-2 self-end sm:self-auto">
-                  <UButton icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" label="Logs" @click="viewPairLogs(p)" />
-                  <UButton v-if="can('pairs', 'update')" icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit pair" @click="edit(p)" />
-                  <UButton v-if="can('pairs', 'delete')" icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete pair" @click="remove(p)" />
-                </div>
-              </li>
-            </ul>
+                </template>
+                <template #actions-cell="{ row }">
+                  <div class="flex justify-end gap-2">
+                    <UButton icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" aria-label="Pair logs" @click="viewPairLogs(row.original)" />
+                    <UButton v-if="can('pairs', 'update')" icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit pair" @click="edit(row.original)" />
+                    <UButton v-if="can('pairs', 'delete')" icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete pair" @click="remove(row.original)" />
+                  </div>
+                </template>
+              </UTable>
           </UCard>
           <div v-else class="rounded-xl border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-700">
             <UIcon name="i-lucide-route" class="mx-auto size-8 text-zinc-300" />
@@ -443,29 +444,35 @@
           </UModal>
 
           <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
-            <ul class="divide-y divide-zinc-100 dark:divide-zinc-800/60">
-              <li v-for="u in users" :key="u.id" class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:gap-4">
-                <UAvatar :name="u.name || u.email" size="md" />
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
-                    <span class="truncate text-sm font-medium text-zinc-900 dark:text-white">{{ u.name }}</span>
-                    <UBadge class="font-mono" variant="subtle" color="neutral" size="sm">{{ u.role }}</UBadge>
-                    <UBadge v-if="u.id === session.user.id" label="you" variant="subtle" color="primary" size="sm" />
+            <UTable :data="users" :columns="userColumns">
+                <template #user-cell="{ row }">
+                  <div class="flex items-center gap-3">
+                    <UAvatar :name="row.original.name || row.original.email" size="sm" />
+                    <div class="min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="truncate text-sm font-medium text-zinc-900 dark:text-white">{{ row.original.name }}</span>
+                        <UBadge v-if="row.original.id === session.user.id" label="you" variant="subtle" color="primary" size="sm" />
+                      </div>
+                      <div class="truncate text-xs text-zinc-500">{{ row.original.email }}</div>
+                    </div>
                   </div>
-                  <div class="truncate text-xs text-zinc-500">{{ u.email }}</div>
-                </div>
-                <div class="flex flex-wrap items-center gap-3 text-xs text-zinc-400">
-                  <span v-if="u.hasPassword" class="flex items-center gap-1" title="Has a password login"><UIcon name="i-lucide-lock" class="size-3" />password</span>
-                  <span v-if="u.oidcLinked" class="flex items-center gap-1" title="Linked to OIDC"><UIcon name="i-lucide-key-round" class="size-3" />oidc</span>
-                  <span class="flex items-center gap-1" title="Active sessions"><UIcon name="i-lucide-monitor-smartphone" class="size-3" />{{ u.sessionCount }}</span>
-                </div>
-                <div class="flex shrink-0 items-center justify-end gap-2 self-end sm:self-auto">
-                  <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit user" :disabled="!can('users', 'update')" @click="openUserEditor(u)" />
-                  <UButton icon="i-lucide-key-round" variant="ghost" color="neutral" size="sm" label="Reset password" @click="resetPassword(u)" />
-                  <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete user" :disabled="u.id === session.user.id" @click="removeUser(u)" />
-                </div>
-              </li>
-            </ul>
+                </template>
+                <template #role-cell="{ row }">
+                  <div class="flex flex-wrap items-center gap-1.5 text-xs text-zinc-400">
+                    <UBadge class="font-mono" variant="subtle" color="neutral" size="sm">{{ row.original.role }}</UBadge>
+                    <span v-if="row.original.hasPassword" class="flex items-center gap-1" title="Has a password login"><UIcon name="i-lucide-lock" class="size-3" />password</span>
+                    <span v-if="row.original.oidcLinked" class="flex items-center gap-1" title="Linked to OIDC"><UIcon name="i-lucide-key-round" class="size-3" />oidc</span>
+                    <span class="flex items-center gap-1" title="Active sessions"><UIcon name="i-lucide-monitor-smartphone" class="size-3" />{{ row.original.sessionCount }}</span>
+                  </div>
+                </template>
+                <template #actions-cell="{ row }">
+                  <div class="flex justify-end gap-2">
+                    <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit user" :disabled="!can('users', 'update')" @click="openUserEditor(row.original)" />
+                    <UButton icon="i-lucide-key-round" variant="ghost" color="neutral" size="sm" aria-label="Reset password" @click="resetPassword(row.original)" />
+                    <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete user" :disabled="row.original.id === session.user.id" @click="removeUser(row.original)" />
+                  </div>
+                </template>
+              </UTable>
           </UCard>
         </div>
 
@@ -479,36 +486,42 @@
             <UButton icon="i-lucide-plus" label="New role" class="self-end sm:self-auto" :disabled="!can('roles', 'create')" @click="openRoleEditor()" />
           </div>
 
-          <div class="space-y-3">
-            <div v-for="r in roles" :key="r.id" class="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800 sm:flex-row sm:items-start sm:justify-between">
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="font-mono text-sm font-medium">{{ r.name }}</span>
-                  <UBadge v-if="r.builtin" color="neutral" variant="outline" size="sm" class="text-zinc-400">builtin</UBadge>
-                </div>
-                <p v-if="r.description" class="mt-1 text-sm text-zinc-500">{{ r.description }}</p>
-                <div class="mt-2 flex flex-wrap gap-1.5">
-                  <template v-for="(stmts, res) in r.statements" :key="res">
-                    <UBadge v-for="st in stmts" :key="res + st" variant="subtle" size="sm" class="font-mono">
-                      {{ res }}:{{ st }}
-                    </UBadge>
-                  </template>
-                </div>
-              </div>
-              <div class="flex shrink-0 items-start justify-end">
-                <UButton
-                  icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit role"
-                  :disabled="r.builtin || !can('roles', 'update')"
-                  @click="openRoleEditor(r)"
-                />
-                <UButton
-                  icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" aria-label="Delete role"
-                  :disabled="r.builtin || !can('roles', 'delete')"
-                  @click="deleteRole(r)"
-                />
-              </div>
-            </div>
-          </div>
+          <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
+              <UTable :data="roles" :columns="roleColumns">
+                <template #name-cell="{ row }">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="font-mono text-sm font-medium">{{ row.original.name }}</span>
+                    <UBadge v-if="row.original.builtin" color="neutral" variant="outline" size="sm" class="text-zinc-400">builtin</UBadge>
+                  </div>
+                </template>
+                <template #description-cell="{ row }">
+                  <span v-if="row.original.description" class="text-sm text-zinc-500">{{ row.original.description }}</span>
+                </template>
+                <template #statements-cell="{ row }">
+                  <div class="flex flex-wrap gap-1.5">
+                    <template v-for="(stmts, res) in (row.original.statements as Record<string, string[]>)" :key="res">
+                      <UBadge v-for="st in stmts" :key="String(res) + st" variant="subtle" size="sm" class="font-mono">
+                        {{ res }}:{{ st }}
+                      </UBadge>
+                    </template>
+                  </div>
+                </template>
+                <template #actions-cell="{ row }">
+                  <div class="flex justify-end gap-2">
+                    <UButton
+                      icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit role"
+                      :disabled="row.original.builtin || !can('roles', 'update')"
+                      @click="openRoleEditor(row.original)"
+                    />
+                    <UButton
+                      icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" aria-label="Delete role"
+                      :disabled="row.original.builtin || !can('roles', 'delete')"
+                      @click="deleteRole(row.original)"
+                    />
+                  </div>
+                </template>
+              </UTable>
+            </UCard>
 
           <UModal v-model:open="roleModalOpen" :title="editingRoleId ? `Edit ${roleForm.name}` : 'New role'" :description="editingRoleId ? (builtinEdit ? 'Builtin roles cannot be modified' : 'Adjust description and permissions') : 'Bundle permissions into a reusable role'">
             <template #body>
@@ -677,32 +690,29 @@
 
           <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
             <div v-if="logs.length" class="overflow-x-auto" style="-webkit-overflow-scrolling: touch">
-              <table class="w-full min-w-[640px] text-sm">
-                <thead>
-                  <tr class="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400 dark:border-zinc-800">
-                    <th class="px-5 py-3 font-medium">Time</th>
-                    <th class="px-3 py-3 font-medium">Method</th>
-                    <th class="px-3 py-3 font-medium">Path</th>
-                    <th class="px-3 py-3 font-medium">Pair</th>
-                    <th class="px-3 py-3 font-medium">Status</th>
-                    <th class="px-3 py-3 font-medium">Took</th>
-                    <th class="px-5 py-3 font-medium">Client</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-zinc-100 font-mono text-xs dark:divide-zinc-800/60">
-                  <tr v-for="e in logs" :key="e.id" class="hover:bg-zinc-50 dark:hover:bg-zinc-900/40">
-                    <td class="whitespace-nowrap px-5 py-2.5 text-zinc-500">{{ fmtTime(e.ts) }}</td>
-                    <td class="px-3 py-2.5 font-semibold text-zinc-600 dark:text-zinc-300">{{ e.method }}</td>
-                    <td class="max-w-72 truncate px-3 py-2.5 text-zinc-800 dark:text-zinc-200">{{ e.path }}</td>
-                    <td class="px-3 py-2.5"><span v-if="e.pairPath" class="rounded bg-primary/5 px-1.5 py-0.5 text-primary">{{ e.pairPath }}</span></td>
-                    <td class="px-3 py-2.5">
-                      <span class="rounded px-1.5 py-0.5 font-semibold" :class="statusClass(e.status)">{{ e.status }}</span>
-                    </td>
-                    <td class="whitespace-nowrap px-3 py-2.5 text-zinc-500">{{ e.durationMs }}ms</td>
-                    <td class="whitespace-nowrap px-5 py-2.5 text-zinc-400">{{ e.clientIp || '—' }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <UTable :data="logs" :columns="logColumns">
+                  <template #ts-cell="{ row }">
+                    <span class="whitespace-nowrap font-mono text-xs text-zinc-500">{{ fmtTime(row.original.ts) }}</span>
+                  </template>
+                  <template #method-cell="{ row }">
+                    <span class="font-mono text-xs font-semibold text-zinc-600 dark:text-zinc-300">{{ row.original.method }}</span>
+                  </template>
+                  <template #path-cell="{ row }">
+                    <span class="block max-w-72 truncate font-mono text-xs text-zinc-800 dark:text-zinc-200">{{ row.original.path }}</span>
+                  </template>
+                  <template #pairPath-cell="{ row }">
+                    <span v-if="row.original.pairPath" class="rounded bg-primary/5 px-1.5 py-0.5 font-mono text-xs text-primary">{{ row.original.pairPath }}</span>
+                  </template>
+                  <template #status-cell="{ row }">
+                    <span class="rounded px-1.5 py-0.5 font-mono text-xs font-semibold" :class="statusClass(row.original.status)">{{ row.original.status }}</span>
+                  </template>
+                  <template #durationMs-cell="{ row }">
+                    <span class="whitespace-nowrap font-mono text-xs text-zinc-500">{{ row.original.durationMs }}ms</span>
+                  </template>
+                  <template #clientIp-cell="{ row }">
+                    <span class="whitespace-nowrap font-mono text-xs text-zinc-400">{{ row.original.clientIp || '—' }}</span>
+                  </template>
+                </UTable>
             </div>
             <div v-else class="p-10 text-center">
               <UIcon name="i-lucide-scroll-text" class="mx-auto size-8 text-zinc-300" />
@@ -785,7 +795,21 @@ interface SessionUser { id: string, name?: string | null, email: string }
 interface SessionPayload { user: SessionUser, session: { expiresAt: string } }
 interface AuthConfig { passwordEnabled: boolean, oidcEnabled: boolean }
 interface AdminUser { id: string, name: string, email: string, emailVerified: boolean, role: string, createdAt: string, sessionCount: number, hasPassword: boolean, oidcLinked: boolean }
+const userColumns: TableColumn<AdminUser>[] = [
+  { id: 'user', header: 'User' },
+  { id: 'role', header: 'Role & auth', meta: { class: { td: 'w-full' } } },
+  { id: 'actions', header: '' },
+]
 interface LogRow { id: number, ts: string, pairId: number | null, pairPath: string | null, method: string, path: string, status: number, durationMs: number, clientIp: string | null, userAgent: string | null }
+const logColumns: TableColumn<LogRow>[] = [
+  { accessorKey: 'ts', header: 'Time' },
+  { accessorKey: 'method', header: 'Method' },
+  { accessorKey: 'path', header: 'Path' },
+  { accessorKey: 'pairPath', header: 'Pair' },
+  { accessorKey: 'status', header: 'Status' },
+  { accessorKey: 'durationMs', header: 'Took' },
+  { accessorKey: 'clientIp', header: 'Client' },
+]
 
 const toast = useToast()
 
@@ -801,6 +825,11 @@ function can(resource: string, action: string, scope: 'own' | 'all' | 'any' = 'a
   return false
 }
 const pairs = ref<PairRow[]>([])
+const pairColumns: TableColumn<PairRow>[] = [
+  { accessorKey: 'path', header: 'Path' },
+  { accessorKey: 'target', header: 'Target' },
+  { id: 'actions', header: '' },
+]
 const busy = ref(false)
 const editing = ref('')
 const authConfig = ref<AuthConfig | null>(null)
@@ -883,6 +912,12 @@ async function changePassword() {
 
 // ---------- roles ----------
 interface RoleRow { id: string, name: string, description: string | null, statements: Record<string, string[]>, builtin: boolean }
+const roleColumns: TableColumn<RoleRow>[] = [
+  { accessorKey: 'name', header: 'Role' },
+  { accessorKey: 'description', header: 'Description' },
+  { id: 'statements', header: 'Permissions', meta: { class: { td: 'w-full' } } },
+  { id: 'actions', header: '' },
+]
 const roles = ref<RoleRow[]>([])
 const vocabulary = ref<Record<string, string[]>>({})
 const roleModalOpen = ref(false)
