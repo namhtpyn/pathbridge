@@ -11,6 +11,7 @@ export const user = sqliteTable('user', {
   image: text('image'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+  role: text('role').notNull().default('viewer'),
 })
 
 export const session = sqliteTable('session', {
@@ -47,6 +48,18 @@ export const verification = sqliteTable('verification', {
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }),
   updatedAt: integer('updated_at', { mode: 'timestamp' }),
+})
+
+
+// runtime roles: name + statement set (subset of the static ac vocabulary)
+export const roles = sqliteTable('roles', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  description: text('description'),
+  statements: text('statements', { mode: 'json' }).$type<Record<string, string[]>>().notNull(),
+  builtin: integer('builtin', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
 })
 
 // @better-auth/api-key plugin table (plugin owns these writes)
@@ -107,12 +120,13 @@ export const pairs = sqliteTable('pairs', {
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
+  userId: text('user_id'),
 })
 
 // Relations v2 (drizzle rc) — the shape better-auth's relations-v2 adapter consumes
 // via db._.relations and db.query.
 export const relations = defineRelations(
-  { user, session, account, verification, pairs, settings, accessLog, apikey: apiKey },
+  { user, session, account, verification, pairs, settings, accessLog, apikey: apiKey, roles },
   (helpers) => ({
     user: {
       sessions: helpers.many.session({ from: helpers.user.id, to: helpers.session.userId }),
@@ -128,6 +142,7 @@ export const relations = defineRelations(
     pairs: {},
     settings: {},
     accessLog: {},
+    roles: {},
     apiKey: {},
   }),
 )

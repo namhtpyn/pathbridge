@@ -6,10 +6,10 @@ import { db } from '../../db'
 import { pairs } from '../../db/schema'
 import type { PairRow } from '../../../shared/types'
 import { pairInputSchema } from '../../utils/pair-schema'
-import { requireSession } from '../../utils/session'
+import { requireUser, userCan, requireRecordPermission } from '../../utils/permissions'
 
 export default defineEventHandler(async (event): Promise<{ pairs: PairRow[] }> => {
-  await requireSession(event)
+  const { user } = await requireUser(event)
   const body: unknown = await readBody(event)
 
   const parsed = pairInputSchema.safeParse(body)
@@ -38,6 +38,11 @@ export default defineEventHandler(async (event): Promise<{ pairs: PairRow[] }> =
   if (parsed.data.id !== undefined) {
     // update by id — path rename allowed unless another pair already claims it
     const pairId: number = parsed.data.id
+    const existing = await db.query.pairs.findFirst({ where: { id: pairId } })
+    if (!existing) {
+      throw createError({ statusCode: 404, statusMessage: 'pair not found' })
+    }
+    await requireRecordPermission(event, 'pairs', 'update', existing)
     const clash = await db.query.pairs.findFirst({ where: { AND: [{ path }, { id: { ne: pairId } }] }, columns: { id: true } })
     if (clash) {
       throw createError({ statusCode: 409, statusMessage: `a pair already exists at ${path}` })
@@ -48,7 +53,11 @@ export default defineEventHandler(async (event): Promise<{ pairs: PairRow[] }> =
     }
   }
   else {
-    await db.insert(pairs).values(row)
+    // create — new pairs belong to their creator (unless policy changes later)
+    if (!userCan(user, 'pairs', 'create')) {
+      throw createError({ statusCode: 403, statusMessage: 'Forbidden: missing permission pairs:create' })
+    }
+    await db.insert(pairs).values({ ...row, userId: user.userId })
       .onConflictDoUpdate({ target: pairs.path, set: row })
   }
 

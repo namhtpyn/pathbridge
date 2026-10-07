@@ -15,7 +15,9 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
 import { genericOAuth } from 'better-auth/plugins/generic-oauth'
 import { bearer } from 'better-auth/plugins/bearer'
 import { apiKey } from '@better-auth/api-key'
+import { eq } from 'drizzle-orm'
 import { db } from '../db'
+import { user as userTable } from '../db/schema'
 import { authSchema } from '../db/schema'
 import { getSettings } from './settings'
 
@@ -51,7 +53,7 @@ interface Auth {
   handler: (request: Request) => Promise<Response>
   api: {
     getSession: (opts: { headers: Headers }) => Promise<{
-      user: { id: string, name: string, email: string, emailVerified: boolean, image?: string | null }
+      user: { id: string, name: string, email: string, emailVerified: boolean, image?: string | null, role?: string | null }
       session: { id: string, userId: string, expiresAt: Date }
     } | null>
     verifyApiKey: (opts: { body: { key: string } }) => Promise<{
@@ -96,7 +98,21 @@ async function buildAuth(): Promise<Auth> {
         create: {
           // public deployments: first user claims the instance, sign-up closes after
           before: async () => (await anyUserExists() ? false : undefined),
+          after: async (user) => {
+            // first user claims the instance -> admin role
+            if (user && typeof user === 'object' && 'id' in user) {
+              const count = await db.query.user.findMany({ columns: { id: true } })
+              if (count.length === 1) {
+                await db.update(userTable).set({ role: 'admin' }).where(eq(userTable.id, (user as { id: string }).id))
+              }
+            }
+          },
         },
+      },
+    },
+    user: {
+      additionalFields: {
+        role: { type: 'string', defaultValue: 'viewer', input: false },
       },
     },
     emailAndPassword: {

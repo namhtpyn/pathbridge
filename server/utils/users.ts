@@ -10,6 +10,7 @@ export interface AdminUserView {
   name: string
   email: string
   emailVerified: boolean
+  role: string
   createdAt: string
   sessionCount: number
   hasPassword: boolean
@@ -27,6 +28,7 @@ export async function listUsers(): Promise<AdminUserView[]> {
       name: u.name,
       email: u.email,
       emailVerified: u.emailVerified,
+      role: u.role ?? 'viewer',
       createdAt: (u.createdAt instanceof Date ? u.createdAt : new Date(u.createdAt)).toISOString(),
       sessionCount: sessions.filter(s => s.userId === u.id).length,
       hasPassword: mine.some(a => a.providerId === 'credential' && a.password != null),
@@ -35,7 +37,7 @@ export async function listUsers(): Promise<AdminUserView[]> {
   })
 }
 
-export async function createUser(email: string, name: string, password: string, emailVerified = true): Promise<void> {
+export async function createUser(email: string, name: string, password: string, role = 'viewer', emailVerified = true): Promise<void> {
   const id = crypto.randomUUID()
   const now = new Date()
   const hash = await hashPassword(password)
@@ -43,7 +45,7 @@ export async function createUser(email: string, name: string, password: string, 
   // bun:sqlite is a SYNC driver — the callback must not be async.
   db.transaction((tx) => {
     tx.insert(user).values({
-      id, email, name, emailVerified, createdAt: now, updatedAt: now,
+      id, email, name, emailVerified, role, createdAt: now, updatedAt: now,
     }).run()
     tx.insert(account).values({
       id: crypto.randomUUID(),
@@ -57,11 +59,12 @@ export async function createUser(email: string, name: string, password: string, 
   })
 }
 
-export async function updateUser(id: string, patch: { name?: string, email?: string, emailVerified?: boolean }): Promise<void> {
+export async function updateUser(id: string, patch: { name?: string, email?: string, emailVerified?: boolean, role?: string }): Promise<void> {
   const sets: Record<string, unknown> = { updatedAt: new Date() }
   if (patch.name !== undefined) sets.name = patch.name
   if (patch.email !== undefined) sets.email = patch.email
   if (patch.emailVerified !== undefined) sets.emailVerified = patch.emailVerified
+  if (patch.role !== undefined) sets.role = patch.role
   await db.update(user).set(sets).where(eqUser(id))
 }
 

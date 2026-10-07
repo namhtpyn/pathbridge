@@ -37,6 +37,7 @@ export async function requireSession(event: H3Event): Promise<AppSession> {
                 email: u.email,
                 emailVerified: u.emailVerified,
                 image: u.image ?? null,
+                role: u.role ?? 'viewer',
               },
               session: {
                 id: `apikey:${res.key?.id ?? ''}`,

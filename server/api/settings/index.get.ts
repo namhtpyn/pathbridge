@@ -1,9 +1,9 @@
 // GET /api/settings — auth required. oidcClientSecret masked.
 import { getSettings } from '../../utils/settings'
-import { requireSession } from '../../utils/session'
+import { requirePermission } from '../../utils/permissions'
 
 export default defineEventHandler(async (event) => {
-  await requireSession(event)
+  await requirePermission(event, 'settings', 'read')
   const s = await getSettings()
   return {
     oidcIssuer: s.oidcIssuer,
