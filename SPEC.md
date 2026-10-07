@@ -4,7 +4,7 @@ Path → URL forwarding proxy with an admin UI. One binary (Nuxt 4 + Nitro), SQL
 
 ## 1. Domain model
 
-### Pair
+### Route
 A mapping from a public path on this host to an upstream target origin.
 
 | Field | Type | Rules |
@@ -13,10 +13,10 @@ A mapping from a public path on this host to an upstream target origin.
 | `path` | string, unique, indexed | grammar below |
 | `target` | http(s) URL | origin [+ port] with OPTIONAL base path (forwarded as path prefix); no query, no fragment |
 | `upstreamHost` | string \| null | overrides `Host` header sent upstream |
-| `stripPrefix` | bool | wildcard pairs only |
+| `stripPrefix` | bool | wildcard routes only |
 | `methods` | string[] \| null | allowlist of HTTP verbs; null = all verbs |
 | `note` | string \| null | ≤ 200 chars, free text |
-| `enabled` | bool | disabled pairs do not match |
+| `enabled` | bool | disabled routes do not match |
 | `userId` | string \| null | owner (RBAC `own` scope) |
 
 **Path grammar**
@@ -26,18 +26,18 @@ A mapping from a public path on this host to an upstream target origin.
 - Any path starting with `/_` is rejected outright (defensive namespace; the historical `/_api /_auth /_health` routes died in the admin rename).
 - `/api` and `/mcp` are in the middleware RESERVED list AND blocked by the schema (no silent shadowing).
 
-**stripPrefix** (wildcard-only): off = forward the full original path; on = remove the pair's base (`/zalo/oa/x` → upstream `/oa/x`). Query string is NEVER touched.
+**stripPrefix** (wildcard-only): off = forward the full original path; on = remove the route's base (`/zalo/oa/x` → upstream `/oa/x`). Query string is NEVER touched.
 
 **Method allowlist**: request verb not in `methods` → `405` with an `Allow` header. `null` = allow all.
 
 ### Role
 Runtime-editable bundle of permissions. Row: `name` (2–32 chars, `[a-z0-9-]`, immutable), `description`, `statements` (JSON), `builtin` (bool).
 
-Builtins: `admin` (everything `:all`) and `viewer` (`pairs: read:own` only), canonicalized at boot (tamper-resistant; drifted rows reset to compiled-in definitions). Builtin rows cannot be edited or deleted; custom roles are fully editable.
+Builtins: `admin` (everything `:all`) and `viewer` (`routes: read:own` only), canonicalized at boot (tamper-resistant; drifted rows reset to compiled-in definitions). Builtin rows cannot be edited or deleted; custom roles are fully editable.
 
 **Statement grammar**: `"action:scope"` where action ∈ `create|read|update|delete` and scope ∈ `all|own`.
 - `all` = act on anyone's records; implies the matching `own`.
-- `own` = only records where `pairs.userId` is the caller.
+- `own` = only records where `routes.userId` is the caller.
 - Resources without ownership (`settings`, `users`, `roles`) only ever carry `:all`.
 - Vocabulary is COMPILE-TIME (`STATEMENTS` in `server/utils/permissions.ts`); a statement exists only if a route checks it. Runtime roles may only pick from it. Adding a statement = adding its enforcement in the same release.
 
@@ -62,7 +62,7 @@ Long-lived bearer credential (`@better-auth/api-key`), stored hashed, shown once
 - Managed via `/api/keys` (create/list/delete — permissions are server-only on the plugin, so creation goes through our route, never the raw better-auth endpoint). UI: Profile modal → API keys (scope editor = same grouped permission matrix as roles, filtered to statements the owner holds).
 
 ### Access log
-Fire-and-forget insert per proxied request: ts, method, path, pairId, status, durationMs, clientIp, userAgent. Logging can NEVER break proxying (failures swallowed). Retention sweeper every 6h deletes entries older than `logRetentionDays`; `0` = keep forever.
+Fire-and-forget insert per proxied request: ts, method, path, routeId, status, durationMs, clientIp, userAgent. Logging can NEVER break proxying (failures swallowed). Retention sweeper every 6h deletes entries older than `logRetentionDays`; `0` = keep forever.
 
 ## 2. Auth surface
 
@@ -80,7 +80,7 @@ OIDC: MULTIPLE providers, runtime-configurable in Settings (JSON registry in the
 
 1. Path reserved (`/auth /health /api /admin /mcp`) → skip (app handles).
 2. `/` → 302 `/admin`.
-3. Find matching pair: exact match wins; else longest wildcard base; else 404.
+3. Find matching route: exact match wins; else longest wildcard base; else 404.
 4. `enabled=false` → treated as absent.
 5. Method allowlist → 405 + `Allow`.
 6. strip prefix if configured; forward method/headers/body; set upstream Host if configured; NEVER follow the client's `Host`.
@@ -88,10 +88,10 @@ OIDC: MULTIPLE providers, runtime-configurable in Settings (JSON registry in the
 
 ## 4. API contract (all JSON)
 
-- `GET /api/pairs` → own-scope filtered by read scope
-- `PUT /api/pairs` — upsert; `id` present = update-in-place (404 gone, 409 path clash); absent = create (ownership set to caller)
-- `DELETE /api/pairs/:id`
-- `GET /api/logs?limit&pairId&beforeId` — cursor paging; own = logs of own pairs only
+- `GET /api/routes` → own-scope filtered by read scope
+- `PUT /api/routes` — upsert; `id` present = update-in-place (404 gone, 409 path clash); absent = create (ownership set to caller)
+- `DELETE /api/routes/:id`
+- `GET /api/logs?limit&routeId&beforeId` — cursor paging; own = logs of own routes only
 - `GET/PUT /api/settings` — oidc config, disablePasswordLogin, logRetentionDays
 - `GET/POST /api/users`, `PUT/DELETE /api/users/:id`, `PUT /api/users/:id/password`
 - `GET /api/roles` (+vocabulary), `POST /api/roles`, `GET/PUT/DELETE /api/roles/:id`
@@ -101,7 +101,7 @@ OIDC: MULTIPLE providers, runtime-configurable in Settings (JSON registry in the
 - `GET/POST /api/keys`, `DELETE /api/keys/:id` — own API keys only
 - `GET /api/version` — build version (baked `APP_VERSION`)
 - `GET /health` — liveness
-- `POST|GET|DELETE /mcp` — MCP server (streamable HTTP, stateless; Bearer API key or session). Tools: `list_pairs`, `create_pair`, `update_pair`, `delete_pair`, `get_logs` — same zod schemas and permission enforcement as REST (key narrowing applies per tool call).
+- `POST|GET|DELETE /mcp` — MCP server (streamable HTTP, stateless; Bearer API key or session). Tools: `list_routes`, `create_route`, `update_route`, `delete_route`, `get_logs` — same zod schemas and permission enforcement as REST (key narrowing applies per tool call).
 
 Errors: zod strict validation → 400 with `field: message`; permission → 403 `Forbidden: missing permission resource:action`; auth → 401.
 
@@ -109,7 +109,7 @@ Errors: zod strict validation → 400 with `field: message`; permission → 403 
 
 ## 5. Upgrade semantics
 
-Migrations auto-apply at boot from `./drizzle` (tracked in `__migrations`). Pre-RBAC databases: existing user is promoted to `admin` and unowned pairs backfilled to them (the implicit-admin invariant).
+Migrations auto-apply at boot from `./drizzle` (tracked in `__migrations`). Pre-RBAC databases: existing user is promoted to `admin` and unowned routes backfilled to them (the implicit-admin invariant).
 
 ## 6. Invariants (never break)
 

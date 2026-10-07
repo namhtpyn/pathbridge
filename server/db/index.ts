@@ -4,7 +4,7 @@ import { Database } from 'bun:sqlite'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { pairs, relations, user, session, account, verification, apiKey as apikeyTable, roles as rolesTableDef } from './schema'
+import { routes, relations, user, session, account, verification, apiKey as apikeyTable, roles as rolesTableDef } from './schema'
 
 const dataDir = process.env.DATA_DIR || './data'
 mkdirSync(dataDir, { recursive: true })
@@ -39,7 +39,7 @@ catch (e) {
 }
 
 // tables-only schema object (namespace import carries type exports too)
-const tables = { user, session, account, verification, pairs }
+const tables = { user, session, account, verification, routes }
 
 // rc: `schema` lives inside defineRelations() — drizzle() takes relations only
 export const db = drizzle({ client: sqlite, relations })

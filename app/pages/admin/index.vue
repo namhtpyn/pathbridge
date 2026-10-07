@@ -48,7 +48,7 @@
             <span class="text-sm font-semibold leading-tight text-zinc-900 dark:text-white">Pathbridge
               <span class="font-mono text-[10px] font-normal text-zinc-400">v{{ appVersion }}</span>
             </span>
-            <span class="text-xs leading-tight text-zinc-400">{{ activePairCount }} active pairs</span>
+            <span class="text-xs leading-tight text-zinc-400">{{ activePairCount }} active routes</span>
           </div>
         </div>
 
@@ -78,17 +78,17 @@
 
       <!-- content -->
       <main class="flex-1 py-8">
-        <!-- ============ PAIRS ============ -->
-        <div v-if="tab === 'pairs'" class="space-y-6">
+        <!-- ============ ROUTES ============ -->
+        <div v-if="tab === 'routes'" class="space-y-6">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
-              <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Pairs</h2>
+              <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Routes</h2>
               <p class="text-sm text-zinc-500">Route incoming paths to upstream origins</p>
             </div>
-            <UButton v-if="can('pairs', 'create')" icon="i-lucide-plus" label="New pair" class="self-end sm:self-auto" @click="openEditor()" />
+            <UButton v-if="can('routes', 'create')" icon="i-lucide-plus" label="New route" class="self-end sm:self-auto" @click="openEditor()" />
           </div>
 
-          <UModal :open="!!editing" :title="editing === 'new' ? 'Create pair' : `Edit ${editing}`" @update:open="v => !v && reset()">
+          <UModal :open="!!editing" :title="editing === 'new' ? 'Create route' : `Edit ${editing}`" @update:open="v => !v && reset()">
             <template #body>
             <UForm :state="form" :validate="validatePair" class="grid gap-5 sm:grid-cols-2" @submit="save">
               <UFormField name="path">
@@ -100,7 +100,7 @@
                   <template #content>
                     <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                       <p class="text-xs font-semibold text-white">Path</p>
-                      <p class="text-xs text-zinc-200">The incoming request path this pair claims. Exact paths match only themselves. End with <code>/*</code> to match everything beneath.</p>
+                      <p class="text-xs text-zinc-200">The incoming request path this route claims. Exact paths match only themselves. End with <code>/*</code> to match everything beneath.</p>
                     <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. /hook, /hook/*, /</p>
                     </div>
                   </template>
@@ -149,7 +149,7 @@
                   <template #content>
                     <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                       <p class="text-xs font-semibold text-white">Note</p>
-                      <p class="text-xs text-zinc-200">Free-form reminder of what this pair is for — shown only in this admin list.</p>
+                      <p class="text-xs text-zinc-200">Free-form reminder of what this route is for — shown only in this admin list.</p>
                     <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. webhooks from partner X</p>
                     </div>
                   </template>
@@ -196,7 +196,7 @@
                     <template #content>
                       <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
                         <p class="text-xs font-semibold text-white">Strip prefix</p>
-                        <p class="text-xs text-zinc-200">Remove the pair’s base path before forwarding, so <code>/hook/x</code> arrives upstream as <code>/x</code>. Wildcard pairs only.</p>
+                        <p class="text-xs text-zinc-200">Remove the route’s base path before forwarding, so <code>/hook/x</code> arrives upstream as <code>/x</code>. Wildcard routes only.</p>
                         <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. /hook/* + strip → upstream sees /x</p>
                       </div>
                     </template>
@@ -206,14 +206,14 @@
               </div>
               <div class="flex justify-end gap-2 sm:col-span-2">
                 <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="reset" />
-                <UButton type="submit" :loading="busy" :label="editing === 'new' ? 'Add pair' : 'Save changes'" />
+                <UButton type="submit" :loading="busy" :label="editing === 'new' ? 'Add route' : 'Save changes'" />
               </div>
             </UForm>
             </template>
           </UModal>
 
-          <UCard v-if="pairs.length" :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
-            <UTable :data="pairs" :columns="pairColumns">
+          <UCard v-if="routes.length" :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
+            <UTable :data="routes" :columns="routeColumns">
                 <template #path-cell="{ row }">
                   <div class="flex items-center gap-2">
                     <code class="rounded-md bg-primary/5 px-1.5 py-0.5 text-sm font-semibold text-primary">{{ row.original.path }}</code>
@@ -231,18 +231,18 @@
                 </template>
                 <template #actions-cell="{ row }">
                   <div class="flex justify-end gap-2">
-                    <UButton icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" aria-label="Pair logs" @click="viewPairLogs(row.original)" />
-                    <UButton v-if="can('pairs', 'update')" icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit pair" @click="edit(row.original)" />
-                    <UButton v-if="can('pairs', 'delete')" icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete pair" @click="remove(row.original)" />
+                    <UButton icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" aria-label="Route logs" @click="viewPairLogs(row.original)" />
+                    <UButton v-if="can('routes', 'update')" icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit route" @click="edit(row.original)" />
+                    <UButton v-if="can('routes', 'delete')" icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete route" @click="remove(row.original)" />
                   </div>
                 </template>
               </UTable>
           </UCard>
           <div v-else class="rounded-xl border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-700">
             <UIcon name="i-lucide-route" class="mx-auto size-8 text-zinc-300" />
-            <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No pairs yet</p>
-            <p class="mt-1 text-xs text-zinc-500">Create a pair to start forwarding requests</p>
-            <UButton v-if="can('pairs', 'create')" class="mt-4" icon="i-lucide-plus" :label="can('pairs', 'create') ? 'Create your first pair' : 'No pairs yet'" @click="openEditor()" />
+            <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No routes yet</p>
+            <p class="mt-1 text-xs text-zinc-500">Create a route to start forwarding requests</p>
+            <UButton v-if="can('routes', 'create')" class="mt-4" icon="i-lucide-plus" :label="can('routes', 'create') ? 'Create your first route' : 'No routes yet'" @click="openEditor()" />
           </div>
         </div>
 
@@ -668,7 +668,7 @@
             <div>
               <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Access log</h2>
               <p class="text-sm text-zinc-500">
-                {{ logFilter ? `Filtered by pair ${logFilter.path}` : 'All forwarded traffic' }}
+                {{ logFilter ? `Filtered by route ${logFilter.path}` : 'All forwarded traffic' }}
               </p>
             </div>
             <div class="flex items-center gap-2 self-end sm:self-auto">
@@ -689,8 +689,8 @@
                   <template #path-cell="{ row }">
                     <span class="block max-w-72 truncate font-mono text-xs text-zinc-800 dark:text-zinc-200">{{ row.original.path }}</span>
                   </template>
-                  <template #pairPath-cell="{ row }">
-                    <span v-if="row.original.pairPath" class="rounded bg-primary/5 px-1.5 py-0.5 font-mono text-xs text-primary">{{ row.original.pairPath }}</span>
+                  <template #routePath-cell="{ row }">
+                    <span v-if="row.original.routePath" class="rounded bg-primary/5 px-1.5 py-0.5 font-mono text-xs text-primary">{{ row.original.routePath }}</span>
                   </template>
                   <template #status-cell="{ row }">
                     <span class="rounded px-1.5 py-0.5 font-mono text-xs font-semibold" :class="statusClass(row.original.status)">{{ row.original.status }}</span>
@@ -706,7 +706,7 @@
             <div v-else class="p-10 text-center">
               <UIcon name="i-lucide-scroll-text" class="mx-auto size-8 text-zinc-300" />
               <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No traffic logged</p>
-              <p class="mt-1 text-xs text-zinc-500">Requests forwarded by pairs appear here</p>
+              <p class="mt-1 text-xs text-zinc-500">Requests forwarded by routes appear here</p>
             </div>
             <div v-if="logs.length >= logPageSize" class="flex justify-center border-t border-zinc-100 py-3 dark:border-zinc-800/60">
               <UButton variant="soft" color="neutral" size="sm" label="Load more" :loading="logsBusy" @click="loadLogs(true)" />
@@ -755,7 +755,7 @@
     </UModal>
 
     <!-- delete confirm modal -->
-    <UModal v-model:open="deleteModalOpen" title="Delete pair" :description="deleteModal.what">
+    <UModal v-model:open="deleteModalOpen" title="Delete route" :description="deleteModal.what">
       <template #body>
         <p class="text-sm text-zinc-500">This action cannot be undone.</p>
         <div class="mt-4 flex justify-end gap-2">
@@ -958,8 +958,8 @@
 </template>
 
 <script setup lang="ts">
-import type { PairRow, PairsResponse } from '../../../shared/types'
-import { pairSubmitSchema } from '~/utils/pair-form'
+import type { RouteRow, RoutesResponse } from '../../../shared/types'
+import { routeSubmitSchema } from '~/utils/route-form'
 
 interface SessionUser { id: string, name?: string | null, email: string }
 interface SessionPayload { user: SessionUser, session: { expiresAt: string } }
@@ -970,12 +970,12 @@ const userColumns: TableColumn<AdminUser>[] = [
   { id: 'role', header: 'Role & auth', meta: { class: { td: 'w-full' } } },
   { id: 'actions', header: '' },
 ]
-interface LogRow { id: number, ts: string, pairId: number | null, pairPath: string | null, method: string, path: string, status: number, durationMs: number, clientIp: string | null, userAgent: string | null }
+interface LogRow { id: number, ts: string, routeId: number | null, routePath: string | null, method: string, path: string, status: number, durationMs: number, clientIp: string | null, userAgent: string | null }
 const logColumns: TableColumn<LogRow>[] = [
   { accessorKey: 'ts', header: 'Time' },
   { accessorKey: 'method', header: 'Method' },
   { accessorKey: 'path', header: 'Path' },
-  { accessorKey: 'pairPath', header: 'Pair' },
+  { accessorKey: 'routePath', header: 'Route' },
   { accessorKey: 'status', header: 'Status' },
   { accessorKey: 'durationMs', header: 'Took' },
   { accessorKey: 'clientIp', header: 'Client' },
@@ -994,8 +994,8 @@ function can(resource: string, action: string, scope: 'own' | 'all' | 'any' = 'a
   if (scope === 'any' || scope === 'own') return set.includes(`${action}:own`)
   return false
 }
-const pairs = ref<PairRow[]>([])
-const pairColumns: TableColumn<PairRow>[] = [
+const routes = ref<RouteRow[]>([])
+const routeColumns: TableColumn<RouteRow>[] = [
   { accessorKey: 'path', header: 'Path' },
   { accessorKey: 'target', header: 'Target' },
   { id: 'actions', header: '' },
@@ -1005,9 +1005,9 @@ const editing = ref('')
 const authConfig = ref<AuthConfig | null>(null)
 const appVersion = ref('dev')
 
-const tab = ref<'pairs' | 'settings' | 'users' | 'roles' | 'logs'>('pairs')
+const tab = ref<'routes' | 'settings' | 'users' | 'roles' | 'logs'>('routes')
 const tabs = computed(() => [
-  { label: 'Pairs', icon: 'i-lucide-route', value: 'pairs' as const, show: can('pairs', 'read') },
+  { label: 'Routes', icon: 'i-lucide-route', value: 'routes' as const, show: can('routes', 'read') },
   { label: 'Settings', icon: 'i-lucide-settings', value: 'settings' as const, show: can('settings', 'read') },
   { label: 'Users', icon: 'i-lucide-users', value: 'users' as const, show: can('users', 'read') },
   { label: 'Roles', icon: 'i-lucide-shield', value: 'roles' as const, show: can('roles', 'read') },
@@ -1020,7 +1020,7 @@ const userMenuItems = computed(() => [[
   { label: 'Sign out', icon: 'i-lucide-log-out', onSelect: logout },
 ]])
 
-const activePairCount = computed(() => pairs.value.filter(p => p.enabled).length)
+const activePairCount = computed(() => routes.value.filter(p => p.enabled).length)
 
 
 
@@ -1036,7 +1036,7 @@ const apiKeys = ref<ApiKeyRow[]>([])
 const keyEditorOpen = ref(false)
 const keyForm = reactive({ name: '', expiresInDays: 0, scoped: false, scope: {} as Record<string, string[]> })
 const createdKeyValue = ref('')
-const keyScopeResources = ['pairs', 'users', 'roles', 'settings', 'logs']
+const keyScopeResources = ['routes', 'users', 'roles', 'settings', 'logs']
 
 async function loadApiKeys() {
   try {
@@ -1054,7 +1054,7 @@ function openKeyEditor() {
   keyEditorOpen.value = true
 }
 
-/** rows for the key scope matrix: only resource:action pairs the CURRENT user has */
+/** rows for the key scope matrix: only resource:action routes the CURRENT user has */
 const keyPermissionRows = computed<{ resource: string, action: string }[]>(() => {
   const rows: { resource: string, action: string }[] = []
   for (const [resource, statements] of Object.entries(perms.value)) {
@@ -1374,7 +1374,7 @@ async function deleteRole(r: RoleRow) {
   }
 }
 
-// ---------- pair form ----------
+// ---------- route form ----------
 const allVerbs = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const
 const emptyForm = () => ({ id: undefined as number | undefined, path: '', target: '', upstreamHost: undefined as string | undefined, note: undefined as string | undefined, stripPrefix: false, methodsAll: true, methods: [] as string[], enabled: true })
 const form = reactive(emptyForm())
@@ -1393,7 +1393,7 @@ function openEditor() {
 }
 
 function validatePair(state: typeof form): Array<{ name: string, message: string }> {
-  const result = pairSubmitSchema.safeParse(state)
+  const result = routeSubmitSchema.safeParse(state)
   if (result.success) return []
   return result.error.issues
     .filter(i => i.path.length > 0)
@@ -1457,13 +1457,13 @@ function resetPassword(u: AdminUser) {
 
 // ---------- delete confirm ----------
 const deleteModalOpen = ref(false)
-const deleteModal = reactive({ what: '', kind: '' as 'pair' | 'user', id: '', pairPath: '' })
+const deleteModal = reactive({ what: '', kind: '' as 'route' | 'user', id: '', routePath: '' })
 
-function remove(p: PairRow) {
+function remove(p: RouteRow) {
   deleteModal.what = `${p.path} → ${p.target}`
-  deleteModal.kind = 'pair'
+  deleteModal.kind = 'route'
   deleteModal.id = String(p.id)
-  deleteModal.pairPath = p.path
+  deleteModal.routePath = p.path
   deleteModalOpen.value = true
 }
 
@@ -1480,7 +1480,7 @@ const logsBusy = ref(false)
 const logPageSize = 50
 const logFilter = ref<{ id: number, path: string } | null>(null)
 
-function viewPairLogs(p: PairRow) {
+function viewPairLogs(p: RouteRow) {
   logFilter.value = { id: p.id, path: p.path }
   tab.value = 'logs'
   loadLogs()
@@ -1524,7 +1524,7 @@ async function loadPerms() {
 
 async function boot() {
   await Promise.all([
-    can('pairs', 'read') ? load() : Promise.resolve(),
+    can('routes', 'read') ? load() : Promise.resolve(),
     can('users', 'read') ? loadUsers().catch(() => {}) : Promise.resolve(),
     can('roles', 'read') ? loadRoles().catch(() => {}) : Promise.resolve(),
     can('settings', 'read') ? loadSettings().catch(() => {}) : Promise.resolve(),
@@ -1633,13 +1633,13 @@ async function logout() {
   await useAuth().signOut().catch(() => {})
   session.value = null
   perms.value = {}
-  pairs.value = []
+  routes.value = []
 }
 
 async function load() {
   const headers = import.meta.server ? useRequestHeaders(['cookie']) : undefined
-  const data = await $fetch<PairsResponse>('/api/pairs', { headers })
-  pairs.value = data.pairs
+  const data = await $fetch<RoutesResponse>('/api/routes', { headers })
+  routes.value = data.routes
 }
 
 function hostOf(target: string) {
@@ -1647,7 +1647,7 @@ function hostOf(target: string) {
   catch { return '' }
 }
 
-function edit(p: PairRow) {
+function edit(p: RouteRow) {
   editing.value = p.path
   Object.assign(form, JSON.parse(JSON.stringify(p)))
   form.id = p.id
@@ -1663,13 +1663,13 @@ function reset() {
 async function save() {
   busy.value = true
   try {
-    const parsed = pairSubmitSchema.safeParse({ ...form })
+    const parsed = routeSubmitSchema.safeParse({ ...form })
     if (!parsed.success) {
       toast.add({ title: 'Check the form', description: parsed.error.issues[0]?.message, color: 'error' })
       busy.value = false
       return
     }
-    const data = await $fetch<PairsResponse>('/api/pairs', {
+    const data = await $fetch<RoutesResponse>('/api/routes', {
       method: 'PUT',
       body: {
         ...parsed.data,
@@ -1677,8 +1677,8 @@ async function save() {
         methods: form.methodsAll || form.methods.length === 0 ? undefined : form.methods,
       },
     })
-    pairs.value = data.pairs
-    toast.add({ title: editing.value && editing.value !== 'new' ? 'Pair updated' : 'Pair added', color: 'success' })
+    routes.value = data.routes
+    toast.add({ title: editing.value && editing.value !== 'new' ? 'Route updated' : 'Route added', color: 'success' })
     reset()
   }
   catch (e: unknown) {
@@ -1690,11 +1690,11 @@ async function save() {
 
 async function confirmDelete() {
   try {
-    if (deleteModal.kind === 'pair') {
-      const data = await $fetch<PairsResponse>(`/api/pairs/${deleteModal.id}`, { method: 'DELETE' })
-      pairs.value = data.pairs
-      if (editing.value === deleteModal.pairPath) reset()
-      toast.add({ title: 'Pair deleted', color: 'success' })
+    if (deleteModal.kind === 'route') {
+      const data = await $fetch<RoutesResponse>(`/api/routes/${deleteModal.id}`, { method: 'DELETE' })
+      routes.value = data.routes
+      if (editing.value === deleteModal.routePath) reset()
+      toast.add({ title: 'Route deleted', color: 'success' })
     }
     else {
       await $fetch(`/api/users/${encodeURIComponent(deleteModal.id)}`, { method: 'DELETE' })
@@ -1760,7 +1760,7 @@ async function loadLogs(append = false) {
     const data = await $fetch<{ entries: LogRow[] }>('/api/logs', {
       query: {
         limit: logPageSize,
-        ...(logFilter.value ? { pairId: logFilter.value.id } : {}),
+        ...(logFilter.value ? { routeId: logFilter.value.id } : {}),
         ...(beforeId !== undefined ? { beforeId } : {}),
       },
     })

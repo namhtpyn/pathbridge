@@ -1,5 +1,5 @@
 // Drizzle rc (Relations v2): tables + relations. Auth tables are the better-auth
-// canonical set (Date fields = integer timestamp mode); `pairs` is pathbridge's own.
+// canonical set (Date fields = integer timestamp mode); `routes` is pathbridge's own.
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 import { defineRelations } from 'drizzle-orm'
 
@@ -99,8 +99,8 @@ export const settings = sqliteTable('settings', {
 export const accessLog = sqliteTable('access_log', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   ts: text('ts').notNull().$defaultFn(() => new Date().toISOString()),
-  pairId: integer('pair_id'),
-  pairPath: text('pair_path'),
+  routeId: integer('route_id'),
+  routePath: text('route_path'),
   method: text('method').notNull(),
   path: text('path').notNull(),
   status: integer('status').notNull(),
@@ -109,7 +109,7 @@ export const accessLog = sqliteTable('access_log', {
   userAgent: text('user_agent'),
 })
 
-export const pairs = sqliteTable('pairs', {
+export const routes = sqliteTable('routes', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   path: text('path').notNull().unique(),
   target: text('target').notNull(),
@@ -126,7 +126,7 @@ export const pairs = sqliteTable('pairs', {
 // Relations v2 (drizzle rc) — the shape better-auth's relations-v2 adapter consumes
 // via db._.relations and db.query.
 export const relations = defineRelations(
-  { user, session, account, verification, pairs, settings, accessLog, apikey: apiKey, roles },
+  { user, session, account, verification, routes, settings, accessLog, apikey: apiKey, roles },
   (helpers) => ({
     user: {
       sessions: helpers.many.session({ from: helpers.user.id, to: helpers.session.userId }),
@@ -139,7 +139,7 @@ export const relations = defineRelations(
       user: helpers.one.user({ from: helpers.account.userId, to: helpers.user.id }),
     },
     verification: {},
-    pairs: {},
+    routes: {},
     settings: {},
     accessLog: {},
     roles: {},
@@ -161,5 +161,5 @@ export type User = typeof user.$inferSelect
 export type Session = typeof session.$inferSelect
 export type Account = typeof account.$inferSelect
 export type Verification = typeof verification.$inferSelect
-export type Pair = typeof pairs.$inferSelect
-export type NewPair = typeof pairs.$inferInsert
+export type Route = typeof routes.$inferSelect
+export type NewPair = typeof routes.$inferInsert

@@ -5,7 +5,7 @@
 import { z } from 'zod'
 
 /** Raw form state — mirrors the loose UI inputs. */
-export const pairFormSchema = z.object({
+export const routeFormSchema = z.object({
   path: z.string().default(''),
   target: z.string().default(''),
   upstreamHost: z.string().nullish().transform(v => v?.trim() ?? ''),
@@ -14,10 +14,10 @@ export const pairFormSchema = z.object({
   enabled: z.boolean().default(true),
 })
 
-export type PairFormState = z.input<typeof pairFormSchema>
+export type RouteFormState = z.input<typeof routeFormSchema>
 
 /** Loose for UX checks; transforms to the strict PUT payload on submit. */
-export const pairSubmitSchema = z.object({
+export const routeSubmitSchema = z.object({
   path: z.string()
     .transform(v => v.trim())
     .refine(v => v.startsWith('/'), 'path must start with "/"')
@@ -44,5 +44,5 @@ export const pairSubmitSchema = z.object({
   { message: 'Strip prefix needs a wildcard path — add "/*"', path: ['stripPrefix'] },
 )
 
-export type PairSubmitInput = z.input<typeof pairSubmitSchema>
-export type PairSubmitOutput = z.output<typeof pairSubmitSchema>
+export type RouteSubmitInput = z.input<typeof routeSubmitSchema>
+export type RouteSubmitOutput = z.output<typeof routeSubmitSchema>

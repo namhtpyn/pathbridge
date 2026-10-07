@@ -1,11 +1,11 @@
 import type { H3Event } from 'h3'
 // POST|GET /mcp — Model Context Protocol server (streamable HTTP transport).
 // Auth: the same requireSession as the REST API — Bearer API key (scoped,
-// intersected with owner role) or session cookie. Tools = pairs CRUD + logs.
+// intersected with owner role) or session cookie. Tools = routes CRUD + logs.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { z, type ZodType } from 'zod'
-import { toolListPairs, toolUpsertPair, toolUpdatePairById, toolDeletePair, toolGetLogs, mcpSchemas } from '../../utils/mcp/tools'
+import { toolListRoutes, toolUpsertRoute, toolUpdateRouteById, toolDeleteRoute, toolGetLogs, mcpSchemas } from '../../utils/mcp/tools'
 import { requireSession } from '../../utils/session'
 
 // stateless mode: one transport per request, no session store
@@ -24,32 +24,32 @@ async function handle(event: H3Event): Promise<void> {
   }
 
   server.tool(
-    'list_pairs',
-    'List forwarding pairs (path -> target). Only pairs the API key may read are returned.',
+    'list_routes',
+    'List forwarding routes (path -> target). Only routes the API key may read are returned.',
     {},
-    async () => ({ content: [{ type: 'text', text: JSON.stringify(await toolListPairs(headers), null, 2) }] }),
+    async () => ({ content: [{ type: 'text', text: JSON.stringify(await toolListRoutes(headers), null, 2) }] }),
   )
   server.tool(
-    'create_pair',
-    'Create a forwarding pair (or update the existing pair at the same path). Fields: path (e.g. "/hook" or "/hook/*"), target (http(s) URL), optional upstreamHost, stripPrefix (wildcard only), methods (e.g. ["GET","HEAD"]), note, enabled.',
-    mcpSchemas.createPair.shape as unknown as Record<string, ZodType>,
-    async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolUpsertPair(headers, input), null, 2) }] }),
+    'create_route',
+    'Create a forwarding route (or update the existing route at the same path). Fields: path (e.g. "/hook" or "/hook/*"), target (http(s) URL), optional upstreamHost, stripPrefix (wildcard only), methods (e.g. ["GET","HEAD"]), note, enabled.',
+    mcpSchemas.createRoute.shape as unknown as Record<string, ZodType>,
+    async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolUpsertRoute(headers, input), null, 2) }] }),
   )
   server.tool(
-    'update_pair',
-    'Update an existing pair by numeric id. Same fields as create_pair plus required id; path rename allowed.',
-    mcpSchemas.updatePair.shape as unknown as Record<string, ZodType>,
-    async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolUpdatePairById(headers, input), null, 2) }] }),
+    'update_route',
+    'Update an existing route by numeric id. Same fields as create_pair plus required id; path rename allowed.',
+    mcpSchemas.updateRoute.shape as unknown as Record<string, ZodType>,
+    async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolUpdateRouteById(headers, input), null, 2) }] }),
   )
   server.tool(
-    'delete_pair',
-    'Delete a forwarding pair by numeric id (preferred) or path.',
-    mcpSchemas.deletePair.shape as unknown as Record<string, ZodType>,
-    async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolDeletePair(headers, input), null, 2) }] }),
+    'delete_route',
+    'Delete a forwarding route by numeric id (preferred) or path.',
+    mcpSchemas.deleteRoute.shape as unknown as Record<string, ZodType>,
+    async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolDeleteRoute(headers, input), null, 2) }] }),
   )
   server.tool(
     'get_logs',
-    'Read access-log entries for forwarded traffic. Optional limit (default 100) and pairId filter; scoped to what the key may read.',
+    'Read access-log entries for forwarded traffic. Optional limit (default 100) and routeId filter; scoped to what the key may read.',
     mcpSchemas.getLogs.shape as unknown as Record<string, ZodType>,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolGetLogs(headers, input ?? {}), null, 2) }] }),
   )

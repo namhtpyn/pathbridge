@@ -20,7 +20,7 @@ const httpTarget = z.string().min(1, 'target is required').max(2048).refine((t) 
   catch { return false }
 }, 'target must be an http(s) URL without query or fragment')
 
-const validPairPath = z.string().min(1).max(512)
+const validRoutePath = z.string().min(1).max(512)
   .startsWith('/', 'path must start with "/"')
   .refine(p => !p.startsWith('/_'), 'path must not use reserved prefix "_"')
   .refine(p => p !== '/', 'path "/" is reserved — it redirects to the admin UI')
@@ -40,10 +40,10 @@ export const methodsSchema = z.array(z.enum(httpVerbs))
   .min(1, 'allow at least one method')
   .refine(m => new Set(m).size === m.length, 'duplicate methods')
 
-export const pairInputSchema = z.strictObject({
+export const routeInputSchema = z.strictObject({
   /** When present: UPDATE this row (path rename allowed). Absent: upsert by path. */
   id: z.number().int().positive().optional(),
-  path: validPairPath,
+  path: validRoutePath,
   target: httpTarget,
   upstreamHost: z.string().min(1).max(253)
     .regex(/^[a-zA-Z0-9.-]+(:\d{1,5})?$/, 'upstreamHost must be host[:port]').optional(),
@@ -56,4 +56,4 @@ export const pairInputSchema = z.strictObject({
   { message: 'stripPrefix requires a wildcard path (ending in "/*")', path: ['stripPrefix'] },
 )
 
-export type StrictPairInput = z.infer<typeof pairInputSchema>
+export type StrictRouteInput = z.infer<typeof routeInputSchema>
