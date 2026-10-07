@@ -1,3 +1,10 @@
+## [1.12.2](https://github.com/namhtpyn/pathbridge/compare/v1.12.1...v1.12.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* profile modal pre-populates fields and gives feedback on no-op save ([3c5e704](https://github.com/namhtpyn/pathbridge/commit/3c5e704ef96fb1cb2eba8622963a76e9af7a93fa))
+
 ## [1.12.1](https://github.com/namhtpyn/pathbridge/compare/v1.12.0...v1.12.1) (2026-10-07)
 
 
