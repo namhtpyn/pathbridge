@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/namhtpyn/pathbridge/compare/v1.14.0...v1.15.0) (2026-10-07)
+
+
+### Features
+
+* permissions matrix table with None/Own/All radio selection ([483cf98](https://github.com/namhtpyn/pathbridge/commit/483cf98a1a17173b9512bb3f4805ec32b354d886))
+
 # [1.14.0](https://github.com/namhtpyn/pathbridge/compare/v1.13.0...v1.14.0) (2026-10-07)
 
 
