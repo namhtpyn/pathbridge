@@ -58,13 +58,14 @@
             :collapsed="collapsed"
             orientation="vertical"
             :items="navItems"
+            :ui="{ link: 'py-2.5 lg:py-1.5 px-3 lg:px-2.5 gap-3 lg:gap-1.5 text-base lg:text-sm' }"
             class="mt-2"
           />
         </template>
 
         <template #footer="{ collapsed }: { collapsed: boolean }">
           <UDropdownMenu v-if="!collapsed" :items="userMenuItems" :content="{ align: 'start', side: 'top' }" class="w-full">
-            <UButton variant="ghost" color="neutral" class="w-full justify-start" icon="i-lucide-circle-user" trailing-icon="i-lucide-chevrons-up-down">
+            <UButton variant="ghost" color="neutral" size="lg" class="w-full justify-start py-3 lg:py-2" icon="i-lucide-circle-user" trailing-icon="i-lucide-chevrons-up-down">
               <span class="max-w-40 truncate">{{ session.user.name || session.user.email }}</span>
             </UButton>
           </UDropdownMenu>
