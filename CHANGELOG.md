@@ -1,3 +1,10 @@
+## [2.3.1](https://github.com/namhtpyn/pathbridge/compare/v2.3.0...v2.3.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **realtime:** publish logs change event on access-log insert ([0d8e848](https://github.com/namhtpyn/pathbridge/commit/0d8e8488422d5ada86e48acf5f5267be36fbf939))
+
 # [2.3.0](https://github.com/namhtpyn/pathbridge/compare/v2.2.0...v2.3.0) (2026-10-08)
 
 
