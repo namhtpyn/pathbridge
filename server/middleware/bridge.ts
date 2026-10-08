@@ -5,7 +5,7 @@ import { proxyRequest } from 'h3'
 import { db } from '../db'
 import { recordAccess } from '../utils/access-log'
 
-const RESERVED = ['/auth', '/health', '/api', '/admin', '/mcp']
+const RESERVED = ['/auth', '/health', '/api', '/admin', '/mcp', '/rpc']
 
 interface MatchedRoute {
   id: number
