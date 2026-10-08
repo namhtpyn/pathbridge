@@ -100,6 +100,53 @@ export const router = os.router({
       (await db.query.routes.findMany({ orderBy: { path: 'asc' } })) as unknown as RouteRow[])),
   },
 
+  users: {
+    /** live user list — refreshes on any users change */
+    live: base.use(withPerm('users', 'read')).handler(() => liveGenerator(['users'], async () => {
+      const { listUsers } = await import('./users')
+      return { users: await listUsers() }
+    })),
+  },
+
+  roles: {
+    /** live role list — refreshes on any roles change */
+    live: base.use(withPerm('roles', 'read')).handler(() => liveGenerator(['roles'], async () => {
+      const rows = await db.query.roles.findMany({ orderBy: { name: 'asc' } })
+      const { STATEMENTS } = await import('./permissions')
+      return { roles: rows, vocabulary: STATEMENTS }
+    })),
+  },
+
+  settings: {
+    get: base.use(withPerm('settings', 'read')).handler(async () => {
+      const { getSettings } = await import('./settings')
+      return await getSettings()
+    }),
+  },
+
+  oidc: {
+    list: base.use(withPerm('settings', 'read')).handler(async () => {
+      const { getOidcProviders, providersToPublic } = await import('./oidc')
+      return { providers: providersToPublic(await getOidcProviders()) }
+    }),
+  },
+
+  keys: {
+    /** current user's keys (ownership = referenceId) */
+    list: base.use(withUser).handler(async ({ context }) => {
+      const { apiKey } = await import('../db/schema')
+      const { eq, desc } = await import('drizzle-orm')
+      const rows = await db.select().from(apiKey).where(eq(apiKey.referenceId, context.user.userId)).orderBy(desc(apiKey.createdAt))
+      return { keys: rows.map(k => ({
+        id: k.id, name: k.name, start: k.start, enabled: k.enabled,
+        expiresAt: k.expiresAt ? k.expiresAt.toISOString() : null,
+        lastRequest: k.lastRequest ? k.lastRequest.toISOString() : null,
+        requestCount: k.requestCount,
+        permissions: null,
+      })) }
+    }),
+  },
+
   logs: {
     recent: base
       .use(withPerm('logs', 'read'))

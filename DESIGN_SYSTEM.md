@@ -1,6 +1,6 @@
 # pathbridge — DESIGN_SYSTEM
 
-Single-page admin (`app/pages/admin/index.vue`) on **Nuxt UI v4** only — no custom CSS files, no pure HTML styling. Everything below is the convention an AI agent (or human) must follow when touching the UI.
+Multi-page admin under a dashboard shell on **Nuxt UI v4** only — no custom CSS files, no pure HTML styling. Everything below is the convention an AI agent (or human) must follow when touching the UI.
 
 ## Stack & tokens
 
@@ -9,16 +9,21 @@ Single-page admin (`app/pages/admin/index.vue`) on **Nuxt UI v4** only — no cu
 - App shell: `UApp` root (`app/app.vue`), global config in `app/app.config.ts`.
 - Icons: `i-lucide-*` only.
 
-## Layout skeleton
+## Layout skeleton (dashboard shell)
 
 ```
-<header>  sticky top bar: logo mark + "Pathbridge v{APP_VERSION}" wordmark | right: avatar dropdown
-<nav>     horizontal tabs, underline style (border-b-2), scrollable on mobile
-<main>    max-w-6xl container, py-8, one <div v-if/else-if> per tab
+app/layouts/admin.vue
+  UDashboardGroup
+    UDashboardSidebar  header: logo + "Pathbridge v{APP_VERSION}" + active route count (live) | UNavigationMenu (vertical) | footer: user dropdown
+    UDashboardPanel    header: UDashboardNavbar + UDashboardSidebarToggle (lg:hidden)
+      body: page content, p-4 sm:p-6 lg:p-8
 ```
 
-- Tabs: `<button>` with `UIcon` + label; active = `border-primary text-primary`, inactive = zinc-500.
-- Tab order: Routes, Settings, Users, Roles, Logs. Tabs render ONLY what the user's permissions allow (`can()` from `/api/me`).
+- Pages: `/admin` (Routes), `/admin/logs`, `/admin/users`, `/admin/roles`, `/admin/settings` — each `definePageMeta({ layout: 'admin' })`.
+- Sidebar nav renders ONLY what the user's permissions allow (`can()` from `useAdminSession`, fed by `/api/me`); Routes always shows.
+- Shared session/perms/auth-config live in `app/composables/useAdminSession.ts` (useState-backed). SSR request cookies come from `app/plugins/ssr-headers.server.ts` — layouts run OUTSIDE the Nuxt request context, so `useRequestHeaders` inside a layout throws e1001; never call it there.
+- Login (no session): the layout swaps the whole shell for a centered card form (password + per-provider OIDC buttons, gated by `/api/auth-config`).
+- Mobile: sidebar is an off-canvas drawer opened by `UDashboardSidebarToggle` in the navbar.
 
 ## Component map (use exactly these)
 
@@ -63,9 +68,16 @@ Every form — route editor, user create, role create, profile — follows the s
 - Modals that edit must PRE-POPULATE from state before opening (populate-then-open, e.g. `openProfile()`), never rely on `@update:open` side effects.
 - A no-op save must give feedback ("No changes to save"), never silently return.
 
+## Realtime tables (live queries)
+
+- Routes, Logs (unfiltered tail), Users and Roles subscribe via `$orpc.<resource>.live.liveOptions()` (oRPC AsyncIteratorObject over SSE) — rows appear ~2s after ANY mutation, no refetch, no reload.
+- Live pages show a pulsing emerald dot (`animate-ping`) next to "live" in the section subtitle.
+- Filtered views (logs by routeId) fall back to plain `$fetch` + manual refresh — the tail procedure is unfiltered by design.
+- Loading state: spinner row (`i-lucide-loader-circle animate-spin`) before the first snapshot; empty state only after data resolves.
+
 ## Mobile (390px)
 
-- Tabs scroll horizontally (`overflow-x-auto`, hidden scrollbar).
+- Sidebar collapses to the navbar drawer toggle; all pages must keep `scrollWidth == clientWidth` (zero horizontal overflow).
 - Rows stack; tables get `min-width` + horizontal scroll containers.
 - Modals full-height sheet style (UModal default handles this).
 
