@@ -78,7 +78,7 @@
         <template #header>
           <UDashboardNavbar :ui="{ left: 'ms-0' }">
             <template #left>
-              <UDashboardSidebarToggle class="lg:hidden" />
+              <!-- UDashboardNavbar renders its own lg:hidden sidebar toggle (toggleSide=left) — do not add a second one -->
               <span class="text-sm font-semibold text-zinc-900 dark:text-white sm:hidden">Pathbridge</span>
             </template>
           </UDashboardNavbar>
@@ -120,11 +120,13 @@ async function loadVersionSafe() {
   catch { appVersion.value = 'dev' }
 }
 
-// live route count for the sidebar subtitle
+// live route count for the sidebar subtitle. `can()` reads plain state, not a
+// ref — wrap it in computed() or the query stays at its initial enabled value
+// (false right after an in-page login, "0 active routes" until a full reload).
 const { $orpc } = useNuxtApp()
 const routeCountQuery = useQuery({
   ...($orpc as any).routes.count.queryOptions(),
-  enabled: can('routes', 'read'),
+  enabled: computed(() => can('routes', 'read')),
 })
 const activeRouteCount = computed(() => (unref(routeCountQuery.data) as { count: number } | undefined)?.count ?? 0)
 

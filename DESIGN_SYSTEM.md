@@ -15,7 +15,7 @@ Multi-page admin under a dashboard shell on **Nuxt UI v4** only — no custom CS
 app/layouts/admin.vue
   UDashboardGroup
     UDashboardSidebar  header: logo + "Pathbridge v{APP_VERSION}" + active route count (live) | UNavigationMenu (vertical) | footer: user dropdown
-    UDashboardPanel    header: UDashboardNavbar + UDashboardSidebarToggle (lg:hidden)
+    UDashboardPanel    header: UDashboardNavbar (renders its own lg:hidden sidebar toggle — never add a second one)
       body: page content, p-4 sm:p-6 lg:p-8
 ```
 

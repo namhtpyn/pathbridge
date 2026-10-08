@@ -50,8 +50,11 @@
         <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No traffic logged</p>
         <p class="mt-1 text-xs text-zinc-500">Requests forwarded by routes appear here in real time</p>
       </div>
-      <div v-if="entries.length >= pageSize" class="flex justify-center border-t border-zinc-100 py-3 dark:border-zinc-800/60">
-        <UButton variant="soft" color="neutral" size="sm" label="Load more" @click="loadMore" />
+      <div v-if="entries.length >= pageSize && hasMore" class="flex justify-center border-t border-zinc-100 py-3 dark:border-zinc-800/60">
+        <UButton variant="soft" color="neutral" size="sm" label="Load more" :loading="olderBusy" @click="loadMore" />
+      </div>
+      <div v-else-if="paging" class="flex justify-center border-t border-zinc-100 py-3 dark:border-zinc-800/60">
+        <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-radio" label="Resume live tail" @click="resumeLive" />
       </div>
     </UCard>
   </div>
@@ -84,14 +87,22 @@ const logColumns: TableColumn<LogRow>[] = [
 // live tail: plain snapshot query for the initial data (SSR-safe — subscribing
 // to the SSE stream during SSR deadlocks behind buffering proxies like nginx,
 // leaving the page on an eternal spinner), then the live query takes over on
-// the client and streams every new entry.
+// the client and streams every new entry. "Load more" in unfiltered mode
+// pauses the tail and pages history with a beforeId cursor (browsing history
+// older than the tail window); a reload/clear-filter resumes the live tail.
 const logsSnapshot = useQuery({
   ...($orpc as any).logs.recent.queryOptions({ input: { limit: pageSize } }),
   enabled: computed(() => can('logs', 'read')),
 })
+// history-paging state — declared BEFORE logsLive: its enabled computed reads
+// paging.value and vue-query evaluates options synchronously during SSR
+// (use-before-declare = TDZ 500 on the server)
+const paging = ref(false)
+const paged = ref<LogRow[]>([])
+const hasMore = ref(true)
 const logsLive = useQuery({
   ...($orpc as any).logs.tail.liveOptions({ input: { limit: pageSize } }),
-  enabled: computed(() => import.meta.client && can('logs', 'read') && filterRouteId.value === null),
+  enabled: computed(() => import.meta.client && can('logs', 'read') && filterRouteId.value === null && !paging.value),
 })
 const liveEntries = computed(() => {
   const live = (unref(logsLive.data) as { entries: LogRow[] } | undefined)?.entries
@@ -99,10 +110,13 @@ const liveEntries = computed(() => {
   return ((unref(logsSnapshot.data) as { entries: LogRow[] } | undefined)?.entries ?? []) as LogRow[]
 })
 
-// older pages when a filter is set (tail is unfiltered)
+// history paging (filter mode pages one route; unfiltered pages below the tail)
 const older = ref<LogRow[]>([])
 const olderBusy = ref(false)
-const entries = computed(() => filterRouteId.value ? older.value : liveEntries.value)
+const entries = computed(() => {
+  if (filterRouteId.value) return older.value
+  return paging.value ? paged.value : liveEntries.value
+})
 
 watch(filterRouteId, loadFiltered, { immediate: true })
 
@@ -117,22 +131,40 @@ async function loadFiltered() {
   olderBusy.value = false
 }
 
-let beforeCursor: number | undefined
 async function loadMore() {
-  const list = entries.value
-  beforeCursor = list.length ? list[list.length - 1]!.id : undefined
-  const params: Record<string, number> = { limit: pageSize }
-  if (filterRouteId.value) params.routeId = filterRouteId.value
-  if (beforeCursor !== undefined) params.beforeId = beforeCursor
-  const r = await $fetch<{ entries: LogRow[] }>('/api/logs', { query: params })
-  if (filterRouteId.value) older.value = [...older.value, ...r.entries]
-  else older.value = r.entries // switching to manual paging pauses live tail
+  if (filterRouteId.value) {
+    const list = older.value
+    const beforeCursor = list.length ? list[list.length - 1]!.id : undefined
+    const params: Record<string, number> = { limit: pageSize, routeId: filterRouteId.value }
+    if (beforeCursor !== undefined) params.beforeId = beforeCursor
+    const r = await $fetch<{ entries: LogRow[] }>('/api/logs', { query: params })
+    older.value = [...older.value, ...r.entries]
+    hasMore.value = r.entries.length === pageSize
+  }
+  else {
+    // pause the live tail and page history below its window
+    if (!paging.value) { paged.value = [...liveEntries.value]; paging.value = true }
+    const list = paged.value
+    const beforeCursor = list.length ? list[list.length - 1]!.id : undefined
+    const params: Record<string, number> = { limit: pageSize }
+    if (beforeCursor !== undefined) params.beforeId = beforeCursor
+    const r = await $fetch<{ entries: LogRow[] }>('/api/logs', { query: params })
+    paged.value = [...paged.value, ...r.entries]
+    hasMore.value = r.entries.length === pageSize
+  }
 }
 
 function clearFilter() {
   filterRouteId.value = null
   filterPath.value = null
   navigateTo({ path: '/admin/logs', query: {} })
+}
+
+/** drop history paging and re-attach the live tail */
+function resumeLive() {
+  paging.value = false
+  paged.value = []
+  hasMore.value = true
 }
 
 function statusClass(status: number): string {
