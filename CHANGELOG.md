@@ -1,3 +1,10 @@
+## [3.1.2](https://github.com/namhtpyn/pathbridge/compare/v3.1.1...v3.1.2) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ui:** logs page infinite spinner behind buffering proxies; settings table polish ([8a89f48](https://github.com/namhtpyn/pathbridge/commit/8a89f48104dc017eb9550159bab632b8c5c507fa))
+
 ## [3.1.1](https://github.com/namhtpyn/pathbridge/compare/v3.1.0...v3.1.1) (2026-10-08)
 
 
