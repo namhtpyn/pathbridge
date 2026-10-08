@@ -1,3 +1,10 @@
+## [2.1.1](https://github.com/namhtpyn/pathbridge/compare/v2.1.0...v2.1.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ci:** typecheck via bun, not npx ([f8d43b5](https://github.com/namhtpyn/pathbridge/commit/f8d43b5e3e431ca745646cff5d37b7b73c13bcd1))
+
 # [2.1.0](https://github.com/namhtpyn/pathbridge/compare/v2.0.1...v2.1.0) (2026-10-08)
 
 
