@@ -1,3 +1,10 @@
+# [3.1.0](https://github.com/namhtpyn/pathbridge/compare/v3.0.0...v3.1.0) (2026-10-08)
+
+
+### Features
+
+* oRPC read surface + fix key revocation + docs sync ([b09bff4](https://github.com/namhtpyn/pathbridge/commit/b09bff4e00828e1ac2ca03375668696db3d53025))
+
 # [3.0.0](https://github.com/namhtpyn/pathbridge/compare/v2.3.1...v3.0.0) (2026-10-08)
 
 
