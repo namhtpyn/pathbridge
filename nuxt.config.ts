@@ -1,5 +1,19 @@
 export default defineNuxtConfig({
-  modules: ['@nuxt/ui', '@nuxt/fonts', '@nuxt/icon'],
+  // poll for newer deployed builds (client checks builds/latest.json; app.vue shows the update banner)
+  experimental: {
+    checkOutdatedBuildInterval: 60_000,
+    typescriptPlugin: true,
+    viteEnvironmentApi: true,
+    typedPages: true,
+    appManifest: true,
+    watcher: 'builder',
+  },
+  dxup: {
+    features: {
+      namedLayoutSlots: true,
+    },
+  },
+  modules: ['@nuxt/ui', '@nuxt/fonts', '@nuxt/icon', '@dxup/nuxt'],
   css: ['~/assets/css/main.css'],
   compatibilityDate: '2026-01-01',
   nitro: {
