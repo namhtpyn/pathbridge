@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/namhtpyn/pathbridge/compare/v2.1.1...v2.2.0) (2026-10-08)
+
+
+### Features
+
+* oRPC foundation — typed /rpc router with better-auth + RBAC parity ([0de427d](https://github.com/namhtpyn/pathbridge/commit/0de427d5e1f36ae91c8f1616c380ecceee4d4ef1))
+
 ## [2.1.1](https://github.com/namhtpyn/pathbridge/compare/v2.1.0...v2.1.1) (2026-10-08)
 
 
