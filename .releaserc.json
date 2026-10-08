@@ -7,7 +7,7 @@
       "@semantic-release/commit-analyzer",
       {
         "parserOpts": {
-          "headerPattern": "^(\\w*)(?:\\(([\\w$@.\\-*/ ]*)\\))?!?: (.*)$",
+          "headerPattern": "^(\\w*)(?:\\(([\\w$@.+\\-*/ ]*)\\))?!?: (.*)$",
           "breakingHeaderPattern": "^(\\w*)(?:\\(([\\w$@.\\-*/ ]*)\\))?!: (.*)$",
           "headerCorrespondence": [
             "type",
@@ -21,7 +21,7 @@
       "@semantic-release/release-notes-generator",
       {
         "parserOpts": {
-          "headerPattern": "^(\\w*)(?:\\(([\\w$@.\\-*/ ]*)\\))?!?: (.*)$",
+          "headerPattern": "^(\\w*)(?:\\(([\\w$@.+\\-*/ ]*)\\))?!?: (.*)$",
           "breakingHeaderPattern": "^(\\w*)(?:\\(([\\w$@.\\-*/ ]*)\\))?!: (.*)$",
           "headerCorrespondence": [
             "type",
@@ -39,7 +39,7 @@
         "labels": false,
         "successComment": false,
         "parserOpts": {
-          "headerPattern": "^(\\w*)(?:\\(([\\w$@.\\-*/ ]*)\\))?!?: (.*)$",
+          "headerPattern": "^(\\w*)(?:\\(([\\w$@.+\\-*/ ]*)\\))?!?: (.*)$",
           "breakingHeaderPattern": "^(\\w*)(?:\\(([\\w$@.\\-*/ ]*)\\))?!: (.*)$",
           "headerCorrespondence": [
             "type",
