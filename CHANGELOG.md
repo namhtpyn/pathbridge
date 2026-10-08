@@ -1,3 +1,11 @@
+## [3.1.4](https://github.com/namhtpyn/pathbridge/compare/v3.1.3...v3.1.4) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ts:** auth-session cookie guard — TS2769 on the && short-circuit statement (caught by CI on fresh checkout; local .nuxt types were stale) ([604eb24](https://github.com/namhtpyn/pathbridge/commit/604eb24868de09dd2cca464ea104a86d3e542629))
+* **ui:** mobile double padding — UDashboardPanel body p-4 sm:p-6 stacked with the layout's own padding wrapper ([cc0414d](https://github.com/namhtpyn/pathbridge/commit/cc0414d9d88d18ade67261d92cb273111519c97e))
+
 ## [3.1.3](https://github.com/namhtpyn/pathbridge/compare/v3.1.2...v3.1.3) (2026-10-08)
 
 
