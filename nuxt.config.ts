@@ -13,6 +13,9 @@ export default defineNuxtConfig({
       namedLayoutSlots: true,
     },
   },
+  typescript: {
+    typeCheck: true,
+  },
   modules: ['@nuxt/ui', '@nuxt/fonts', '@nuxt/icon', '@dxup/nuxt'],
   css: ['~/assets/css/main.css'],
   compatibilityDate: '2026-01-01',
