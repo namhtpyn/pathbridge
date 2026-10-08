@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/namhtpyn/pathbridge/compare/v2.0.1...v2.1.0) (2026-10-08)
+
+
+### Features
+
+* new-version banner + bun-only toolchain ([2464b3a](https://github.com/namhtpyn/pathbridge/commit/2464b3ad7046a9055db2758c12aff896ec54e4f3))
+
 ## [2.0.1](https://github.com/namhtpyn/pathbridge/compare/v2.0.0...v2.0.1) (2026-10-08)
 
 
