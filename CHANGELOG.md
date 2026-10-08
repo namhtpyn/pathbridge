@@ -1,3 +1,11 @@
+## [3.1.5](https://github.com/namhtpyn/pathbridge/compare/v3.1.4...v3.1.5) (2026-10-08)
+
+
+### Bug Fixes
+
+* **release:** allow + in commit header scope — 'fix(ui+ci):' parsed typeless and cut no release ([8113a22](https://github.com/namhtpyn/pathbridge/commit/8113a22dec3d1af0f7a99cba84478c38a4c31b3d))
+* **ui+ci:** finger-friendly mobile sidebar nav; CI workflow off npm onto bun ([e96f993](https://github.com/namhtpyn/pathbridge/commit/e96f99393541d429abc8a3d6d2e971191471ddf7))
+
 ## [3.1.4](https://github.com/namhtpyn/pathbridge/compare/v3.1.3...v3.1.4) (2026-10-08)
 
 
