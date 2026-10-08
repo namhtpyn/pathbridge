@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/namhtpyn/pathbridge/compare/v2.0.0...v2.0.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* key scope matrix hides statements outside the RBAC vocabulary ([7e39fc1](https://github.com/namhtpyn/pathbridge/commit/7e39fc1a9f9fb4b9fd06935c783807b93ae89625))
+
 # [2.0.0](https://github.com/namhtpyn/pathbridge/compare/v1.30.0...v2.0.0) (2026-10-07)
 
 
