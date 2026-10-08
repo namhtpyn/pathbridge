@@ -1,3 +1,10 @@
+## [3.1.3](https://github.com/namhtpyn/pathbridge/compare/v3.1.2...v3.1.3) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ui:** logs page Load-more dead click + stale sidebar count + duplicate mobile sidebar toggle ([06e72db](https://github.com/namhtpyn/pathbridge/commit/06e72db0a60a91041f708faa622b699c4bdb657a))
+
 ## [3.1.2](https://github.com/namhtpyn/pathbridge/compare/v3.1.1...v3.1.2) (2026-10-08)
 
 
