@@ -5,6 +5,7 @@
 import { z } from 'zod'
 import { getAuth } from '../../utils/auth'
 import { requirePermission, STATEMENTS } from '../../utils/permissions'
+import { publishChange } from '../../utils/change-bus'
 
 const stmt = z.string().regex(/^(read|create|update|delete):(own|all)$/)
 const bodySchema = z.strictObject({
@@ -50,5 +51,6 @@ export default defineEventHandler(async (event) => {
       ...(Object.keys(clean).length > 0 ? { permissions: clean } : {}),
     },
   })
+  await publishChange('keys', 'create')
   return { key: res.key, referenceId: res.referenceId, name }
 })

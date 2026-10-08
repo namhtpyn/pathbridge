@@ -7,6 +7,7 @@ import { routes } from '../../db/schema'
 import type { RouteRow } from '../../../shared/types'
 import { routeInputSchema } from '../../utils/route-schema'
 import { requireUser, userCan, requireRecordPermission } from '../../utils/permissions'
+import { publishChange } from '../../utils/change-bus'
 
 export default defineEventHandler(async (event): Promise<{ routes: RouteRow[] }> => {
   const { user } = await requireUser(event)
@@ -65,5 +66,6 @@ export default defineEventHandler(async (event): Promise<{ routes: RouteRow[] }>
   }
 
   const rows = await db.query.routes.findMany({ orderBy: { path: 'asc' } })
+  await publishChange('routes', 'update')
   return { routes: rows as unknown as RouteRow[] }
 })

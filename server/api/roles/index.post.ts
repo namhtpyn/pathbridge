@@ -3,6 +3,7 @@ import { roles as rolesTable } from '../../db/schema'
 import { listRoles, validateStatements, STATEMENTS, requirePermission } from '../../utils/permissions'
 import { eq } from 'drizzle-orm'
 import { createError } from 'h3'
+import { publishChange } from '../../utils/change-bus'
 
 const NAME_RE = /^[a-z0-9][a-z0-9-]{1,31}$/
 
@@ -23,5 +24,6 @@ export default defineEventHandler(async (event) => {
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
   await db.insert(rolesTable).values({ id, name, description, statements, builtin: false, createdAt: now, updatedAt: now })
+  await publishChange('roles', 'create')
   return { role: { id, name, description, statements, builtin: false } }
 })

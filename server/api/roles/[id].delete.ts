@@ -2,6 +2,7 @@ import { db } from '../../db'
 import { roles as rolesTable } from '../../db/schema'
 import { validateStatements, requirePermission } from '../../utils/permissions'
 import { eq } from 'drizzle-orm'
+import { publishChange } from '../../utils/change-bus'
 
 
 export default defineEventHandler(async (event) => {
@@ -15,5 +16,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: `role still assigned to ${holders.length} user(s)` })
   }
   await db.delete(rolesTable).where(eq(rolesTable.id, id))
+  await publishChange('roles', 'delete')
   return { ok: true }
 })

@@ -5,6 +5,7 @@ import { setSetting, getSettings } from '../../utils/settings'
 import { rebuildAuth } from '../../utils/auth'
 import { requirePermission } from '../../utils/permissions'
 import { getOidcProviders } from '../../utils/oidc'
+import { publishChange } from '../../utils/change-bus'
 
 const bodySchema = z.strictObject({
   disablePasswordLogin: z.boolean().optional(),
@@ -35,5 +36,6 @@ export default defineEventHandler(async (event) => {
   const entries = Object.entries(d) as Array<[string, string | number | boolean]>
   for (const [k, v] of entries) await setSetting(k as 'logRetentionDays', v)
   await rebuildAuth() // password-toggle affects the auth build
+  await publishChange('settings', 'update')
   return { ok: true }
 })
