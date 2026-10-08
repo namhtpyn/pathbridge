@@ -50,21 +50,44 @@ export async function useAdminSession() {
     catch { appVersion.value = 'dev' }
   }
 
-  /** Resolve session during SSR via better-auth's Nuxt integration. */
-  const authClient = useAuth()
-  const { data: ssrSession } = await authClient.useSession(useFetch)
-
-  if (ssrSession.value) {
-    session.value = ssrSession.value as unknown as SessionPayload
-    if (!booted.value) {
-      await loadPerms()
-      booted.value = true
+  /**
+   * Resolve session during SSR. NOT via the better-auth vue client: its
+   * baseURL comes from useRequestURL().origin, which behind the reverse
+   * proxy is the public https origin — the SSR fetch looped out through
+   * nginx without the cookie and every page server-rendered as the login
+   * shell (the client swap then left the login wrapper's p-6 centering
+   * around the dashboard = phantom mobile padding). We hit our own
+   * /api/auth-session with the captured request cookies instead:
+   * in-process, proxy-free, cookie-forwarding guaranteed.
+   */
+  if (import.meta.server) {
+    const ssrHeaders = useState<Record<string, string> | undefined>('admin:ssr-headers', () => undefined)
+    try {
+      const s = await $fetch<SessionPayload | null>('/api/auth-session', { headers: ssrHeaders.value })
+      if (s?.user) {
+        session.value = s
+        if (!booted.value) {
+          await loadPerms()
+          booted.value = true
+        }
+      }
     }
+    catch { /* not signed in / resolver failed — client will retry */ }
   }
-
-  watch(() => ssrSession.value, (s) => {
-    session.value = (s ?? null) as unknown as SessionPayload | null
-  })
+  else {
+    const authClient = useAuth()
+    const { data: ssrSession } = await authClient.useSession(useFetch)
+    if (ssrSession.value) {
+      session.value = ssrSession.value as unknown as SessionPayload
+      if (!booted.value) {
+        await loadPerms()
+        booted.value = true
+      }
+    }
+    watch(() => ssrSession.value, (s) => {
+      session.value = (s ?? null) as unknown as SessionPayload | null
+    })
+  }
 
   onMounted(async () => {
     if (!session.value) {
