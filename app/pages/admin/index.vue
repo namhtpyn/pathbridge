@@ -898,7 +898,7 @@
                       @update:model-value="() => setKeyMasterScope(row.original.resource, 'own')"
                     />
                   </div>
-                  <div v-else-if="!row.getIsGrouped() && iHave(row.original.resource, `${row.original.action}:own`)" class="flex justify-center">
+                  <div v-else-if="!row.getIsGrouped() && keyScopeValid(row.original.resource, row.original.action, 'own') && iHave(row.original.resource, `${row.original.action}:own`)" class="flex justify-center">
                     <URadioGroup
                       :model-value="keyScopeFor(row.original.resource, row.original.action)"
                       :items="[{ label: '', value: 'own' }]"
@@ -920,7 +920,7 @@
                       @update:model-value="() => setKeyMasterScope(row.original.resource, 'all')"
                     />
                   </div>
-                  <div v-else-if="!row.getIsGrouped() && iHave(row.original.resource, `${row.original.action}:all`)" class="flex justify-center">
+                  <div v-else-if="!row.getIsGrouped() && keyScopeValid(row.original.resource, row.original.action, 'all') && iHave(row.original.resource, `${row.original.action}:all`)" class="flex justify-center">
                     <URadioGroup
                       :model-value="keyScopeFor(row.original.resource, row.original.action)"
                       :items="[{ label: '', value: 'all' }]"
@@ -1076,6 +1076,11 @@ function iHave(resource: string, statement: string): boolean {
   return false
 }
 
+/** is action:scope a VALID statement in the RBAC vocabulary for this resource? */
+function keyScopeValid(resource: string, action: string, scope: string): boolean {
+  return (vocabulary.value[resource] ?? []).includes(`${action}:${scope}`)
+}
+
 /** key radio state for a row: none | own | all */
 function keyScopeFor(resource: string, action: string): 'none' | 'own' | 'all' {
   const cur = keyForm.scope[resource] ?? []
@@ -1098,7 +1103,7 @@ function setKeyScope(resource: string, action: string, scope: 'none' | 'own' | '
   const cur = new Set(keyForm.scope[resource] ?? [])
   cur.delete(`${action}:all`)
   cur.delete(`${action}:own`)
-  if (scope !== 'none') cur.add(`${action}:${scope}`)
+  if (scope !== 'none' && keyScopeValid(resource, action, scope)) cur.add(`${action}:${scope}`)
   if (cur.size > 0) keyForm.scope[resource] = [...cur]
   else delete keyForm.scope[resource]
 }
@@ -1107,18 +1112,18 @@ function setKeyMasterScope(resource: string, scope: 'none' | 'own' | 'all') {
   const rows = keyPermissionRows.value.filter(r => r.resource === resource)
   for (const r of rows) {
     if (scope === 'none') { setKeyScope(resource, r.action, 'none'); continue }
-    if (scope === 'own' && !iHave(resource, `${r.action}:own`)) { setKeyScope(resource, r.action, 'none'); continue }
-    if (scope === 'all' && !iHave(resource, `${r.action}:all`)) { setKeyScope(resource, r.action, 'none'); continue }
+    if (scope === 'own' && !(keyScopeValid(resource, r.action, 'own') && iHave(resource, `${r.action}:own`))) { setKeyScope(resource, r.action, 'none'); continue }
+    if (scope === 'all' && !(keyScopeValid(resource, r.action, 'all') && iHave(resource, `${r.action}:all`))) { setKeyScope(resource, r.action, 'none'); continue }
     setKeyScope(resource, r.action, scope)
   }
 }
 
 function keyMasterOwnAvailable(resource: string): boolean {
-  return keyPermissionRows.value.some(r => r.resource === resource && iHave(resource, `${r.action}:own`))
+  return keyPermissionRows.value.some(r => r.resource === resource && keyScopeValid(resource, r.action, 'own') && iHave(resource, `${r.action}:own`))
 }
 
 function keyMasterAllAvailable(resource: string): boolean {
-  return keyPermissionRows.value.some(r => r.resource === resource && iHave(resource, `${r.action}:all`))
+  return keyPermissionRows.value.some(r => r.resource === resource && keyScopeValid(resource, r.action, 'all') && iHave(resource, `${r.action}:all`))
 }
 
 async function createKey() {
