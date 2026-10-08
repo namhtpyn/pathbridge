@@ -20,7 +20,9 @@ function reload() {
 
 <template>
   <UApp>
-    <NuxtPage />
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
 
     <Teleport to="body">
       <div

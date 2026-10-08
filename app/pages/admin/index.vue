@@ -1,758 +1,174 @@
 <template>
-  <div class="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-    <!-- ===================== LOGIN ===================== -->
-    <div v-if="!session" class="flex min-h-screen items-center justify-center p-6">
-      <div class="w-full max-w-sm">
-        <div class="mb-8 flex flex-col items-center gap-2 text-center">
-          <div class="flex size-12 items-center justify-center rounded-2xl bg-primary shadow-sm">
-            <UIcon name="i-lucide-arrow-left-right" class="size-6 text-inverted" />
-          </div>
-          <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Pathbridge
-              <span class="font-mono align-middle text-xs font-normal text-zinc-400">v{{ appVersion }}</span>
-            </h1>
-          <p class="text-sm text-zinc-500">Path forwarding for external upstreams</p>
-        </div>
-
-        <UCard :ui="{ root: 'shadow-sm' }">
-          <UForm v-if="authConfig?.passwordEnabled !== false" :state="loginState" class="space-y-4" @submit="login">
-            <UFormField label="Email" name="email">
-              <UInput v-model="loginState.email" type="email" icon="i-lucide-mail" placeholder="you@example.com" class="w-full" size="lg" required />
-            </UFormField>
-            <UFormField label="Password" name="password">
-              <UInput v-model="loginState.password" type="password" icon="i-lucide-lock" class="w-full" size="lg" required />
-            </UFormField>
-            <UAlert v-if="loginError" icon="i-lucide-shield-alert" color="error" variant="subtle" :title="loginError" />
-            <UButton type="submit" block size="lg" :loading="busy" label="Sign in" />
-          </UForm>
-            <UButton
-              v-for="prov in (authConfig?.providers ?? [])"
-              :key="prov.id"
-              block size="lg" variant="outline" icon="i-lucide-key-round"
-              :label="`Sign in with ${prov.label}`"
-              class="mt-3"
-              @click="oidcLogin(prov.id)"
-            />
-        </UCard>
+  <div class="space-y-6">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div>
+        <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Routes</h2>
+        <p class="text-sm text-zinc-500">Route incoming paths to upstream origins · <span class="inline-flex items-center gap-1"><span class="relative flex size-1.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" /></span>live</span></p>
       </div>
+      <UButton v-if="can('routes', 'create')" icon="i-lucide-plus" label="New route" class="self-end sm:self-auto" @click="openEditor()" />
     </div>
 
-    <!-- ===================== APP ===================== -->
-    <div v-else class="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 sm:px-6">
-      <!-- top bar -->
-      <header class="flex h-14 shrink-0 items-center justify-between gap-3 sm:h-16 sm:gap-4">
-        <div class="flex items-center gap-3">
-          <div class="flex size-9 items-center justify-center rounded-xl bg-primary/10">
-            <UIcon name="i-lucide-arrow-left-right" class="size-5 text-primary" />
-          </div>
-          <div class="flex flex-col">
-            <span class="text-sm font-semibold leading-tight text-zinc-900 dark:text-white">Pathbridge
-              <span class="font-mono text-[10px] font-normal text-zinc-400">v{{ appVersion }}</span>
-            </span>
-            <span class="text-xs leading-tight text-zinc-400">{{ activePairCount }} active routes</span>
-          </div>
-        </div>
-
-        <UDropdownMenu :items="userMenuItems">
-          <UButton variant="ghost" color="neutral" icon="i-lucide-circle-user" trailing-icon="i-lucide-chevrons-up-down">
-            <span class="max-w-40 truncate">{{ session.user.name || session.user.email }}</span>
-          </UButton>
-        </UDropdownMenu>
-      </header>
-
-      <!-- tabs -->
-      <nav class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-zinc-200 pl-1 dark:border-zinc-800" style="-webkit-overflow-scrolling: touch; scrollbar-width: none">
-        <button
-          v-for="t in tabs"
-          :key="t.value"
-          type="button"
-          class="-mb-px flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors"
-          :class="tab === t.value
-            ? 'border-primary text-primary'
-            : 'border-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'"
-          @click="tab = t.value"
-        >
-          <UIcon :name="t.icon" class="size-4" />
-          {{ t.label }}
-        </button>
-      </nav>
-
-      <!-- content -->
-      <main class="flex-1 py-8">
-        <!-- ============ ROUTES ============ -->
-        <div v-if="tab === 'routes'" class="space-y-6">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div>
-              <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Routes</h2>
-              <p class="text-sm text-zinc-500">Route incoming paths to upstream origins</p>
-            </div>
-            <UButton v-if="can('routes', 'create')" icon="i-lucide-plus" label="New route" class="self-end sm:self-auto" @click="openEditor()" />
-          </div>
-
-          <UModal :open="!!editing" :title="editing === 'new' ? 'Create route' : `Edit ${editing}`" @update:open="(v: boolean) => !v && reset()">
-            <template #body>
-            <UForm :state="form" :validate="validatePair" class="grid gap-5 sm:grid-cols-2" @submit="save">
-              <UFormField name="path">
-                <template #label>Path</template>
-                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                  <template #default>
-                    <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                  </template>
-                  <template #content>
-                    <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                      <p class="text-xs font-semibold text-white">Path</p>
-                      <p class="text-xs text-zinc-200">The incoming request path this route claims. Exact paths match only themselves. End with <code>/*</code> to match everything beneath.</p>
-                    <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. /hook, /hook/*, /</p>
-                    </div>
-                  </template>
-                </UPopover></template>
-                <UInput v-model="form.path" placeholder="/hook or /hook/*" icon="i-lucide-slash" class="w-full" />
-                <template #help><span>{{ pathHelp }}</span></template>
-              </UFormField>
-              <UFormField name="target">
-                <template #label>Target origin</template>
-                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                  <template #default>
-                    <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                  </template>
-                  <template #content>
-                    <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                      <p class="text-xs font-semibold text-white">Target origin</p>
-                      <p class="text-xs text-zinc-200">Absolute http(s) URL of the upstream. A path here becomes a prefix on every forwarded request. No query or fragment.</p>
-                    <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. https://api.example.com</p>
-                    </div>
-                  </template>
-                </UPopover></template>
-                <UInput v-model="form.target" placeholder="https://api.example.com" icon="i-lucide-globe" class="w-full" />
-              </UFormField>
-              <UFormField name="upstreamHost">
-                <template #label>Host header override</template>
-                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                  <template #default>
-                    <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                  </template>
-                  <template #content>
-                    <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                      <p class="text-xs font-semibold text-white">Host header override</p>
-                      <p class="text-xs text-zinc-200">Host header sent to the upstream. Leave empty to use the target's own hostname. Some services (CDNs, SNI-based routers) need a specific value.</p>
-                    <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. api.example.com:8443</p>
-                    </div>
-                  </template>
-                </UPopover></template>
-                <UInput v-model="form.upstreamHost" placeholder="api.example.com" icon="i-lucide-server" class="w-full" />
-              </UFormField>
-              <UFormField name="note">
-                <template #label>Note</template>
-                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                  <template #default>
-                    <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                  </template>
-                  <template #content>
-                    <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                      <p class="text-xs font-semibold text-white">Note</p>
-                      <p class="text-xs text-zinc-200">Free-form reminder of what this route is for — shown only in this admin list.</p>
-                    <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. webhooks from partner X</p>
-                    </div>
-                  </template>
-                </UPopover></template>
-                <UInput v-model="form.note" placeholder="webhooks from partner X" icon="i-lucide-notebook-pen" class="w-full" />
-              </UFormField>
-              <UFormField name="methods">
-                <template #label>Allowed methods</template>
-                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Allowed methods</p>
-                        <p class="text-xs text-zinc-200">Only the selected HTTP verbs are forwarded; anything else gets 405. Leave "All" on to forward everything.</p>
-                      </div>
-                    </template>
-                  </UPopover></template>
-                <div class="flex flex-wrap items-center gap-2">
-                  <UCheckbox v-model="form.methodsAll" label="All" @update:model-value="() => { if (form.methodsAll) form.methods = [] }" />
-                  <template v-for="verb in allVerbs" :key="verb">
-                    <button
-                      type="button"
-                      :disabled="form.methodsAll"
-                      class="rounded-md border px-2 py-1 font-mono text-xs transition-colors disabled:opacity-40"
-                      :class="form.methods.includes(verb)
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-zinc-300 text-zinc-500 hover:border-zinc-400 dark:border-zinc-600'"
-                      @click="toggleVerb(verb)"
-                    >
-                      {{ verb }}
-                    </button>
-                  </template>
-                </div>
-              </UFormField>
-              <div class="flex flex-wrap items-center gap-x-6 gap-y-3 sm:col-span-2">
-                <div class="flex items-center gap-1.5">
-                  <USwitch v-model="form.stripPrefix" :disabled="!isWildcard" label="Strip prefix" />
-                  <UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Strip prefix</p>
-                        <p class="text-xs text-zinc-200">Remove the route’s base path before forwarding, so <code>/hook/x</code> arrives upstream as <code>/x</code>. Wildcard routes only.</p>
-                        <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. /hook/* + strip → upstream sees /x</p>
-                      </div>
-                    </template>
-                  </UPopover>
-                </div>
-                <USwitch v-model="form.enabled" label="Enabled" />
-              </div>
-              <div class="flex justify-end gap-2 sm:col-span-2">
-                <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="reset" />
-                <UButton type="submit" :loading="busy" :label="editing === 'new' ? 'Add route' : 'Save changes'" />
-              </div>
-            </UForm>
-            </template>
-          </UModal>
-
-          <UCard v-if="routes.length" :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
-            <UTable :data="routes" :columns="routeColumns">
-                <template #path-cell="{ row }">
-                  <div class="flex items-center gap-2">
-                    <code class="rounded-md bg-primary/5 px-1.5 py-0.5 text-sm font-semibold text-primary">{{ row.original.path }}</code>
-                    <UBadge v-if="row.original.stripPrefix" label="strip" variant="subtle" color="warning" size="sm" />
-                    <UBadge v-if="!row.original.enabled" label="disabled" variant="subtle" color="error" size="sm" />
-                  </div>
-                </template>
-                <template #target-cell="{ row }">
-                  <div class="text-xs text-zinc-500">
-                    <span class="break-all font-mono">{{ row.original.target }}</span>
-                    <span v-if="row.original.upstreamHost" class="block text-zinc-400">host: {{ row.original.upstreamHost }}</span>
-                    <span v-if="row.original.methods?.length" class="block font-mono text-[10px] text-zinc-400">{{ row.original.methods.join(' ') }}</span>
-                    <span v-if="row.original.note" class="block truncate text-zinc-400">{{ row.original.note }}</span>
-                  </div>
-                </template>
-                <template #actions-cell="{ row }">
-                  <div class="flex justify-end gap-2">
-                    <UButton icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" aria-label="Route logs" @click="viewPairLogs(row.original)" />
-                    <UButton v-if="can('routes', 'update')" icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit route" @click="edit(row.original)" />
-                    <UButton v-if="can('routes', 'delete')" icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete route" @click="remove(row.original)" />
-                  </div>
-                </template>
-              </UTable>
-          </UCard>
-          <div v-else class="rounded-xl border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-700">
-            <UIcon name="i-lucide-route" class="mx-auto size-8 text-zinc-300" />
-            <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No routes yet</p>
-            <p class="mt-1 text-xs text-zinc-500">Create a route to start forwarding requests</p>
-            <UButton v-if="can('routes', 'create')" class="mt-4" icon="i-lucide-plus" :label="can('routes', 'create') ? 'Create your first route' : 'No routes yet'" @click="openEditor()" />
-          </div>
-        </div>
-
-        <!-- ============ SETTINGS ============ -->
-        <div v-else-if="tab === 'settings'" class="space-y-6">
-          <div>
-            <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Settings</h2>
-            <p class="text-sm text-zinc-500">Authentication and logging configuration</p>
-          </div>
-
-          <UCard :ui="{ root: 'shadow-sm' }">
-            <template #header>
-              <div class="flex items-center gap-2">
-                <UIcon name="i-lucide-scroll-text" class="size-4 text-zinc-400" />
-                <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Access log</h3>
-              </div>
-            </template>
-            <UForm :state="settingsForm" class="space-y-5" @submit="saveSettings">
-              <UFormField name="logRetentionDays">
-                <template #label>Retention (days)</template>
-                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Retention</p>
-                        <p class="text-xs text-zinc-200">Access-log entries older than this many days are deleted automatically (sweeper runs every 6 hours).</p>
-                        <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. 30 (default) · 0 = keep forever</p>
-                      </div>
-                    </template>
-                </UPopover></template>
-                <UInputNumber v-model="settingsForm.logRetentionDays" :min="0" :max="3650" class="w-full max-w-48" />
-              </UFormField>
-              <USeparator />
-              <div class="-ml-0.5 flex items-center gap-2">
-                <UIcon name="i-lucide-key-round" class="size-4 text-zinc-400" />
-                <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Authentication</h3>
-              </div>
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <UIcon name="i-lucide-key-round" class="size-4 text-zinc-400" />
-                  <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">OIDC providers</h3>
-                </div>
-                <UButton v-if="can('settings', 'update')" icon="i-lucide-plus" size="sm" label="Add provider" @click="openOidcEditor()" />
-              </div>
-              <p v-if="oidcProviders.length === 0" class="text-sm text-zinc-500">No OIDC providers configured. Add one to enable SSO login buttons.</p>
-              <div v-else class="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800/60 dark:border-zinc-800">
-                <div v-for="prov in oidcProviders" :key="prov.id" class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ prov.label }}</span>
-                      <UBadge v-if="!prov.secretSet" variant="subtle" color="warning" size="sm">no secret</UBadge>
-                    </div>
-                    <div class="mt-0.5 truncate text-xs font-mono text-zinc-500">{{ publicOrigin }}/auth/callback/{{ prov.id }}</div>
-                  </div>
-                  <div class="flex shrink-0 items-center gap-2">
-                    <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit provider" :disabled="!can('settings', 'update')" @click="openOidcEditor(prov)" />
-                    <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Remove provider" :disabled="!can('settings', 'update')" @click="removeOidcProvider(prov)" />
-                  </div>
-                </div>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <USwitch v-model="settingsForm.disablePasswordLogin" :disabled="!oidcReady" label="Disable email + password login" />
-                <UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Disable password login</p>
-                        <p class="text-xs text-zinc-200">Turns off the email + password sign-in form entirely; everyone signs in via OIDC. Requires OIDC to be fully configured first — this prevents locking yourself out.</p>
-                      </div>
-                    </template>
-                  </UPopover>
-              </div>
-              <div class="flex justify-end">
-                <UButton type="submit" icon="i-lucide-save" :loading="busy" label="Save settings" />
-              </div>
-            </UForm>
-          </UCard>
-        </div>
-
-        <!-- ============ USERS ============ -->
-        <div v-else-if="tab === 'users'" class="space-y-6">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div>
-              <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Users</h2>
-              <p class="text-sm text-zinc-500">Who can manage this bridge</p>
-            </div>
-            <UButton icon="i-lucide-user-plus" label="Add user" class="self-end sm:self-auto" @click="showAddUser = !showAddUser" />
-          </div>
-
-          <UModal :open="showAddUser" title="Add user" description="Create a new account and assign its role" @update:open="v => showAddUser = v">
-            <template #body>
-            <UForm :state="newUser" :validate="validateNewUser" class="grid gap-5 sm:grid-cols-2" @submit="addUser">
-              <UFormField label="Email" name="email">
-                <UInput v-model="newUser.email" type="email" icon="i-lucide-mail" class="w-full" />
-              </UFormField>
-              <UFormField label="Name" name="name">
-                <UInput v-model="newUser.name" icon="i-lucide-user" class="w-full" />
-              </UFormField>
-              <UFormField name="password">
-                <template #label>Password</template>
-                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Password</p>
-                        <p class="text-xs text-zinc-200">Initial password for the new user — they (or you) can change it later via Reset password.</p>
-                      <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. min 8 characters</p>
-                      </div>
-                    </template>
-                  </UPopover></template>
-                <UInput v-model="newUser.password" type="password" icon="i-lucide-lock" class="w-full" />
-              </UFormField>
-              <UFormField v-if="can('roles', 'update')" name="role">
-                <template #label>Role</template>
-                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Role</p>
-                        <p class="text-xs text-zinc-200">Role assigned to the new user. Defaults to viewer. Requires roles:update permission.</p>
-                      </div>
-                    </template>
-                  </UPopover></template>
-                <USelect v-model="newUser.role" :items="roleOptions" class="w-full" />
-              </UFormField>
-              <div class="flex items-end justify-end gap-2">
-                <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="showAddUser = false" />
-                <UButton type="submit" icon="i-lucide-user-plus" :loading="busy" label="Create user" />
-              </div>
-            </UForm>
-            </template>
-          </UModal>
-
-          <UModal v-model:open="userEditOpen" :title="`Edit ${userEditForm.name || userEditForm.email}`" description="Update name, email or role">
-            <template #body>
-              <UForm :state="userEditForm" class="grid gap-5" @submit="saveUserEdit">
-                <UFormField label="Name" name="name">
-                  <UInput v-model="userEditForm.name" icon="i-lucide-user" class="w-full" />
-                </UFormField>
-                <UFormField label="Email" name="email">
-                  <UInput v-model="userEditForm.email" type="email" icon="i-lucide-mail" class="w-full" />
-                </UFormField>
-                <UFormField v-if="can('roles', 'update')" name="role">
-                  <template #label>Role</template>
-                  <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Role</p>
-                        <p class="text-xs text-zinc-200">Changing role takes effect on the user's next request. Comma-join multiple roles if needed.</p>
-                      </div>
-                    </template>
-                  </UPopover></template>
-                  <USelect v-model="userEditForm.role" :items="roleOptions" class="w-full" />
-                </UFormField>
-              <UFormField name="emailVerifiedEdit">
-                <template #label>Email verified</template>
-                <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Email verified</p>
-                        <p class="text-xs text-zinc-200">OIDC accounts auto-link to existing users only when the local account is verified.</p>
-                      </div>
-                    </template>
-                  </UPopover></template>
-                <USwitch v-model="userEditForm.emailVerified" label="Email is verified" />
-              </UFormField>
-                <div class="flex items-end justify-end gap-2">
-                  <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="userEditOpen = false" />
-                  <UButton type="submit" icon="i-lucide-check" :loading="busy" label="Save changes" />
-                </div>
-              </UForm>
-            </template>
-          </UModal>
-
-          <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
-            <UTable :data="users" :columns="userColumns">
-                <template #user-cell="{ row }">
-                  <div class="flex items-center gap-3">
-                    <UAvatar :name="row.original.name || row.original.email" size="sm" />
-                    <div class="min-w-0">
-                      <div class="flex items-center gap-2">
-                        <span class="truncate text-sm font-medium text-zinc-900 dark:text-white">{{ row.original.name }}</span>
-                        <UBadge v-if="session?.user?.id && row.original.id === session.user.id" label="you" variant="subtle" color="primary" size="sm" />
-                      </div>
-                      <div class="truncate text-xs text-zinc-500">{{ row.original.email }}</div>
-                    </div>
-                  </div>
-                </template>
-                <template #role-cell="{ row }">
-                  <div class="flex flex-wrap items-center gap-1.5 text-xs text-zinc-400">
-                    <UBadge class="font-mono" variant="subtle" color="neutral" size="sm">{{ row.original.role }}</UBadge>
-                    <span v-if="row.original.hasPassword" class="flex items-center gap-1" title="Has a password login"><UIcon name="i-lucide-lock" class="size-3" />password</span>
-                    <span v-if="row.original.oidcLinked" class="flex items-center gap-1" title="Linked to OIDC"><UIcon name="i-lucide-key-round" class="size-3" />oidc</span>
-                    <span class="flex items-center gap-1" title="Active sessions"><UIcon name="i-lucide-monitor-smartphone" class="size-3" />{{ row.original.sessionCount }}</span>
-                  </div>
-                </template>
-                <template #actions-cell="{ row }">
-                  <div class="flex justify-end gap-2">
-                    <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit user" :disabled="!can('users', 'update')" @click="openUserEditor(row.original)" />
-                    <UButton icon="i-lucide-key-round" variant="ghost" color="neutral" size="sm" aria-label="Reset password" @click="resetPassword(row.original)" />
-                    <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete user" :disabled="Boolean(session?.user?.id && row.original.id === session.user.id)" @click="removeUser(row.original)" />
-                  </div>
-                </template>
-              </UTable>
-          </UCard>
-        </div>
-
-        <!-- ============ ROLES ============ -->
-        <div v-else-if="tab === 'roles'" class="space-y-6">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div>
-              <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Roles</h2>
-              <p class="text-sm text-zinc-500">Bundle permissions; assign to users in the Users tab.</p>
-            </div>
-            <UButton icon="i-lucide-plus" label="New role" class="self-end sm:self-auto" :disabled="!can('roles', 'create')" @click="openRoleEditor()" />
-          </div>
-
-          <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
-              <UTable :data="roles" :columns="roleColumns">
-                <template #name-cell="{ row }">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span class="font-mono text-sm font-medium">{{ row.original.name }}</span>
-                    <UBadge v-if="row.original.builtin" color="neutral" variant="outline" size="sm" class="text-zinc-400">builtin</UBadge>
-                  </div>
-                </template>
-                <template #description-cell="{ row }">
-                  <span v-if="row.original.description" class="text-sm text-zinc-500">{{ row.original.description }}</span>
-                </template>
-                <template #statements-cell="{ row }">
-                  <div class="flex flex-wrap gap-1.5">
-                    <template v-for="(stmts, res) in (row.original.statements as Record<string, string[]>)" :key="res">
-                      <UBadge v-for="st in stmts" :key="String(res) + st" variant="subtle" size="sm" class="font-mono">
-                        {{ res }}:{{ st }}
-                      </UBadge>
-                    </template>
-                  </div>
-                </template>
-                <template #actions-cell="{ row }">
-                  <div class="flex justify-end gap-2">
-                    <UButton
-                      icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit role"
-                      :disabled="row.original.builtin || !can('roles', 'update')"
-                      @click="openRoleEditor(row.original)"
-                    />
-                    <UButton
-                      icon="i-lucide-trash-2" color="error" variant="ghost" size="sm" aria-label="Delete role"
-                      :disabled="row.original.builtin || !can('roles', 'delete')"
-                      @click="deleteRole(row.original)"
-                    />
-                  </div>
-                </template>
-              </UTable>
-            </UCard>
-
-          <UModal v-model:open="roleModalOpen" :title="editingRoleId ? `Edit ${roleForm.name}` : 'New role'" :description="editingRoleId ? (builtinEdit ? 'Builtin roles cannot be modified' : 'Adjust description and permissions') : 'Bundle permissions into a reusable role'">
-            <template #body>
-              <UForm :state="roleForm" :validate="validateRole" class="grid gap-5" @submit="saveRole">
-                <UFormField name="name">
-                  <template #label>Name</template>
-                  <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Role name</p>
-                        <p class="text-xs text-zinc-200">Unique slug for the role. Assigned to users and API keys; immutable once created.</p>
-                        <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. auditor, deploy-eng</p>
-                      </div>
-                    </template>
-                </UPopover></template>
-                  <UInput v-model="roleForm.name" icon="i-lucide-shield" placeholder="e.g. auditor" class="w-full" :disabled="!!editingRoleId" />
-                </UFormField>
-                <UFormField name="description">
-                  <template #label>Description</template>
-                  <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Description</p>
-                        <p class="text-xs text-zinc-200">Free-form note explaining what this role is for. Shown in the roles list.</p>
-                        
-                      </div>
-                    </template>
-                </UPopover></template>
-                  <UInput v-model="roleForm.description" icon="i-lucide-pen-line" placeholder="optional" class="w-full" />
-                </UFormField>
-                <UFormField name="permissions">
-                  <template #label>Permissions</template>
-                  <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                    <template #default>
-                      <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                    </template>
-                    <template #content>
-                      <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                        <p class="text-xs font-semibold text-white">Permissions</p>
-                        <p class="text-xs text-zinc-200">Statements follow action:scope. action:all implies action:own. Toggle the badges per resource; grey = granted, muted = off.</p>
-                        <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. read:all, update:own</p>
-                      </div>
-                    </template>
-                </UPopover></template>
-                  <div class="w-full space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-                    <UTable
-                        :data="permissionRows"
-                        :columns="permissionColumns"
-                        :grouping="['resource']"
-                        :grouping-options="{ groupedColumnMode: false, getGroupedRowModel: getGroupedRowModel() }"
-                        :ui="{ root: 'min-w-full', td: 'empty:p-0' }"
-                      >
-                        <template #resource-cell="{ row }">
-                          <div v-if="row.getIsGrouped()" class="flex items-center gap-2">
-                            <UButton
-                              variant="ghost" color="neutral" size="xs"
-                              :icon="row.getIsExpanded() ? 'i-lucide-minus' : 'i-lucide-plus'"
-                              aria-label="Toggle group"
-                              @click="row.toggleExpanded()"
-                            />
-                            <span class="font-mono text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">{{ row.original.resource }}</span>
-                          </div>
-                          <span v-else class="invisible">&middot;</span>
-                        </template>
-                        <template #action-cell="{ row }">
-                          <span v-if="!row.getIsGrouped()" class="font-mono text-xs text-zinc-500 dark:text-zinc-400">{{ row.original.action }}</span>
-                        </template>
-                        <template #none-cell="{ row }">
-                          <div v-if="row.getIsGrouped()" class="flex justify-center">
-                            <URadioGroup
-                              :model-value="masterScopeFor(row.original.resource)"
-                              :items="[{ label: '', value: 'none' }]"
-                              variant="list"
-                              :name="`${row.original.resource}-master-none`"
-                              :ui="{ fieldset: 'justify-center' }"
-                              @update:model-value="() => setMasterScope(row.original.resource, 'none')"
-                            />
-                          </div>
-                          <div v-else class="flex justify-center">
-                            <URadioGroup
-                              :model-value="scopeFor(row.original.resource, row.original.action)"
-                              :items="[{ label: '', value: 'none' }]"
-                              variant="list"
-                              :name="`${row.original.resource}-${row.original.action}-none`"
-                              :ui="{ fieldset: 'justify-center' }"
-                              @update:model-value="() => setScope(row.original.resource, row.original.action, 'none')"
-                            />
-                          </div>
-                        </template>
-                        <template #own-cell="{ row }">
-                          <div v-if="row.getIsGrouped() && masterOwnAvailable(row.original.resource)" class="flex justify-center">
-                            <URadioGroup
-                              :model-value="masterScopeFor(row.original.resource)"
-                              :items="[{ label: '', value: 'own' }]"
-                              variant="list"
-                              :name="`${row.original.resource}-master-own`"
-                              :ui="{ fieldset: 'justify-center' }"
-                              @update:model-value="() => setMasterScope(row.original.resource, 'own')"
-                            />
-                          </div>
-                          <div v-else-if="!row.getIsGrouped() && scopeAvailable(row.original.resource, row.original.action, 'own')" class="flex justify-center">
-                            <URadioGroup
-                              :model-value="scopeFor(row.original.resource, row.original.action)"
-                              :items="[{ label: '', value: 'own' }]"
-                              variant="list"
-                              :name="`${row.original.resource}-${row.original.action}-own`"
-                              :ui="{ fieldset: 'justify-center' }"
-                              @update:model-value="() => setScope(row.original.resource, row.original.action, 'own')"
-                            />
-                          </div>
-                        </template>
-                        <template #all-cell="{ row }">
-                          <div v-if="row.getIsGrouped()" class="flex justify-center">
-                            <URadioGroup
-                              :model-value="masterScopeFor(row.original.resource)"
-                              :items="[{ label: '', value: 'all' }]"
-                              variant="list"
-                              :name="`${row.original.resource}-master-all`"
-                              :ui="{ fieldset: 'justify-center' }"
-                              @update:model-value="() => setMasterScope(row.original.resource, 'all')"
-                            />
-                          </div>
-                          <div v-else-if="!row.getIsGrouped() && scopeAvailable(row.original.resource, row.original.action, 'all')" class="flex justify-center">
-                            <URadioGroup
-                              :model-value="scopeFor(row.original.resource, row.original.action)"
-                              :items="[{ label: '', value: 'all' }]"
-                              variant="list"
-                              :name="`${row.original.resource}-${row.original.action}-all`"
-                              :ui="{ fieldset: 'justify-center' }"
-                              @update:model-value="() => setScope(row.original.resource, row.original.action, 'all')"
-                            />
-                          </div>
-                        </template>
-                      </UTable>
-                  </div>
-                </UFormField>
-                <div class="flex items-end justify-end gap-2">
-                  <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="roleModalOpen = false" />
-                  <UButton type="submit" :icon="editingRoleId ? 'i-lucide-check' : 'i-lucide-plus'" :loading="busy" :label="editingRoleId ? 'Save changes' : 'Create role'" />
-                </div>
-              </UForm>
-            </template>
-          </UModal>
-        </div>
-
-
-        <!-- ============ LOGS ============ -->
-        <div v-else-if="tab === 'logs'" class="space-y-6">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div>
-              <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Access log</h2>
-              <p class="text-sm text-zinc-500">
-                {{ logFilter ? `Filtered by route ${logFilter.path}` : 'All forwarded traffic' }}
-              </p>
-            </div>
-            <div class="flex items-center gap-2 self-end sm:self-auto">
-              <UButton v-if="logFilter" variant="outline" color="neutral" icon="i-lucide-x" label="Clear filter" @click="logFilter = null; loadLogs()" />
-              <UButton icon="i-lucide-refresh-cw" variant="outline" color="neutral" label="Refresh" :loading="logsBusy" @click="loadLogs()" />
-            </div>
-          </div>
-
-          <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
-            <div v-if="logs.length" class="overflow-x-auto" style="-webkit-overflow-scrolling: touch">
-              <UTable :data="logs" :columns="logColumns">
-                  <template #ts-cell="{ row }">
-                    <span class="whitespace-nowrap font-mono text-xs text-zinc-500">{{ fmtTime(row.original.ts) }}</span>
-                  </template>
-                  <template #method-cell="{ row }">
-                    <span class="font-mono text-xs font-semibold text-zinc-600 dark:text-zinc-300">{{ row.original.method }}</span>
-                  </template>
-                  <template #path-cell="{ row }">
-                    <span class="block max-w-72 truncate font-mono text-xs text-zinc-800 dark:text-zinc-200">{{ row.original.path }}</span>
-                  </template>
-                  <template #routePath-cell="{ row }">
-                    <span v-if="row.original.routePath" class="rounded bg-primary/5 px-1.5 py-0.5 font-mono text-xs text-primary">{{ row.original.routePath }}</span>
-                  </template>
-                  <template #status-cell="{ row }">
-                    <span class="rounded px-1.5 py-0.5 font-mono text-xs font-semibold" :class="statusClass(row.original.status)">{{ row.original.status }}</span>
-                  </template>
-                  <template #durationMs-cell="{ row }">
-                    <span class="whitespace-nowrap font-mono text-xs text-zinc-500">{{ row.original.durationMs }}ms</span>
-                  </template>
-                  <template #clientIp-cell="{ row }">
-                    <span class="whitespace-nowrap font-mono text-xs text-zinc-400">{{ row.original.clientIp || '—' }}</span>
-                  </template>
-                </UTable>
-            </div>
-            <div v-else class="p-10 text-center">
-              <UIcon name="i-lucide-scroll-text" class="mx-auto size-8 text-zinc-300" />
-              <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No traffic logged</p>
-              <p class="mt-1 text-xs text-zinc-500">Requests forwarded by routes appear here</p>
-            </div>
-            <div v-if="logs.length >= logPageSize" class="flex justify-center border-t border-zinc-100 py-3 dark:border-zinc-800/60">
-              <UButton variant="soft" color="neutral" size="sm" label="Load more" :loading="logsBusy" @click="loadLogs(true)" />
-            </div>
-          </UCard>
-        </div>
-      </main>
-        <!-- OIDC provider editor modal (settings tab) -->
-        <UModal :open="oidcEditorOpen" :title="oidcEditingId ? `Edit ${oidcEditingId}` : 'Add OIDC provider'" description="Register the redirect URL shown after saving in your OIDC provider" @update:open="v => oidcEditorOpen = v">
-          <template #body>
-            <UForm :state="oidcForm" class="space-y-4" @submit="saveOidcProvider">
-              <UFormField name="oidcLabel" label="Name" required help="Shown on the login button">
-                <UInput v-model="oidcForm.label" icon="i-lucide-tag" class="w-full" placeholder="Azure AD" />
-              </UFormField>
-              <UFormField name="oidcIssuer2" label="Issuer URL" required>
-                <UInput v-model="oidcForm.issuer" icon="i-lucide-globe" class="w-full" placeholder="https://issuer.example.com" />
-              </UFormField>
-              <UFormField name="oidcClientId2" label="Client ID" required>
-                <UInput v-model="oidcForm.clientId" class="w-full" />
-              </UFormField>
-              <UFormField name="oidcSecret2" :label="oidcEditingId ? 'Client secret (blank = keep stored)' : 'Client secret'" :required="!oidcEditingId">
-                <UInput v-model="oidcForm.clientSecret" type="password" icon="i-lucide-key-round" class="w-full" placeholder="••••••••" />
-              </UFormField>
-              <div class="flex justify-end gap-2">
-                <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="oidcEditorOpen = false" />
-                <UButton type="submit" icon="i-lucide-plus" :loading="busy" :label="oidcEditingId ? 'Save changes' : 'Add provider'" />
-              </div>
-            </UForm>
-          </template>
-        </UModal>
-    </div>
-
-    <!-- password reset modal -->
-    <UModal v-model:open="pwModalOpen" title="Reset password" description="Set a new password for this user">
+    <!-- editor modal -->
+    <UModal :open="!!editing" :title="editing === 'new' ? 'Create route' : `Edit ${editing}`" @update:open="(v: boolean) => !v && reset()">
       <template #body>
-        <UForm :state="pwModal" class="space-y-4" @submit="submitPasswordReset">
-          <UFormField label="New password" name="password" help="Minimum 8 characters">
-            <UInput v-model="pwModal.password" type="password" icon="i-lucide-lock" class="w-full" required />
+        <UForm :state="form" :validate="validatePair" class="grid gap-5 sm:grid-cols-2" @submit="save">
+          <UFormField name="path">
+            <template #label>Path</template>
+            <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+              <template #default>
+                <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+              </template>
+              <template #content>
+                <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                  <p class="text-xs font-semibold text-white">Path</p>
+                  <p class="text-xs text-zinc-200">The incoming request path this route claims. Exact paths match only themselves. End with <code>/*</code> to match everything beneath.</p>
+                  <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. /hook, /hook/*, /</p>
+                </div>
+              </template>
+            </UPopover></template>
+            <UInput v-model="form.path" placeholder="/hook or /hook/*" icon="i-lucide-slash" class="w-full" />
+            <template #help><span>{{ pathHelp }}</span></template>
           </UFormField>
-          <div class="flex justify-end gap-2">
-            <UButton variant="ghost" color="neutral" label="Cancel" @click="pwModalOpen = false" />
-            <UButton type="submit" :loading="busy" label="Set password" />
+          <UFormField name="target">
+            <template #label>Target origin</template>
+            <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+              <template #default>
+                <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+              </template>
+              <template #content>
+                <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                  <p class="text-xs font-semibold text-white">Target origin</p>
+                  <p class="text-xs text-zinc-200">Absolute http(s) URL of the upstream. A path here becomes a prefix on every forwarded request. No query or fragment.</p>
+                  <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. https://api.example.com</p>
+                </div>
+              </template>
+            </UPopover></template>
+            <UInput v-model="form.target" placeholder="https://api.example.com" icon="i-lucide-globe" class="w-full" />
+          </UFormField>
+          <UFormField name="upstreamHost">
+            <template #label>Host header override</template>
+            <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+              <template #default>
+                <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+              </template>
+              <template #content>
+                <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                  <p class="text-xs font-semibold text-white">Host header override</p>
+                  <p class="text-xs text-zinc-200">Host header sent to the upstream. Leave empty to use the target's own hostname. Some services (CDNs, SNI-based routers) need a specific value.</p>
+                  <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. api.example.com:8443</p>
+                </div>
+              </template>
+            </UPopover></template>
+            <UInput v-model="form.upstreamHost" placeholder="api.example.com" icon="i-lucide-server" class="w-full" />
+          </UFormField>
+          <UFormField name="note">
+            <template #label>Note</template>
+            <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+              <template #default>
+                <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+              </template>
+              <template #content>
+                <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                  <p class="text-xs font-semibold text-white">Note</p>
+                  <p class="text-xs text-zinc-200">Free-form reminder of what this route is for — shown only in this admin list.</p>
+                  <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. webhooks from partner X</p>
+                </div>
+              </template>
+            </UPopover></template>
+            <UInput v-model="form.note" placeholder="webhooks from partner X" icon="i-lucide-notebook-pen" class="w-full" />
+          </UFormField>
+          <UFormField name="methods">
+            <template #label>Allowed methods</template>
+            <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+                <template #default>
+                  <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+                </template>
+                <template #content>
+                  <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                    <p class="text-xs font-semibold text-white">Allowed methods</p>
+                    <p class="text-xs text-zinc-200">Only the selected HTTP verbs are forwarded; anything else gets 405. Leave "All" on to forward everything.</p>
+                  </div>
+                </template>
+              </UPopover></template>
+            <div class="flex flex-wrap items-center gap-2">
+              <UCheckbox v-model="form.methodsAll" label="All" @update:model-value="() => { if (form.methodsAll) form.methods = [] }" />
+              <template v-for="verb in allVerbs" :key="verb">
+                <button
+                  type="button"
+                  :disabled="form.methodsAll"
+                  class="rounded-md border px-2 py-1 font-mono text-xs transition-colors disabled:opacity-40"
+                  :class="form.methods.includes(verb)
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-zinc-300 text-zinc-500 hover:border-zinc-400 dark:border-zinc-600'"
+                  @click="toggleVerb(verb)"
+                >
+                  {{ verb }}
+                </button>
+              </template>
+            </div>
+          </UFormField>
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-3 sm:col-span-2">
+            <div class="flex items-center gap-1.5">
+              <USwitch v-model="form.stripPrefix" :disabled="!isWildcard" label="Strip prefix" />
+              <UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+                <template #default>
+                  <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+                </template>
+                <template #content>
+                  <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                    <p class="text-xs font-semibold text-white">Strip prefix</p>
+                    <p class="text-xs text-zinc-200">Remove the route’s base path before forwarding, so <code>/hook/x</code> arrives upstream as <code>/x</code>. Wildcard routes only.</p>
+                    <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. /hook/* + strip → upstream sees /x</p>
+                  </div>
+                </template>
+              </UPopover>
+            </div>
+            <USwitch v-model="form.enabled" label="Enabled" />
+          </div>
+          <div class="flex justify-end gap-2 sm:col-span-2">
+            <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="reset" />
+            <UButton type="submit" :loading="busy" :label="editing === 'new' ? 'Add route' : 'Save changes'" />
           </div>
         </UForm>
       </template>
     </UModal>
+
+    <UCard v-if="routes.length" :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
+      <UTable :data="routes" :columns="routeColumns">
+        <template #path-cell="{ row }">
+          <div class="flex items-center gap-2">
+            <code class="rounded-md bg-primary/5 px-1.5 py-0.5 text-sm font-semibold text-primary">{{ row.original.path }}</code>
+            <UBadge v-if="row.original.stripPrefix" label="strip" variant="subtle" color="warning" size="sm" />
+            <UBadge v-if="!row.original.enabled" label="disabled" variant="subtle" color="error" size="sm" />
+          </div>
+        </template>
+        <template #target-cell="{ row }">
+          <div class="text-xs text-zinc-500">
+            <span class="break-all font-mono">{{ row.original.target }}</span>
+            <span v-if="row.original.upstreamHost" class="block text-zinc-400">host: {{ row.original.upstreamHost }}</span>
+            <span v-if="row.original.methods?.length" class="block font-mono text-[10px] text-zinc-400">{{ row.original.methods.join(' ') }}</span>
+            <span v-if="row.original.note" class="block truncate text-zinc-400">{{ row.original.note }}</span>
+          </div>
+        </template>
+        <template #actions-cell="{ row }">
+          <div class="flex justify-end gap-2">
+            <UButton icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" aria-label="Route logs" @click="viewRouteLogs(row.original)" />
+            <UButton v-if="can('routes', 'update')" icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit route" @click="edit(row.original)" />
+            <UButton v-if="can('routes', 'delete')" icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete route" @click="remove(row.original)" />
+          </div>
+        </template>
+      </UTable>
+    </UCard>
+    <div v-else-if="routesQuery.isPending.value" class="rounded-xl border border-zinc-200 p-10 text-center dark:border-zinc-800">
+      <UIcon name="i-lucide-loader-circle" class="mx-auto size-8 animate-spin text-zinc-300" />
+      <p class="mt-3 text-sm text-zinc-500">Loading routes…</p>
+    </div>
+    <div v-else class="rounded-xl border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-700">
+      <UIcon name="i-lucide-route" class="mx-auto size-8 text-zinc-300" />
+      <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No routes yet</p>
+      <p class="mt-1 text-xs text-zinc-500">Create a route to start forwarding requests</p>
+      <UButton v-if="can('routes', 'create')" class="mt-4" icon="i-lucide-plus" label="Create your first route" @click="openEditor()" />
+    </div>
 
     <!-- delete confirm modal -->
     <UModal v-model:open="deleteModalOpen" title="Delete route" :description="deleteModal.what">
@@ -764,625 +180,38 @@
         </div>
       </template>
     </UModal>
-
-    <!-- profile modal -->
-    <UModal v-model:open="profileOpen" title="Profile" description="Your account settings">
-      <template #body>
-        <div class="space-y-6">
-          <div class="space-y-3">
-            <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Account</h3>
-            <UFormField label="Name" size="sm">
-              <UInput v-model="profile.name" icon="i-lucide-user" placeholder="Your name" class="w-full" />
-            </UFormField>
-            <UFormField label="Email" size="sm">
-              <UInput v-model="profile.email" type="email" icon="i-lucide-mail" placeholder="you@example.com" class="w-full" />
-            </UFormField>
-            <UButton :loading="busy" label="Save changes" icon="i-lucide-check" size="sm" class="mt-1" @click="saveProfile" />
-          </div>
-          <USeparator />
-          <div class="space-y-3">
-            <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Password</h3>
-            <UFormField label="Current password" size="sm">
-              <UInput v-model="pwForm.current" type="password" icon="i-lucide-lock" class="w-full" />
-            </UFormField>
-            <UFormField label="New password" size="sm">
-              <UInput v-model="pwForm.next" type="password" icon="i-lucide-lock" placeholder="min 8 characters" class="w-full" />
-            </UFormField>
-            <UFormField label="Confirm new password" size="sm">
-              <UInput v-model="pwForm.confirm" type="password" icon="i-lucide-lock" class="w-full" />
-            </UFormField>
-            <UButton :loading="pwBusy" color="neutral" label="Change password" icon="i-lucide-key-round" size="sm" class="mt-1" @click="changePassword" />
-          </div>
-          <USeparator />
-          <div class="space-y-3">
-            <div class="flex items-center justify-between">
-              <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">API keys</h3>
-              <UButton icon="i-lucide-plus" size="sm" label="Create key" @click="openKeyEditor()" />
-            </div>
-            <p class="text-xs text-zinc-500">Keys act as you but can be scoped to fewer permissions — never more. Shown once at creation.</p>
-            <p v-if="apiKeys.length === 0" class="text-sm text-zinc-400">No keys yet.</p>
-            <div v-else class="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800/60 dark:border-zinc-800">
-              <div v-for="k in apiKeys" :key="k.id" class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ k.name }}</span>
-                    <UBadge variant="subtle" color="neutral" size="sm" class="font-mono">{{ k.start }}…</UBadge>
-                    <UBadge v-if="k.expiresAt" variant="subtle" color="warning" size="sm">expires {{ new Date(k.expiresAt).toLocaleDateString() }}</UBadge>
-                    <UBadge v-else variant="subtle" color="neutral" size="sm">no expiry</UBadge>
-                  </div>
-                  <div class="mt-0.5 text-xs text-zinc-400">
-                    {{ k.lastRequest ? `last used ${new Date(k.lastRequest).toLocaleString()}` : 'never used' }} · {{ k.requestCount }} requests
-                  </div>
-                </div>
-                <div class="flex shrink-0 items-center gap-2">
-                  <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Revoke key" @click="revokeKey(k)" />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </template>
-    </UModal>
-
-    <!-- API key editor modal -->
-    <UModal :open="keyEditorOpen" title="Create API key" description="Scoped keys can only narrow your own permissions" @update:open="v => keyEditorOpen = v">
-      <template #body>
-        <UForm :state="keyForm" class="space-y-4" @submit="createKey">
-          <UFormField name="keyName" label="Name" required>
-            <UInput v-model="keyForm.name" icon="i-lucide-tag" class="w-full" placeholder="ci-deploy" />
-          </UFormField>
-          <UFormField name="keyExpiry" label="Expires in (days)" help="0 or empty = no expiry">
-            <UInputNumber v-model="keyForm.expiresInDays" :min="0" :max="365" class="w-full" />
-          </UFormField>
-          <USeparator />
-          <div>
-            <div class="mb-2 flex items-center justify-between">
-              <span class="text-sm font-medium text-zinc-900 dark:text-white">Permission scope</span>
-              <USwitch v-model="keyForm.scoped" label="Restrict permissions" size="sm" />
-            </div>
-            <p v-if="!keyForm.scoped" class="text-xs text-zinc-500">Key inherits all your permissions ({{ session?.user.email }}).</p>
-            <div v-else class="w-full space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-              <p class="text-xs text-zinc-400">Only permissions you have are shown — a key can never exceed its owner.</p>
-              <UTable
-                :data="keyPermissionRows"
-                :columns="permissionColumns"
-                :grouping="['resource']"
-                :grouping-options="{ groupedColumnMode: false, getGroupedRowModel: getGroupedRowModel() }"
-                :ui="{ root: 'min-w-full', td: 'empty:p-0' }"
-              >
-                <template #resource-cell="{ row }">
-                  <div v-if="row.getIsGrouped()" class="flex items-center gap-2">
-                    <UButton
-                      variant="ghost" color="neutral" size="xs"
-                      :icon="row.getIsExpanded() ? 'i-lucide-minus' : 'i-lucide-plus'"
-                      aria-label="Toggle group"
-                      @click="row.toggleExpanded()"
-                    />
-                    <span class="font-mono text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">{{ row.original.resource }}</span>
-                  </div>
-                  <span v-else class="invisible">&middot;</span>
-                </template>
-                <template #action-cell="{ row }">
-                  <span v-if="!row.getIsGrouped()" class="font-mono text-xs text-zinc-500 dark:text-zinc-400">{{ row.original.action }}</span>
-                </template>
-                <template #none-cell="{ row }">
-                  <div v-if="row.getIsGrouped()" class="flex justify-center">
-                    <URadioGroup
-                      :model-value="keyMasterScopeFor(row.original.resource)"
-                      :items="[{ label: '', value: 'none' }]"
-                      variant="list"
-                      :name="`key-${row.original.resource}-master-none`"
-                      :ui="{ fieldset: 'justify-center' }"
-                      @update:model-value="() => setKeyMasterScope(row.original.resource, 'none')"
-                    />
-                  </div>
-                  <div v-else class="flex justify-center">
-                    <URadioGroup
-                      :model-value="keyScopeFor(row.original.resource, row.original.action)"
-                      :items="[{ label: '', value: 'none' }]"
-                      variant="list"
-                      :name="`key-${row.original.resource}-${row.original.action}-none`"
-                      :ui="{ fieldset: 'justify-center' }"
-                      @update:model-value="() => setKeyScope(row.original.resource, row.original.action, 'none')"
-                    />
-                  </div>
-                </template>
-                <template #own-cell="{ row }">
-                  <div v-if="row.getIsGrouped() && keyMasterOwnAvailable(row.original.resource)" class="flex justify-center">
-                    <URadioGroup
-                      :model-value="keyMasterScopeFor(row.original.resource)"
-                      :items="[{ label: '', value: 'own' }]"
-                      variant="list"
-                      :name="`key-${row.original.resource}-master-own`"
-                      :ui="{ fieldset: 'justify-center' }"
-                      @update:model-value="() => setKeyMasterScope(row.original.resource, 'own')"
-                    />
-                  </div>
-                  <div v-else-if="!row.getIsGrouped() && keyScopeValid(row.original.resource, row.original.action, 'own') && iHave(row.original.resource, `${row.original.action}:own`)" class="flex justify-center">
-                    <URadioGroup
-                      :model-value="keyScopeFor(row.original.resource, row.original.action)"
-                      :items="[{ label: '', value: 'own' }]"
-                      variant="list"
-                      :name="`key-${row.original.resource}-${row.original.action}-own`"
-                      :ui="{ fieldset: 'justify-center' }"
-                      @update:model-value="() => setKeyScope(row.original.resource, row.original.action, 'own')"
-                    />
-                  </div>
-                </template>
-                <template #all-cell="{ row }">
-                  <div v-if="row.getIsGrouped() && keyMasterAllAvailable(row.original.resource)" class="flex justify-center">
-                    <URadioGroup
-                      :model-value="keyMasterScopeFor(row.original.resource)"
-                      :items="[{ label: '', value: 'all' }]"
-                      variant="list"
-                      :name="`key-${row.original.resource}-master-all`"
-                      :ui="{ fieldset: 'justify-center' }"
-                      @update:model-value="() => setKeyMasterScope(row.original.resource, 'all')"
-                    />
-                  </div>
-                  <div v-else-if="!row.getIsGrouped() && keyScopeValid(row.original.resource, row.original.action, 'all') && iHave(row.original.resource, `${row.original.action}:all`)" class="flex justify-center">
-                    <URadioGroup
-                      :model-value="keyScopeFor(row.original.resource, row.original.action)"
-                      :items="[{ label: '', value: 'all' }]"
-                      variant="list"
-                      :name="`key-${row.original.resource}-${row.original.action}-all`"
-                      :ui="{ fieldset: 'justify-center' }"
-                      @update:model-value="() => setKeyScope(row.original.resource, row.original.action, 'all')"
-                    />
-                  </div>
-                </template>
-              </UTable>
-            </div>
-          </div>
-          <div class="flex justify-end gap-2">
-            <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="keyEditorOpen = false" />
-            <UButton type="submit" icon="i-lucide-key-round" :loading="busy" label="Create key" />
-          </div>
-        </UForm>
-      </template>
-    </UModal>
-
-    <!-- key created: show once -->
-    <UModal :open="!!createdKeyValue" title="API key created" description="Copy it now — it will not be shown again" @update:open="v => !v && (createdKeyValue = '')">
-      <template #body>
-        <div class="space-y-3">
-          <UInput :model-value="createdKeyValue" readonly class="w-full font-mono" />
-          <div class="flex justify-end gap-2">
-            <UButton icon="i-lucide-copy" color="neutral" label="Copy" @click="copyCreatedKey" />
-            <UButton label="Done" @click="createdKeyValue = ''" />
-          </div>
-        </div>
-      </template>
-    </UModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import type { RouteRow, RoutesResponse } from '../../../shared/types'
+import type { TableColumn } from '@nuxt/ui'
+import type { RouteRow, RoutesResponse } from '~/../shared/types'
 import { routeSubmitSchema } from '~/utils/route-form'
+import { useQuery } from '@tanstack/vue-query'
 
-interface SessionUser { id: string, name?: string | null, email: string }
-interface SessionPayload { user: SessionUser, session: { expiresAt: string } }
-interface AuthConfig { passwordEnabled: boolean, oidcEnabled: boolean, providers: Array<{ id: string, label: string }> }
-interface AdminUser { id: string, name: string, email: string, emailVerified: boolean, role: string, createdAt: string, sessionCount: number, hasPassword: boolean, oidcLinked: boolean }
-const userColumns: TableColumn<AdminUser>[] = [
-  { id: 'user', header: 'User' },
-  { id: 'role', header: 'Role & auth', meta: { class: { td: 'w-full' } } },
-  { id: 'actions', header: '' },
-]
-interface LogRow { id: number, ts: string, routeId: number | null, routePath: string | null, method: string, path: string, status: number, durationMs: number, clientIp: string | null, userAgent: string | null }
-const logColumns: TableColumn<LogRow>[] = [
-  { accessorKey: 'ts', header: 'Time' },
-  { accessorKey: 'method', header: 'Method' },
-  { accessorKey: 'path', header: 'Path' },
-  { accessorKey: 'routePath', header: 'Route' },
-  { accessorKey: 'status', header: 'Status' },
-  { accessorKey: 'durationMs', header: 'Took' },
-  { accessorKey: 'clientIp', header: 'Client' },
-]
-
+definePageMeta({ layout: 'admin' })
+const { can } = await useAdminSession()
 const toast = useToast()
+const { $orpc } = useNuxtApp()
 
-// ---------- state ----------
-const loginState = reactive({ email: '', password: '' })
-const loginError = ref('')
-const session = ref<SessionPayload | null>(null)
-const perms = ref<Record<string, string[]>>({})
-function can(resource: string, action: string, scope: 'own' | 'all' | 'any' = 'any') {
-  const set = perms.value[resource] ?? []
-  if (set.includes(`${action}:all`)) return true
-  if (scope === 'any' || scope === 'own') return set.includes(`${action}:own`)
-  return false
-}
-const routes = ref<RouteRow[]>([])
+// ---------- realtime routes via oRPC live query ----------
+const routesQuery = useQuery(($orpc as any).routes.live.liveOptions())
+const routes = computed(() => (unref(routesQuery.data) ?? []) as RouteRow[])
+// live queries need no invalidation — but mutations via REST should also refresh cache
+// (SSE pushes handle it; this is belt-and-braces for offline SSE)
+
 const routeColumns: TableColumn<RouteRow>[] = [
   { accessorKey: 'path', header: 'Path' },
   { accessorKey: 'target', header: 'Target' },
   { id: 'actions', header: '' },
 ]
-const busy = ref(false)
-const editing = ref('')
-const authConfig = ref<AuthConfig | null>(null)
-const appVersion = ref('dev')
-
-const tab = ref<'routes' | 'settings' | 'users' | 'roles' | 'logs'>('routes')
-const tabs = computed(() => [
-  { label: 'Routes', icon: 'i-lucide-route', value: 'routes' as const, show: can('routes', 'read') },
-  { label: 'Settings', icon: 'i-lucide-settings', value: 'settings' as const, show: can('settings', 'read') },
-  { label: 'Users', icon: 'i-lucide-users', value: 'users' as const, show: can('users', 'read') },
-  { label: 'Roles', icon: 'i-lucide-shield', value: 'roles' as const, show: can('roles', 'read') },
-  { label: 'Logs', icon: 'i-lucide-scroll-text', value: 'logs' as const, show: can('logs', 'read') },
-].filter(t => t.show))
-
-const userMenuItems = computed(() => [[
-  { label: session.value?.user.email, icon: 'i-lucide-user', disabled: true, class: 'opacity-60' },
-  { label: 'Profile', icon: 'i-lucide-id-card', onSelect: openProfile },
-  { label: 'Sign out', icon: 'i-lucide-log-out', onSelect: logout },
-]])
-
-const activePairCount = computed(() => routes.value.filter(p => p.enabled).length)
-
-
-
-// ---------- profile ----------
-const profileOpen = ref(false)
-const profile = reactive({ name: '', email: '' })
-const pwForm = reactive({ current: '', next: '', confirm: '' })
-const pwBusy = ref(false)
-
-// ---- API keys (profile modal) ----
-interface ApiKeyRow { id: string, name: string, start: string, enabled: boolean, expiresAt: string | null, lastRequest: string | null, requestCount: number, permissions: Record<string, string[]> | null }
-const apiKeys = ref<ApiKeyRow[]>([])
-const keyEditorOpen = ref(false)
-const keyForm = reactive({ name: '', expiresInDays: 0, scoped: false, scope: {} as Record<string, string[]> })
-const createdKeyValue = ref('')
-const keyScopeResources = ['routes', 'users', 'roles', 'settings', 'logs']
-
-async function loadApiKeys() {
-  try {
-    const r = await $fetch<{ keys: ApiKeyRow[] }>('/api/keys')
-    apiKeys.value = r.keys
-  }
-  catch { apiKeys.value = [] }
-}
-
-function openKeyEditor() {
-  keyForm.name = ''
-  keyForm.expiresInDays = 0
-  keyForm.scoped = false
-  keyForm.scope = {}
-  keyEditorOpen.value = true
-}
-
-/** rows for the key scope matrix: only resource:action routes the CURRENT user has */
-const keyPermissionRows = computed<{ resource: string, action: string }[]>(() => {
-  const rows: { resource: string, action: string }[] = []
-  for (const [resource, statements] of Object.entries(perms.value)) {
-    const actions: string[] = []
-    for (const st of statements ?? []) {
-      const a = st!.split(':')[0] ?? ''
-      if (a && !actions.includes(a)) actions.push(a)
-    }
-    for (const action of actions) rows.push({ resource, action })
-  }
-  return rows
-})
-
-/** does the current user hold resource:statement (all implies own)? */
-function iHave(resource: string, statement: string): boolean {
-  const mine = perms.value[resource] ?? []
-  if (mine.includes(statement)) return true
-  if (statement.endsWith(':own') && mine.includes(statement.replace(':own', ':all'))) return true
-  return false
-}
-
-/** is action:scope a VALID statement in the RBAC vocabulary for this resource? */
-function keyScopeValid(resource: string, action: string, scope: string): boolean {
-  return (vocabulary.value[resource] ?? []).includes(`${action}:${scope}`)
-}
-
-/** key radio state for a row: none | own | all */
-function keyScopeFor(resource: string, action: string): 'none' | 'own' | 'all' {
-  const cur = keyForm.scope[resource] ?? []
-  if (cur.includes(`${action}:all`)) return 'all'
-  if (cur.includes(`${action}:own`)) return 'own'
-  return 'none'
-}
-
-/** master radio for a resource group; mixed when actions disagree */
-function keyMasterScopeFor(resource: string): 'none' | 'own' | 'all' | 'mixed' {
-  const actions = (keyPermissionRows.value.find(r => r.resource === resource) ? keyPermissionRows.value.filter(r => r.resource === resource).map(r => r.action) : [])
-  if (!actions.length) return 'none'
-  const scopes = actions.map(a => keyScopeFor(resource, a))
-  const first = scopes[0] ?? 'none'
-  if (scopes.every(x => x === first)) return first
-  return 'mixed'
-}
-
-function setKeyScope(resource: string, action: string, scope: 'none' | 'own' | 'all') {
-  const cur = new Set(keyForm.scope[resource] ?? [])
-  cur.delete(`${action}:all`)
-  cur.delete(`${action}:own`)
-  if (scope !== 'none' && keyScopeValid(resource, action, scope)) cur.add(`${action}:${scope}`)
-  if (cur.size > 0) keyForm.scope[resource] = [...cur]
-  else delete keyForm.scope[resource]
-}
-
-function setKeyMasterScope(resource: string, scope: 'none' | 'own' | 'all') {
-  const rows = keyPermissionRows.value.filter(r => r.resource === resource)
-  for (const r of rows) {
-    if (scope === 'none') { setKeyScope(resource, r.action, 'none'); continue }
-    if (scope === 'own' && !(keyScopeValid(resource, r.action, 'own') && iHave(resource, `${r.action}:own`))) { setKeyScope(resource, r.action, 'none'); continue }
-    if (scope === 'all' && !(keyScopeValid(resource, r.action, 'all') && iHave(resource, `${r.action}:all`))) { setKeyScope(resource, r.action, 'none'); continue }
-    setKeyScope(resource, r.action, scope)
-  }
-}
-
-function keyMasterOwnAvailable(resource: string): boolean {
-  return keyPermissionRows.value.some(r => r.resource === resource && keyScopeValid(resource, r.action, 'own') && iHave(resource, `${r.action}:own`))
-}
-
-function keyMasterAllAvailable(resource: string): boolean {
-  return keyPermissionRows.value.some(r => r.resource === resource && keyScopeValid(resource, r.action, 'all') && iHave(resource, `${r.action}:all`))
-}
-
-async function createKey() {
-  busy.value = true
-  try {
-    const body: Record<string, unknown> = { name: keyForm.name.trim() }
-    if (keyForm.expiresInDays && keyForm.expiresInDays > 0) body.expiresIn = keyForm.expiresInDays * 86400
-    if (keyForm.scoped && Object.keys(keyForm.scope).length > 0) body.permissions = keyForm.scope
-    const r = await $fetch<{ key: string }>('/api/keys', { method: 'POST', body })
-    createdKeyValue.value = r.key
-    keyEditorOpen.value = false
-    await loadApiKeys()
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Create failed', description: err.data?.statusMessage || err.message, color: 'error' })
-  }
-  busy.value = false
-}
-
-async function revokeKey(k: ApiKeyRow) {
-  try {
-    await $fetch(`/api/keys/${encodeURIComponent(k.id)}`, { method: 'DELETE' })
-    toast.add({ title: 'Key revoked', color: 'success' })
-    await loadApiKeys()
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Revoke failed', description: err.data?.statusMessage || err.message, color: 'error' })
-  }
-}
-
-function copyCreatedKey() {
-  navigator.clipboard?.writeText(createdKeyValue.value)
-  toast.add({ title: 'Copied', color: 'success' })
-}
-
-function openProfile() {
-  profile.name = session.value?.user.name ?? ''
-  profile.email = session.value?.user.email ?? ''
-  pwForm.current = ''; pwForm.next = ''; pwForm.confirm = ''
-  profileOpen.value = true
-  loadApiKeys()
-}
-
-async function saveProfile() {
-  busy.value = true
-  try {
-    const body: Record<string, string> = {}
-    if (profile.name.trim() && profile.name !== session.value?.user.name) body.name = profile.name.trim()
-    if (profile.email.trim() && profile.email !== session.value?.user.email) body.email = profile.email.trim()
-    if (Object.keys(body).length === 0) {
-      busy.value = false
-      toast.add({ title: 'No changes to save', color: 'neutral' })
-      return
-    }
-    await $fetch('/auth/update-user', { method: 'POST', body })
-    session.value = { ...session.value!, user: { ...session.value!.user, ...body } }
-    toast.add({ title: 'Profile updated', color: 'success' })
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string, message?: string }, message?: string }
-    toast.add({ title: 'Update failed', description: err.data?.statusMessage || err.data?.message || err.message, color: 'error' })
-  }
-  busy.value = false
-}
-
-async function changePassword() {
-  if (pwForm.next !== pwForm.confirm) {
-    toast.add({ title: 'Passwords do not match', color: 'error' })
-    return
-  }
-  if (pwForm.next.length < 8) {
-    toast.add({ title: 'Password too short', description: 'Minimum 8 characters', color: 'error' })
-    return
-  }
-  pwBusy.value = true
-  try {
-    await $fetch('/auth/change-password', { method: 'POST', body: { currentPassword: pwForm.current, newPassword: pwForm.next, revokeOtherSessions: true } })
-    pwForm.current = ''; pwForm.next = ''; pwForm.confirm = ''
-    toast.add({ title: 'Password changed', description: 'Other sessions were signed out', color: 'success' })
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string, message?: string }, message?: string }
-    toast.add({ title: 'Change failed', description: err.data?.statusMessage || err.data?.message || err.message, color: 'error' })
-  }
-  pwBusy.value = false
-}
-
-// ---------- roles ----------
-interface RoleRow { id: string, name: string, description: string | null, statements: Record<string, string[]>, builtin: boolean }
-const roleColumns: TableColumn<RoleRow>[] = [
-  { accessorKey: 'name', header: 'Role' },
-  { accessorKey: 'description', header: 'Description' },
-  { id: 'statements', header: 'Permissions', meta: { class: { td: 'w-full' } } },
-  { id: 'actions', header: '' },
-]
-const roles = ref<RoleRow[]>([])
-const vocabulary = ref<Record<string, string[]>>({})
-const roleModalOpen = ref(false)
-const roleForm = reactive({ name: '', description: '', statements: {} as Record<string, string[]> })
-const editingRoleId = ref<string | null>(null)
-const builtinEdit = computed(() => roles.value.find(r => r.id === editingRoleId.value)?.builtin ?? false)
-
-async function loadRoles() {
-  const data = await $fetch<{ roles: RoleRow[], vocabulary: Record<string, string[]> }>('/api/roles')
-  roles.value = data.roles
-  vocabulary.value = data.vocabulary
-}
-
-function validateRole(state: { name: string }): Array<{ name: string, message: string }> {
-  const errs: Array<{ name: string, message: string }> = []
-  if (!state.name.trim()) errs.push({ name: 'name', message: 'Name is required' })
-  else if (!/^[a-z0-9][a-z0-9-]{1,31}$/.test(state.name.trim())) errs.push({ name: 'name', message: '2-32 chars: lowercase letters, digits, hyphens' })
-  return errs
-}
-
-function openRoleEditor(role?: RoleRow) {
-  if (role) {
-    editingRoleId.value = role.id
-    roleForm.name = role.name
-    roleForm.description = role.description ?? ''
-    roleForm.statements = JSON.parse(JSON.stringify(role.statements ?? {}))
-  }
-  else {
-    editingRoleId.value = null
-    roleForm.name = ''
-    roleForm.description = ''
-    roleForm.statements = {}
-  }
-  roleModalOpen.value = true
-}
-
-/** Flat rows for the grouped permissions UTable. */
-const permissionRows = computed<{ resource: string, action: string }[]>(() => {
-  const rows: { resource: string, action: string }[] = []
-  for (const [resource, stmts] of Object.entries(vocabulary.value)) {
-    const actions: string[] = []
-    for (const st of stmts ?? []) {
-      const a = st.split(':')[0] ?? ''
-      if (a && !actions.includes(a)) actions.push(a)
-    }
-    for (const action of actions) rows.push({ resource, action })
-  }
-  return rows
-})
-
-import type { TableColumn } from '@nuxt/ui'
-import { useAuth } from '~/composables/useAuth'
-import { getGroupedRowModel } from '@tanstack/vue-table'
-
-const permissionColumns: TableColumn<{ resource: string, action: string }>[] = [
-  { accessorKey: 'resource', header: 'Resource' },
-  { accessorKey: 'action', header: 'Action', meta: { class: { td: 'w-full' } } },
-  { id: 'none', header: 'None', meta: { class: { th: 'text-center w-16', td: 'text-center' } } },
-  { id: 'own', header: 'Own', meta: { class: { th: 'text-center w-16', td: 'text-center' } } },
-  { id: 'all', header: 'All', meta: { class: { th: 'text-center w-16', td: 'text-center' } } },
-]
-
-/** Actions available for a resource, derived from the statement vocabulary. */
-function resourceActions(resource: string): string[] {
-  const stmts: string[] = vocabulary.value[resource] ?? []
-  const actions: string[] = []
-  for (const st of stmts) {
-    const a = st!.split(':')[0] ?? ''
-    if (a && !actions.includes(a)) actions.push(a)
-  }
-  return actions
-}
-
-/** Is action:scope a valid statement for this resource? */
-function scopeAvailable(resource: string, action: string, scope: string): boolean {
-  return (vocabulary.value[resource] ?? []).includes(`${action}:${scope}`)
-}
-
-/** Current radio value for a row: none | own | all (all beats own). */
-function scopeFor(resource: string, action: string): 'none' | 'own' | 'all' {
-  const cur = roleForm.statements[resource] ?? []
-  if (cur.includes(`${action}:all`)) return 'all'
-  if (cur.includes(`${action}:own`)) return 'own'
-  return 'none'
-}
-
-/** Master radio state for a resource group: uniform scope, or 'mixed' (nothing checked). */
-function masterScopeFor(resource: string): 'none' | 'own' | 'all' | 'mixed' {
-  const actions = resourceActions(resource)
-  if (!actions.length) return 'none'
-  const scopes = actions.map(a => scopeFor(resource, a))
-  const first = scopes[0] ?? 'none'
-  if (scopes.every(x => x === first)) return first
-  return 'mixed'
-}
-
-/** Does any action of this resource support :own (master own visible)? */
-function masterOwnAvailable(resource: string): boolean {
-  return resourceActions(resource).some(a => scopeAvailable(resource, a, 'own'))
-}
-
-/** Master selection: set every action of the resource (own falls back to none where unavailable). */
-function setMasterScope(resource: string, scope: 'none' | 'own' | 'all') {
-  const next: string[] = []
-  for (const a of resourceActions(resource)) {
-    if (scope !== 'none' && scopeAvailable(resource, a, scope)) next.push(`${a}:${scope}`)
-  }
-  roleForm.statements[resource] = next
-}
-
-/** Radio selection: exclusive none/own/all per resource+action. */
-function setScope(resource: string, action: string, scope: 'none' | 'own' | 'all') {
-  const cur = new Set(roleForm.statements[resource] ?? [])
-  cur.delete(`${action}:all`)
-  cur.delete(`${action}:own`)
-  if (scope !== 'none') cur.add(`${action}:${scope}`)
-  roleForm.statements[resource] = [...cur]
-}
-
-async function saveRole() {
-  busy.value = true
-  try {
-    if (editingRoleId.value) {
-      await $fetch(`/api/roles/${encodeURIComponent(editingRoleId.value)}`, {
-        method: 'PUT',
-        body: { description: roleForm.description.trim() || null, statements: roleForm.statements },
-      })
-      toast.add({ title: 'Role updated', color: 'success' })
-    }
-    else {
-      await $fetch('/api/roles', {
-        method: 'POST',
-        body: { name: roleForm.name.trim().toLowerCase(), description: roleForm.description.trim() || null, statements: roleForm.statements },
-      })
-      toast.add({ title: 'Role created', color: 'success' })
-    }
-    await loadRoles()
-    roleModalOpen.value = false
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: editingRoleId.value ? 'Update failed' : 'Create failed', description: err.data?.statusMessage || err.message, color: 'error' })
-  }
-  busy.value = false
-}
-
-async function deleteRole(r: RoleRow) {
-  try {
-    await $fetch(`/api/roles/${encodeURIComponent(r.id)}`, { method: 'DELETE' })
-    await loadRoles()
-    toast.add({ title: 'Role deleted', color: 'success' })
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Delete failed', description: err.data?.statusMessage || err.message, color: 'error' })
-  }
-}
 
 // ---------- route form ----------
 const allVerbs = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const
 const emptyForm = () => ({ id: undefined as number | undefined, path: '', target: '', upstreamHost: undefined as string | undefined, note: undefined as string | undefined, stripPrefix: false, methodsAll: true, methods: [] as string[], enabled: true })
 const form = reactive(emptyForm())
+const busy = ref(false)
+const editing = ref('')
 
 function toggleVerb(v: string) {
   const i = form.methods.indexOf(v)
@@ -1405,253 +234,6 @@ function validatePair(state: typeof form): Array<{ name: string, message: string
     .map(i => ({ name: String(i.path[0]), message: i.message }))
 }
 
-// ---------- users ----------
-const users = ref<AdminUser[]>([])
-const showAddUser = ref(false)
-const newUser = reactive({ email: '', name: '', password: '', role: 'viewer', emailVerified: true })
-const userEditOpen = ref(false)
-const userEditForm = reactive({ id: '', name: '', email: '', role: 'viewer', emailVerified: true })
-const roleOptions = computed(() => roles.value.map(r => ({ label: r.name, value: r.name })))
-
-function openUserEditor(u: AdminUser) {
-  userEditForm.id = u.id
-  userEditForm.name = u.name
-  userEditForm.email = u.email
-  userEditForm.role = u.role
-  userEditForm.emailVerified = u.emailVerified
-  userEditOpen.value = true
-}
-
-async function saveUserEdit() {
-  busy.value = true
-  try {
-    const body: Record<string, string | boolean> = {}
-    if (userEditForm.name.trim()) body.name = userEditForm.name.trim()
-    if (userEditForm.email.trim()) body.email = userEditForm.email.trim()
-    if (can('roles', 'update')) body.role = userEditForm.role
-    body.emailVerified = userEditForm.emailVerified
-    await $fetch(`/api/users/${encodeURIComponent(userEditForm.id)}`, { method: 'PUT', body })
-    await loadUsers()
-    userEditOpen.value = false
-    toast.add({ title: 'User updated', color: 'success' })
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Update failed', description: err.data?.statusMessage || err.message, color: 'error' })
-  }
-  busy.value = false
-}
-
-function validateNewUser(state: typeof newUser): Array<{ name: string, message: string }> {
-  const errors: Array<{ name: string, message: string }> = []
-  if (!/^\S+@\S+\.\S+$/.test(state.email)) errors.push({ name: 'email', message: 'Enter a valid email' })
-  if (state.name.trim().length === 0) errors.push({ name: 'name', message: 'Name is required' })
-  if (state.password.length < 8) errors.push({ name: 'password', message: 'At least 8 characters' })
-  return errors
-}
-
-const pwModalOpen = ref(false)
-const pwModal = reactive({ userId: '', email: '', password: '' })
-
-function resetPassword(u: AdminUser) {
-  pwModal.userId = u.id
-  pwModal.email = u.email
-  pwModal.password = ''
-  pwModalOpen.value = true
-}
-
-// ---------- delete confirm ----------
-const deleteModalOpen = ref(false)
-const deleteModal = reactive({ what: '', kind: '' as 'route' | 'user', id: '', routePath: '' })
-
-function remove(p: RouteRow) {
-  deleteModal.what = `${p.path} → ${p.target}`
-  deleteModal.kind = 'route'
-  deleteModal.id = String(p.id)
-  deleteModal.routePath = p.path
-  deleteModalOpen.value = true
-}
-
-function removeUser(u: AdminUser) {
-  deleteModal.what = `user ${u.email} and all their sessions`
-  deleteModal.kind = 'user'
-  deleteModal.id = u.id
-  deleteModalOpen.value = true
-}
-
-// ---------- logs ----------
-const logs = ref<LogRow[]>([])
-const logsBusy = ref(false)
-const logPageSize = 50
-const logFilter = ref<{ id: number, path: string } | null>(null)
-
-function viewPairLogs(p: RouteRow) {
-  logFilter.value = { id: p.id, path: p.path }
-  tab.value = 'logs'
-  loadLogs()
-}
-
-function statusClass(status: number): string {
-  if (status >= 500) return 'bg-red-500/10 text-red-600'
-  if (status >= 400) return 'bg-amber-500/10 text-amber-600'
-  return 'bg-emerald-500/10 text-emerald-600'
-}
-
-function fmtTime(iso: string): string {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-}
-
-// ---------- settings ----------
-const settingsForm = reactive({ logRetentionDays: 30, disablePasswordLogin: false })
-interface OidcProviderRow { id: string, label: string, issuer: string, clientId: string, secretSet: boolean }
-const oidcProviders = ref<OidcProviderRow[]>([])
-const oidcEditorOpen = ref(false)
-const oidcEditingId = ref<string | null>(null)
-const oidcForm = reactive({ id: '', label: '', issuer: '', clientId: '', clientSecret: '' })
-const publicOrigin = computed(() => {
-  if (import.meta.server) {
-    try { return useRequestURL().origin } catch { return '' }
-  }
-  return window.location.origin
-})
-const oidcReady = computed(() => oidcProviders.value.some(p => p.secretSet))
-
-async function loadPerms() {
-  try {
-    const headers = import.meta.server ? useRequestHeaders(['cookie']) : undefined
-    const me = await $fetch<{ permissions: Record<string, string[]> }>('/api/me', { headers })
-    perms.value = me.permissions ?? {}
-  }
-  catch { perms.value = {} }
-}
-
-async function boot() {
-  await Promise.all([
-    can('routes', 'read') ? load() : Promise.resolve(),
-    can('users', 'read') ? loadUsers().catch(() => {}) : Promise.resolve(),
-    can('roles', 'read') ? loadRoles().catch(() => {}) : Promise.resolve(),
-    can('settings', 'read') ? loadSettings().catch(() => {}) : Promise.resolve(),
-  ])
-  const first = tabs.value[0]
-  if (first && !tabs.value.some(t => t.value === tab.value)) tab.value = first.value
-}
-
-// ---------- lifecycle ----------
-// Session resolved during SSR via better-auth's Nuxt integration:
-// authClient.useSession(useFetch) forwards cookies server-side and hydrates
-// the payload, so the first paint already knows auth state.
-const authClient = useAuth()
-const { data: ssrSession } = await authClient.useSession(useFetch)
-if (ssrSession.value) {
-  session.value = ssrSession.value as unknown as SessionPayload
-  await loadPerms()
-  await boot()
-}
-
-// auth-config gates the login form (password vs SSO) - resolve during SSR
-// so the form renders correctly on first paint, no post-hydration flip
-try {
-  const cfgHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
-  authConfig.value = await $fetch<AuthConfig>('/api/auth-config', { headers: cfgHeaders })
-}
-catch {
-  authConfig.value = { passwordEnabled: true, oidcEnabled: false, providers: [] }
-}
-
-// version chip in the wordmark (APP_VERSION baked into the image)
-try {
-  const vHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
-  appVersion.value = (await $fetch<{ version: string }>('/api/version', { headers: vHeaders })).version
-}
-catch {
-  appVersion.value = 'dev'
-}
-
-// keep the session ref in sync with the client (sign-in/out reactivity)
-watch(() => ssrSession.value, (s) => {
-  session.value = (s ?? null) as unknown as SessionPayload | null
-})
-
-onMounted(async () => {
-  if (!session.value) {
-    try {
-      const s = await $fetch<SessionPayload | null>('/auth/get-session')
-      session.value = s?.user ? s : null
-      if (session.value) {
-        await loadPerms()
-        await boot()
-      }
-    }
-    catch { /* not signed in */ }
-  }
-  if (!authConfig.value) {
-    try {
-      authConfig.value = await $fetch<AuthConfig>('/api/auth-config')
-    }
-    catch {
-      authConfig.value = { passwordEnabled: true, oidcEnabled: false, providers: [] }
-    }
-  }
-})
-
-watch(isWildcard, (w) => {
-  if (!w && form.stripPrefix) form.stripPrefix = false
-})
-
-// ---------- actions ----------
-async function login() {
-  busy.value = true
-  loginError.value = ''
-  try {
-    const res = await useAuth().signIn.email({ email: loginState.email, password: loginState.password })
-    if (res.error) throw new Error(res.error.message || 'invalid credentials')
-    const s = await $fetch<SessionPayload | null>('/auth/get-session')
-    session.value = s?.user ? s : null
-    await loadPerms()
-    await boot()
-  }
-  catch {
-    loginError.value = 'Invalid email or password'
-  }
-  busy.value = false
-}
-
-async function oidcLogin(providerId: string) {
-  try {
-    // generic-oauth registers each provider as a first-class social provider:
-    // standard signIn.social + callback/:id endpoints (per plugin source 1.7.x)
-    const res = await $fetch<{ url: string }>('/auth/sign-in/social', {
-      method: 'POST',
-      body: { provider: providerId, callbackURL: '/admin' },
-    })
-    if (res?.url) window.location.href = res.url
-    else throw new Error('no authorization url returned')
-  }
-  catch {
-    toast.add({ title: 'SSO unavailable', description: 'OIDC provider not reachable', color: 'error' })
-  }
-}
-
-async function logout() {
-  await useAuth().signOut().catch(() => {})
-  session.value = null
-  perms.value = {}
-  routes.value = []
-}
-
-async function load() {
-  const headers = import.meta.server ? useRequestHeaders(['cookie']) : undefined
-  const data = await $fetch<RoutesResponse>('/api/routes', { headers })
-  routes.value = data.routes
-}
-
-function hostOf(target: string) {
-  try { return new URL(target).hostname }
-  catch { return '' }
-}
-
 function edit(p: RouteRow) {
   editing.value = p.path
   Object.assign(form, JSON.parse(JSON.stringify(p)))
@@ -1665,6 +247,10 @@ function reset() {
   Object.assign(form, emptyForm())
 }
 
+watch(isWildcard, (w) => {
+  if (!w && form.stripPrefix) form.stripPrefix = false
+})
+
 async function save() {
   busy.value = true
   try {
@@ -1674,7 +260,7 @@ async function save() {
       busy.value = false
       return
     }
-    const data = await $fetch<RoutesResponse>('/api/routes', {
+    await $fetch<RoutesResponse>('/api/routes', {
       method: 'PUT',
       body: {
         ...parsed.data,
@@ -1682,7 +268,6 @@ async function save() {
         methods: form.methodsAll || form.methods.length === 0 ? undefined : form.methods,
       },
     })
-    routes.value = data.routes
     toast.add({ title: editing.value && editing.value !== 'new' ? 'Route updated' : 'Route added', color: 'success' })
     reset()
   }
@@ -1693,19 +278,21 @@ async function save() {
   busy.value = false
 }
 
+// ---------- delete ----------
+const deleteModalOpen = ref(false)
+const deleteModal = reactive({ what: '', routePath: '' })
+
+function remove(p: RouteRow) {
+  deleteModal.what = `${p.path} → ${p.target}`
+  deleteModal.routePath = p.path
+  deleteModalOpen.value = true
+}
+
 async function confirmDelete() {
   try {
-    if (deleteModal.kind === 'route') {
-      const data = await $fetch<RoutesResponse>(`/api/routes/${deleteModal.id}`, { method: 'DELETE' })
-      routes.value = data.routes
-      if (editing.value === deleteModal.routePath) reset()
-      toast.add({ title: 'Route deleted', color: 'success' })
-    }
-    else {
-      await $fetch(`/api/users/${encodeURIComponent(deleteModal.id)}`, { method: 'DELETE' })
-      await loadUsers()
-      toast.add({ title: 'User deleted', color: 'success' })
-    }
+    await $fetch(`/api/routes/${encodeURIComponent(deleteModal.routePath)}`, { method: 'DELETE' })
+    if (editing.value === deleteModal.routePath) reset()
+    toast.add({ title: 'Route deleted', color: 'success' })
   }
   catch (e: unknown) {
     const err = e as { data?: { statusMessage?: string }, message?: string }
@@ -1714,144 +301,7 @@ async function confirmDelete() {
   deleteModalOpen.value = false
 }
 
-async function loadUsers() {
-  const data = await $fetch<{ users: AdminUser[] }>('/api/users')
-  users.value = data.users
-}
-
-async function addUser() {
-  busy.value = true
-  try {
-    const body: Record<string, string | boolean> = { email: newUser.email.trim(), name: newUser.name.trim(), password: newUser.password, emailVerified: newUser.emailVerified }
-    if (can('roles', 'update')) body.role = newUser.role
-    await $fetch('/api/users', { method: 'POST', body })
-    newUser.email = ''
-    newUser.name = ''
-    newUser.password = ''
-    newUser.role = 'viewer'
-    showAddUser.value = false
-    await loadUsers()
-    toast.add({ title: 'User created', color: 'success' })
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Create failed', description: err.data?.statusMessage || err.message, color: 'error' })
-  }
-  busy.value = false
-}
-
-async function submitPasswordReset() {
-  if (pwModal.password.length < 8) {
-    toast.add({ title: 'Too short', description: 'Password must be at least 8 characters', color: 'error' })
-    return
-  }
-  busy.value = true
-  try {
-    await $fetch(`/api/users/${encodeURIComponent(pwModal.userId)}/password`, { method: 'PUT', body: { password: pwModal.password } })
-    pwModalOpen.value = false
-    toast.add({ title: `Password updated for ${pwModal.email}`, color: 'success' })
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Reset failed', description: err.data?.statusMessage || err.message, color: 'error' })
-  }
-  busy.value = false
-}
-
-async function loadLogs(append = false) {
-  logsBusy.value = true
-  try {
-    const beforeId = append && logs.value.length ? logs.value[logs.value.length - 1]?.id : undefined
-    const data = await $fetch<{ entries: LogRow[] }>('/api/logs', {
-      query: {
-        limit: logPageSize,
-        ...(logFilter.value ? { routeId: logFilter.value.id } : {}),
-        ...(beforeId !== undefined ? { beforeId } : {}),
-      },
-    })
-    logs.value = append ? [...logs.value, ...data.entries] : data.entries
-  }
-  catch { /* ignore */ }
-  logsBusy.value = false
-}
-
-watch(tab, (t) => {
-  if (t === 'logs' && logs.value.length === 0) loadLogs().catch(() => {})
-})
-
-async function loadSettings() {
-  const s = await $fetch<{ disablePasswordLogin: boolean, logRetentionDays: number }>('/api/settings')
-  settingsForm.disablePasswordLogin = s.disablePasswordLogin
-  settingsForm.logRetentionDays = s.logRetentionDays
-  await loadOidcProviders()
-}
-
-async function loadOidcProviders() {
-  const r = await $fetch<{ providers: OidcProviderRow[] }>('/api/oidc')
-  oidcProviders.value = r.providers
-}
-
-function openOidcEditor(prov?: OidcProviderRow) {
-  oidcEditingId.value = prov?.id ?? null
-  oidcForm.id = prov?.id ?? ''
-  oidcForm.label = prov?.label ?? ''
-  oidcForm.issuer = prov?.issuer ?? ''
-  oidcForm.clientId = prov?.clientId ?? ''
-  oidcForm.clientSecret = ''
-  oidcEditorOpen.value = true
-}
-
-async function saveOidcProvider() {
-  const list = oidcProviders.value
-    .filter(p => p.id !== oidcForm.id)
-    .map(p => ({ id: p.id, label: p.label, issuer: p.issuer, clientId: p.clientId, clientSecret: '' }))
-  list.push({
-    id: oidcForm.id.trim().toLowerCase(),
-    label: oidcForm.label.trim() || oidcForm.id.trim(),
-    issuer: oidcForm.issuer.trim(),
-    clientId: oidcForm.clientId.trim(),
-    clientSecret: oidcForm.clientSecret,
-  })
-  try {
-    await $fetch('/api/oidc', { method: 'PUT', body: { providers: list } })
-    toast.add({ title: oidcEditingId.value ? 'Provider updated' : 'Provider added', color: 'success' })
-    oidcEditorOpen.value = false
-    await loadOidcProviders()
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Save failed', description: err.data?.statusMessage || err.message, color: 'error' })
-  }
-}
-
-async function removeOidcProvider(prov: OidcProviderRow) {
-  const list = oidcProviders.value.filter(p => p.id !== prov.id).map(p => ({ id: p.id, label: p.label, issuer: p.issuer, clientId: p.clientId, clientSecret: '' }))
-  try {
-    await $fetch('/api/oidc', { method: 'PUT', body: { providers: list } })
-    toast.add({ title: 'Provider removed', color: 'success' })
-    await loadOidcProviders()
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Remove failed', description: err.data?.statusMessage || err.message, color: 'error' })
-  }
-}
-
-async function saveSettings() {
-  busy.value = true
-  try {
-    const body: Record<string, unknown> = {
-      disablePasswordLogin: settingsForm.disablePasswordLogin,
-      logRetentionDays: settingsForm.logRetentionDays,
-    }
-    await $fetch('/api/settings', { method: 'PUT', body })
-    toast.add({ title: 'Settings saved', color: 'success' })
-    await loadSettings()
-  }
-  catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Save failed', description: err.data?.statusMessage || err.message, color: 'error' })
-  }
-  busy.value = false
+function viewRouteLogs(p: RouteRow) {
+  navigateTo({ path: '/admin/logs', query: { routeId: String(p.id), path: p.path } })
 }
 </script>
