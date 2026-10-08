@@ -1,3 +1,15 @@
+# [3.0.0](https://github.com/namhtpyn/pathbridge/compare/v2.3.1...v3.0.0) (2026-10-08)
+
+
+### Features
+
+* admin redesign — dashboard shell, per-page sections, realtime tables ([a97a4b5](https://github.com/namhtpyn/pathbridge/commit/a97a4b51cd8bf482899a2f3beab995e0a0fde0a6))
+
+
+### BREAKING CHANGES
+
+* admin redesign — dashboard shell, per-page sections, realtime tables
+
 ## [2.3.1](https://github.com/namhtpyn/pathbridge/compare/v2.3.0...v2.3.1) (2026-10-08)
 
 
