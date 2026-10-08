@@ -22,9 +22,9 @@ A mapping from a public path on this host to an upstream target origin.
 **Path grammar**
 - Exact: `/hook` — matches that path only.
 - Wildcard: `/hook/*` — matches `/hook` and everything under it. `*` must be trailing; no mid-path wildcards.
-- `/`, any `/admin*`, `/auth*`, `/health*`, `/mcp*` path is rejected by the schema (collides with app routes).
+- `/`, any `/admin*`, `/auth*`, `/health*`, `/mcp*`, `/rpc*` path is rejected by the schema (collides with app routes).
 - Any path starting with `/_` is rejected outright (defensive namespace; the historical `/_api /_auth /_health` routes died in the admin rename).
-- `/api` and `/mcp` are in the middleware RESERVED list AND blocked by the schema (no silent shadowing).
+- `/api`, `/mcp` and `/rpc` are in the middleware RESERVED list AND blocked by the schema (no silent shadowing).
 
 **stripPrefix** (wildcard-only): off = forward the full original path; on = remove the route's base (`/zalo/oa/x` → upstream `/oa/x`). Query string is NEVER touched.
 
@@ -78,7 +78,7 @@ OIDC: MULTIPLE providers, runtime-configurable in Settings (JSON registry in the
 
 ## 3. Proxy pipeline (`server/middleware/bridge.ts`)
 
-1. Path reserved (`/auth /health /api /admin /mcp`) → skip (app handles).
+1. Path reserved (`/auth /health /api /admin /mcp /rpc`) → skip (app handles).
 2. `/` → 302 `/admin`.
 3. Find matching route: exact match wins; else longest wildcard base; else 404.
 4. `enabled=false` → treated as absent.
@@ -102,6 +102,11 @@ OIDC: MULTIPLE providers, runtime-configurable in Settings (JSON registry in the
 - `GET /api/version` — build version (baked `APP_VERSION`)
 - `GET /health` — liveness
 - `POST|GET|DELETE /mcp` — MCP server (streamable HTTP, stateless; Bearer API key or session). Tools: `list_routes`, `create_route`, `update_route`, `delete_route`, `get_logs` — same zod schemas and permission enforcement as REST (key narrowing applies per tool call).
+- `POST /rpc/*` — oRPC router (Fetch adapter at `server/routes/rpc/[...].ts`). Procedures: `hello`, `me`, `routes.{list,count,live}`, `users.live`, `roles.live`, `settings.get`, `oidc.list`, `keys.list`, `logs.{recent,tail}`. Bodies are wrapped (`{"json": <input>}`); live procedures stream snapshots as SSE (AsyncIteratorObject handlers backed by the in-process change bus). Auth = identical requireUser path (cookie session or Bearer API key, narrowing included) — no oRPC-specific privilege logic.
+
+### Realtime (change bus + live queries)
+
+Every write path (all REST mutation handlers, the three MCP route tools, access-log insert) publishes `publishChange(resource, action)` to an in-process MemoryPublisher (`server/utils/change-bus.ts`; resume-capable event ids, buffer 100). Live procedures (`routes.live`, `logs.tail`, `users.live`, `roles.live`) yield an initial snapshot, then re-emit a fresh snapshot when a relevant event fires — delivered as SSE by the RPCHandler. The admin UI subscribes via `@orpc/tanstack-query` `liveOptions()`; mutations from ANY surface (UI, REST, MCP, proxied traffic for logs) push within ~2s without reload.
 
 Errors: zod strict validation → 400 with `field: message`; permission → 403 `Forbidden: missing permission resource:action`; auth → 401.
 
@@ -120,4 +125,6 @@ Migrations auto-apply at boot from `./drizzle` (tracked in `__migrations`). Pre-
 5. First-user-claims gate stays closed after the first user (password sign-up route only; OIDC first login still creates its user).
 6. Fresh-instance seeding only: the default admin is created exactly when no users exist, never on restarts with users.
 7. MCP tool calls go through the identical auth + permission path as REST — no MCP-specific privilege logic exists.
+7b. oRPC procedures use the same requireUser path too; a live query is permission-checked per subscription exactly like its REST read.
+7c. Live-query correctness = every mutation publishes; a write path that forgets publishChange breaks realtime (the logs insert once did).
 8. Builtin roles are canonicalized at boot; drift heals.
