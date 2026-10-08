@@ -1,3 +1,39 @@
+# [4.0.0](https://github.com/namhtpyn/pathbridge/compare/v3.1.5...v4.0.0) (2026-10-08)
+
+
+### Features
+
+* **routes:** replace host override with request/response header overrides ([e2754d7](https://github.com/namhtpyn/pathbridge/commit/e2754d78cd5b6328b5178ed469bafdef3ffc237b))
+
+
+### BREAKING CHANGES
+
+* **routes:** route.upstreamHost is gone. Use requestHeaders with
+{ name: 'host', op: 'set', value } instead — migration rewrites existing
+rows automatically.
+
+- routes gain requestHeaders + responseHeaders: ordered lists of
+  { name, op: set|remove, value? } (max 20/direction, names lowercased,
+  duplicates rejected, hop-by-hop/framing headers denied by zod).
+- request overrides: set rides proxyRequest opts.headers (wins over the
+  client's); remove strips the header from the incoming event BEFORE
+  the proxy copies client headers.
+- response overrides: applied in onResponse after upstream headers are
+  copied — remove strips upstream fingerprints, set injects CORS /
+  cache-control / security headers per route.
+- boot migration 20261009060000: upstream_host -> request_headers JSON,
+  column dropped (pre-1.0 clean break).
+- UI: shared HeaderRowsEditor component (name / set|remove / value? / X
+  rows, tooltips, 20-row cap) in both sections; modal widened to
+  max-w-xl; Host override discoverable via the section hint popover.
+- shared/types + REST PUT + MCP create/update tools accept the lists;
+  access log never stores override values (injected auth stays secret).
+
+Verified E2E on a live echo upstream: request set/remove, response
+set/remove, host equivalence, migration rewrite, zod rejections
+(hop-by-hop, duplicate, set-without-value), UI add/edit/remove/op-switch
+round-trip on desktop + 390px mobile.
+
 ## [3.1.5](https://github.com/namhtpyn/pathbridge/compare/v3.1.4...v3.1.5) (2026-10-08)
 
 
