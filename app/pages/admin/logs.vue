@@ -11,7 +11,7 @@
       </div>
       <div class="flex items-center gap-2 self-end sm:self-auto">
         <UButton v-if="filterPath" variant="outline" color="neutral" icon="i-lucide-x" label="Clear filter" @click="clearFilter" />
-        <UButton icon="i-lucide-refresh-cw" variant="outline" color="neutral" label="Refresh" :loading="logsQuery.isFetching.value" @click="logsQuery.refetch()" />
+        <UButton icon="i-lucide-refresh-cw" variant="outline" color="neutral" label="Refresh" :loading="logsSnapshot.isFetching.value" @click="logsSnapshot.refetch()" />
       </div>
     </div>
 
@@ -41,7 +41,7 @@
           </template>
         </UTable>
       </div>
-      <div v-else-if="logsQuery.isPending.value" class="p-10 text-center">
+      <div v-else-if="logsSnapshot.isPending.value" class="p-10 text-center">
         <UIcon name="i-lucide-loader-circle" class="mx-auto size-8 animate-spin text-zinc-300" />
         <p class="mt-3 text-sm text-zinc-500">Loading logs…</p>
       </div>
@@ -81,12 +81,23 @@ const logColumns: TableColumn<LogRow>[] = [
   { accessorKey: 'clientIp', header: 'Client' },
 ]
 
-// live tail: initial batch then SSE push on every new access-log entry
-const logsQuery = useQuery({
-  ...($orpc as any).logs.tail.liveOptions({ input: { limit: pageSize } }),
-  enabled: computed(() => can('logs', 'read') && filterRouteId.value === null),
+// live tail: plain snapshot query for the initial data (SSR-safe — subscribing
+// to the SSE stream during SSR deadlocks behind buffering proxies like nginx,
+// leaving the page on an eternal spinner), then the live query takes over on
+// the client and streams every new entry.
+const logsSnapshot = useQuery({
+  ...($orpc as any).logs.recent.queryOptions({ input: { limit: pageSize } }),
+  enabled: computed(() => can('logs', 'read')),
 })
-const liveEntries = computed(() => ((unref(logsQuery.data) as { entries: LogRow[] } | undefined)?.entries ?? []) as LogRow[])
+const logsLive = useQuery({
+  ...($orpc as any).logs.tail.liveOptions({ input: { limit: pageSize } }),
+  enabled: computed(() => import.meta.client && can('logs', 'read') && filterRouteId.value === null),
+})
+const liveEntries = computed(() => {
+  const live = (unref(logsLive.data) as { entries: LogRow[] } | undefined)?.entries
+  if (live) return live
+  return ((unref(logsSnapshot.data) as { entries: LogRow[] } | undefined)?.entries ?? []) as LogRow[]
+})
 
 // older pages when a filter is set (tail is unfiltered)
 const older = ref<LogRow[]>([])
