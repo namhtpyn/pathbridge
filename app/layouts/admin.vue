@@ -74,7 +74,7 @@
         </template>
       </UDashboardSidebar>
 
-      <UDashboardPanel :ui="{ body: 'gap-0 py-0' }">
+      <UDashboardPanel :ui="{ body: 'gap-0 p-0' }">
         <template #header>
           <UDashboardNavbar :ui="{ left: 'ms-0' }">
             <template #left>
@@ -84,6 +84,7 @@
           </UDashboardNavbar>
         </template>
         <template #body>
+          <!-- sole padding layer: the panel body's default p-4 sm:p-6 is zeroed above — never add a second wrapper -->
           <div class="p-4 sm:p-6 lg:p-8">
             <slot />
           </div>
