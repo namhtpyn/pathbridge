@@ -1,3 +1,10 @@
+## [3.1.1](https://github.com/namhtpyn/pathbridge/compare/v3.1.0...v3.1.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **ui:** settings page — split cards by concern, OIDC list as UTable ([4ade2c0](https://github.com/namhtpyn/pathbridge/commit/4ade2c08792e821358064bfd610cd264769a0cf3))
+
 # [3.1.0](https://github.com/namhtpyn/pathbridge/compare/v3.0.0...v3.1.0) (2026-10-08)
 
 
