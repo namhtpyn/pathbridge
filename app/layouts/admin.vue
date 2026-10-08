@@ -98,6 +98,7 @@
 
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
+import type { RouteRow } from '~/../shared/types'
 const { session, authConfig, appVersion, can, loadPerms, logout } = await useAdminSession()
 const toast = useToast()
 
@@ -123,12 +124,15 @@ async function loadVersionSafe() {
 // live route count for the sidebar subtitle. `can()` reads plain state, not a
 // ref — wrap it in computed() or the query stays at its initial enabled value
 // (false right after an in-page login, "0 active routes" until a full reload).
+// Subscribes to routes.live (SSE snapshot on every routes change) so the count
+// tracks create/delete from any surface — a plain queryOptions never refetches
+// on mutations and goes stale.
 const { $orpc } = useNuxtApp()
 const routeCountQuery = useQuery({
-  ...($orpc as any).routes.count.queryOptions(),
+  ...($orpc as any).routes.live.liveOptions(),
   enabled: computed(() => can('routes', 'read')),
 })
-const activeRouteCount = computed(() => (unref(routeCountQuery.data) as { count: number } | undefined)?.count ?? 0)
+const activeRouteCount = computed(() => ((unref(routeCountQuery.data) as RouteRow[] | undefined) ?? []).length)
 
 // nav
 const route = useRoute()

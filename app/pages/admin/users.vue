@@ -135,7 +135,7 @@
       <UTable :data="users" :columns="userColumns">
         <template #user-cell="{ row }">
           <div class="flex items-center gap-3">
-            <UAvatar :name="row.original.name || row.original.email" size="sm" />
+            <UAvatar :alt="row.original.name || row.original.email" :text="avatarInitials(row.original)" size="sm" />
             <div class="min-w-0">
               <div class="flex items-center gap-2">
                 <span class="truncate text-sm font-medium text-zinc-900 dark:text-white">{{ row.original.name }}</span>
@@ -174,6 +174,16 @@ const toast = useToast()
 const busy = ref(false)
 
 interface AdminUser { id: string, name: string, email: string, emailVerified: boolean, role: string, createdAt: string, sessionCount: number, hasPassword: boolean, oidcLinked: boolean }
+
+/** two-letter initials for the avatar fallback (name words, else email local-part) */
+function avatarInitials(u: AdminUser): string {
+  const src = (u.name || u.email).trim()
+  if (!src) return ''
+  const words = src.split(/\s+/)
+  if (words.length > 1) return (words[0]!.charAt(0) + words[1]!.charAt(0)).toUpperCase()
+  const local = src.split('@')[0]!
+  return local.slice(0, 2).toUpperCase()
+}
 const userColumns: TableColumn<AdminUser>[] = [
   { id: 'user', header: 'User' },
   { id: 'role', header: 'Role & auth', meta: { class: { td: 'w-full' } } },

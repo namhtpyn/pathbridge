@@ -41,14 +41,19 @@
           </template>
         </UTable>
       </div>
+      <div v-else-if="!can('logs', 'read')" class="p-10 text-center">
+        <UIcon name="i-lucide-shield-x" class="mx-auto size-8 text-zinc-300" />
+        <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No access to logs</p>
+        <p class="mt-1 text-xs text-zinc-500">Your role does not include logs:read</p>
+      </div>
       <div v-else-if="logsSnapshot.isPending.value" class="p-10 text-center">
         <UIcon name="i-lucide-loader-circle" class="mx-auto size-8 animate-spin text-zinc-300" />
         <p class="mt-3 text-sm text-zinc-500">Loading logs…</p>
       </div>
       <div v-else class="p-10 text-center">
         <UIcon name="i-lucide-scroll-text" class="mx-auto size-8 text-zinc-300" />
-        <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No traffic logged</p>
-        <p class="mt-1 text-xs text-zinc-500">Requests forwarded by routes appear here in real time</p>
+        <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ filterPath ? 'No traffic for this route yet' : 'No traffic logged' }}</p>
+        <p class="mt-1 text-xs text-zinc-500">{{ filterPath ? `Requests forwarded to ${filterPath} will appear here in real time` : 'Requests forwarded by routes appear here in real time' }}</p>
       </div>
       <div v-if="entries.length >= pageSize && hasMore" class="flex justify-center border-t border-zinc-100 py-3 dark:border-zinc-800/60">
         <UButton variant="soft" color="neutral" size="sm" label="Load more" :loading="olderBusy" @click="loadMore" />
