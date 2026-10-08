@@ -54,16 +54,13 @@
             <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
               <UTable :data="oidcProviders" :columns="providerColumns">
                 <template #provider-cell="{ row }">
-                  <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ row.original.label }}</span>
-                      <UBadge v-if="!row.original.secretSet" variant="subtle" color="warning" size="sm">no secret</UBadge>
-                    </div>
-                    <div class="mt-0.5 truncate text-xs font-mono text-zinc-500">{{ row.original.issuer }}</div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ row.original.label }}</span>
+                    <UBadge v-if="!row.original.secretSet" variant="subtle" color="warning" size="sm">no secret</UBadge>
                   </div>
                 </template>
                 <template #callback-cell="{ row }">
-                  <span class="block max-w-72 truncate font-mono text-xs text-zinc-500" :title="`${publicOrigin}/auth/callback/${row.original.id}`">{{ publicOrigin }}/auth/callback/{{ row.original.id }}</span>
+                  <span class="block font-mono text-xs break-all text-zinc-500">{{ publicOrigin }}/auth/callback/{{ row.original.id }}</span>
                 </template>
                 <template #actions-cell="{ row }">
                   <div class="flex justify-end gap-2">
