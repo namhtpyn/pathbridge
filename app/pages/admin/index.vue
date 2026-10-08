@@ -152,7 +152,7 @@
         </template>
         <template #actions-cell="{ row }">
           <div class="flex justify-end gap-2">
-            <UButton icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" aria-label="Route logs" @click="viewRouteLogs(row.original)" />
+            <UButton v-if="can('logs', 'read')" icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" aria-label="Route logs" @click="viewRouteLogs(row.original)" />
             <UButton v-if="can('routes', 'update')" icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit route" @click="edit(row.original)" />
             <UButton v-if="can('routes', 'delete')" icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete route" @click="remove(row.original)" />
           </div>

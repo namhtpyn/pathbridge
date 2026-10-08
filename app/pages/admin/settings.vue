@@ -183,11 +183,14 @@ function openOidcEditor(prov?: OidcProviderRow) {
 }
 
 async function saveOidcProvider() {
-  const list = oidcProviders.value
+  const list: Array<{ id: string | undefined, label: string, issuer: string, clientId: string, clientSecret: string }> = oidcProviders.value
     .filter(p => p.id !== oidcForm.id)
     .map(p => ({ id: p.id, label: p.label, issuer: p.issuer, clientId: p.clientId, clientSecret: '' }))
+  // empty id = NEW provider -> send undefined so the server autogenerates a uuid
+  // (sending id:'' fails zod min(2) and 400s with 'invalid provider payload')
+  const trimmedId = oidcForm.id.trim().toLowerCase()
   list.push({
-    id: oidcForm.id.trim().toLowerCase(),
+    id: trimmedId || undefined,
     label: oidcForm.label.trim() || oidcForm.id.trim(),
     issuer: oidcForm.issuer.trim(),
     clientId: oidcForm.clientId.trim(),
