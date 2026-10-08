@@ -31,7 +31,7 @@ async function handle(event: H3Event): Promise<void> {
   )
   server.tool(
     'create_route',
-    'Create a forwarding route (or update the existing route at the same path). Fields: path (e.g. "/hook" or "/hook/*"), target (http(s) URL), optional upstreamHost, stripPrefix (wildcard only), methods (e.g. ["GET","HEAD"]), note, enabled.',
+    'Create a forwarding route (or update the existing route at the same path). Fields: path (e.g. "/hook" or "/hook/*"), target (http(s) URL), optional requestHeaders/responseHeaders (lists of {name, op: set|remove, value} — request overrides reach the upstream, response overrides reach the client), stripPrefix (wildcard only), methods (e.g. ["GET","HEAD"]), note, enabled.',
     mcpSchemas.createRoute.shape as unknown as Record<string, ZodType>,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolUpsertRoute(headers, input), null, 2) }] }),
   )

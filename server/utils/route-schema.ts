@@ -40,13 +40,44 @@ export const methodsSchema = z.array(z.enum(httpVerbs))
   .min(1, 'allow at least one method')
   .refine(m => new Set(m).size === m.length, 'duplicate methods')
 
+// ---- header overrides ------------------------------------------------------
+// Semantics: applied in array order; later entries win. Names are lowercase
+// (HTTP headers are case-insensitive; storage must not care).
+// `host` is settable (classic Host override); framing/hop-by-hop headers are
+// NOT — a wrong content-length/transfer-encoding breaks the proxied body.
+export type HeaderOverride = { name: string, op: 'set' | 'remove', value?: string }
+
+const HOP_BY_HOP = new Set(['content-length', 'transfer-encoding', 'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'upgrade'])
+
+const headerName = z.string().min(1, 'header name is required').max(128)
+  .transform(n => n.trim().toLowerCase())
+  .refine(n => /^[a-z0-9!#$%&'*+.^_`|~-]+$/.test(n), 'invalid header name')
+  .refine(n => !HOP_BY_HOP.has(n), 'hop-by-hop headers (content-length, transfer-encoding, connection…) cannot be overridden')
+
+const headerValue = z.string().max(8192, 'header value too long (max 8192)')
+  .refine(v => !/[\r\n]/.test(v), 'header value must not contain newlines')
+
+export const headerOverridesSchema = z.array(z.strictObject({
+  name: headerName,
+  op: z.enum(['set', 'remove']),
+  value: headerValue.optional(),
+}).refine(o => o.op === 'remove' || (o.value !== undefined && o.value !== ''), {
+  message: 'value is required for op "set"',
+  path: ['value'],
+})).max(20, 'at most 20 header overrides per direction')
+  .refine(list => new Set(list.map(o => o.name)).size === list.length, 'duplicate header name — merge entries instead (later entries would shadow earlier ones)')
+
+export type HeaderOverrides = z.infer<typeof headerOverridesSchema>
+
 export const routeInputSchema = z.strictObject({
   /** When present: UPDATE this row (path rename allowed). Absent: upsert by path. */
   id: z.number().int().positive().optional(),
   path: validRoutePath,
   target: httpTarget,
-  upstreamHost: z.string().min(1).max(253)
-    .regex(/^[a-zA-Z0-9.-]+(:\d{1,5})?$/, 'upstreamHost must be host[:port]').optional(),
+  /** Headers set/removed on the request before it reaches the upstream. */
+  requestHeaders: headerOverridesSchema.optional(),
+  /** Headers set/removed on the proxied response before it reaches the client. */
+  responseHeaders: headerOverridesSchema.optional(),
   stripPrefix: z.boolean().optional().default(false),
   methods: methodsSchema.optional(),
   note: z.string().max(200).optional(),
@@ -57,3 +88,4 @@ export const routeInputSchema = z.strictObject({
 )
 
 export type StrictRouteInput = z.infer<typeof routeInputSchema>
+

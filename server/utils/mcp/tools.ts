@@ -34,7 +34,16 @@ async function listRoutes(): Promise<RouteRow[]> {
 const routeBase = {
   path: z.string().min(1).max(512).describe('URL path prefix to claim, e.g. /hook or /hook/* (trailing wildcard)'),
   target: z.string().min(1).max(2048).describe('http(s) upstream URL (origin, optionally with base path)'),
-  upstreamHost: z.string().min(1).max(253).optional().describe('Override Host header sent upstream; defaults to target hostname'),
+  requestHeaders: z.array(z.strictObject({
+    name: z.string().min(1).max(128).describe('Header name, lowercase (e.g. "host", "authorization")'),
+    op: z.enum(['set', 'remove']).describe('set replaces/adds the header; remove strips it'),
+    value: z.string().max(8192).optional().describe('Header value (required for op=set)'),
+  })).max(20).optional().describe('Overrides applied to the REQUEST before it reaches the upstream (e.g. host, authorization, x-custom)'),
+  responseHeaders: z.array(z.strictObject({
+    name: z.string().min(1).max(128).describe('Header name, lowercase (e.g. "cache-control")'),
+    op: z.enum(['set', 'remove']).describe('set replaces/adds the header; remove strips it'),
+    value: z.string().max(8192).optional().describe('Header value (required for op=set)'),
+  })).max(20).optional().describe('Overrides applied to the proxied RESPONSE before it reaches the client (e.g. cache-control, x-frame-options)'),
   stripPrefix: z.boolean().optional().describe('Strip the route prefix before forwarding (wildcard paths only)'),
   methods: z.array(z.enum(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])).optional().describe('Allowed HTTP methods; all when omitted'),
   note: z.string().max(200).optional().describe('Free-form label'),
@@ -74,7 +83,8 @@ export async function toolUpsertRoute(headers: Headers, input: unknown) {
     const targetUrl = u.pathname === '/' ? u.origin : `${u.origin}${u.pathname}`.replace(/\/+$/, '')
     await db.update(routes).set({
       target: targetUrl,
-      upstreamHost: data.upstreamHost ?? null,
+      requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
+      responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
       stripPrefix: data.stripPrefix,
       methods: data.methods ?? null,
       note: data.note !== undefined ? data.note.slice(0, 200) : null,
@@ -90,7 +100,8 @@ export async function toolUpsertRoute(headers: Headers, input: unknown) {
   const created = await db.insert(routes).values({
     path: data.path,
     target: targetUrl,
-    upstreamHost: data.upstreamHost ?? null,
+    requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
+      responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
     stripPrefix: data.stripPrefix,
     methods: data.methods ?? null,
     note: data.note !== undefined ? data.note.slice(0, 200) : null,
@@ -121,7 +132,8 @@ export async function toolUpdateRouteById(headers: Headers, input: unknown) {
   await db.update(routes).set({
     path: data.path,
     target: targetUrl,
-    upstreamHost: data.upstreamHost ?? null,
+    requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
+      responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
     stripPrefix: data.stripPrefix,
     methods: data.methods ?? null,
     note: data.note !== undefined ? data.note.slice(0, 200) : null,

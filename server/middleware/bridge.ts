@@ -7,11 +7,14 @@ import { recordAccess } from '../utils/access-log'
 
 const RESERVED = ['/auth', '/health', '/api', '/admin', '/mcp', '/rpc']
 
+interface HeaderOverride { name: string, op: 'set' | 'remove', value?: string }
+
 interface MatchedRoute {
   id: number
   path: string
   target: string
-  upstreamHost: string | null
+  requestHeaders: HeaderOverride[] | null
+  responseHeaders: HeaderOverride[] | null
   stripPrefix: boolean
   methods: string[] | null
 }
@@ -42,7 +45,7 @@ export default defineEventHandler(async (event) => {
 
   const all: MatchedRoute[] = await db.query.routes.findMany({
     where: { enabled: true },
-    columns: { id: true, path: true, target: true, upstreamHost: true, stripPrefix: true, methods: true },
+    columns: { id: true, path: true, target: true, requestHeaders: true, responseHeaders: true, stripPrefix: true, methods: true },
   })
 
   let best: MatchedRoute | null = null
@@ -75,8 +78,20 @@ export default defineEventHandler(async (event) => {
   const url = `${target}${rest}${q}`
 
   const upstream = new URL(best.target)
+
+  // request header overrides. `set` entries ride opts.headers (merged LAST
+  // by proxyRequest, so they win over the client's own values). `remove`
+  // entries must strip the header from the incoming event BEFORE
+  // proxyRequest copies the client headers.
+  const removeNames = (best.requestHeaders ?? []).filter(o => o.op === 'remove').map(o => o.name)
+  for (const name of removeNames) {
+    event.node.req.headers[name] = undefined
+  }
   const headers: Record<string, string> = {
-    host: best.upstreamHost ?? upstream.hostname,
+    host: upstream.hostname, // default; may be overridden below
+  }
+  for (const o of best.requestHeaders ?? []) {
+    if (o.op === 'set' && o.value !== undefined) headers[o.name] = o.value
   }
 
   const started = Date.now()
@@ -84,8 +99,19 @@ export default defineEventHandler(async (event) => {
   const userAgent = getRequestHeader(event, 'user-agent') ?? null
   const routeId = best.id
 
+  // response header overrides: sendProxy copies upstream headers onto
+  // event.node.res BEFORE opts.onResponse runs — mutate there.
+  const onResponse = best.responseHeaders?.length
+    ? (ev: typeof event) => {
+        for (const o of best.responseHeaders!) {
+          if (o.op === 'remove') ev.node.res.removeHeader(o.name)
+          else if (o.value !== undefined) ev.node.res.setHeader(o.name, o.value)
+        }
+      }
+    : undefined
+
   // wrap the response to capture status; log after headers flush
-  const res = await proxyRequest(event, url, { headers })
+  const res = await proxyRequest(event, url, { headers, ...(onResponse ? { onResponse } : {}) })
   recordAccess({
     routeId,
     routePath: best.path,

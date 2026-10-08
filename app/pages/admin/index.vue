@@ -9,7 +9,7 @@
     </div>
 
     <!-- editor modal -->
-    <UModal :open="!!editing" :title="editing === 'new' ? 'Create route' : `Edit ${editing}`" @update:open="(v: boolean) => !v && reset()">
+    <UModal :open="!!editing" :title="editing === 'new' ? 'Create route' : `Edit ${editing}`" :ui="{ content: 'max-w-xl' }" @update:open="(v: boolean) => !v && reset()">
       <template #body>
         <UForm :state="form" :validate="validatePair" class="grid gap-5 sm:grid-cols-2" @submit="save">
           <UFormField name="path">
@@ -45,21 +45,37 @@
             </UPopover></template>
             <UInput v-model="form.target" placeholder="https://api.example.com" icon="i-lucide-globe" class="w-full" />
           </UFormField>
-          <UFormField name="upstreamHost">
-            <template #label>Host header override</template>
+          <UFormField name="requestHeaders" class="sm:col-span-2">
+            <template #label>Request headers</template>
             <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
               <template #default>
                 <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
               </template>
               <template #content>
                 <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                  <p class="text-xs font-semibold text-white">Host header override</p>
-                  <p class="text-xs text-zinc-200">Host header sent to the upstream. Leave empty to use the target's own hostname. Some services (CDNs, SNI-based routers) need a specific value.</p>
-                  <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. api.example.com:8443</p>
+                  <p class="text-xs font-semibold text-white">Request headers</p>
+                  <p class="text-xs text-zinc-200">Set or strip headers on the request before it reaches the upstream. <code>set</code> replaces the client's value (or adds it); <code>remove</code> strips it. The Host header can be set here — some upstreams (CDNs, SNI routers) need a specific value.</p>
+                  <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. host = api.example.com · authorization = Bearer …</p>
                 </div>
               </template>
             </UPopover></template>
-            <UInput v-model="form.upstreamHost" placeholder="api.example.com" icon="i-lucide-server" class="w-full" />
+            <HeaderRowsEditor v-model="form.requestHeaders" />
+          </UFormField>
+          <UFormField name="responseHeaders" class="sm:col-span-2">
+            <template #label>Response headers</template>
+            <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
+              <template #default>
+                <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
+              </template>
+              <template #content>
+                <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
+                  <p class="text-xs font-semibold text-white">Response headers</p>
+                  <p class="text-xs text-zinc-200">Set or strip headers on the proxied response before it reaches the client. Useful for CORS, cache-control or security headers; also removes upstream fingerprints like <code>x-powered-by</code>.</p>
+                  <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. cache-control = public, max-age=60</p>
+                </div>
+              </template>
+            </UPopover></template>
+            <HeaderRowsEditor v-model="form.responseHeaders" />
           </UFormField>
           <UFormField name="note">
             <template #label>Note</template>
@@ -145,7 +161,6 @@
         <template #target-cell="{ row }">
           <div class="text-xs text-zinc-500">
             <span class="break-all font-mono">{{ row.original.target }}</span>
-            <span v-if="row.original.upstreamHost" class="block text-zinc-400">host: {{ row.original.upstreamHost }}</span>
             <span v-if="row.original.methods?.length" class="block font-mono text-[10px] text-zinc-400">{{ row.original.methods.join(' ') }}</span>
             <span v-if="row.original.note" class="block truncate text-zinc-400">{{ row.original.note }}</span>
           </div>
@@ -186,7 +201,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type { RouteRow, RoutesResponse } from '~/../shared/types'
-import { routeSubmitSchema } from '~/utils/route-form'
+import { routeSubmitSchema, type HeaderRowInput } from '~/utils/route-form'
 import { useQuery } from '@tanstack/vue-query'
 
 definePageMeta({ layout: 'admin' })
@@ -208,7 +223,7 @@ const routeColumns: TableColumn<RouteRow>[] = [
 
 // ---------- route form ----------
 const allVerbs = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const
-const emptyForm = () => ({ id: undefined as number | undefined, path: '', target: '', upstreamHost: undefined as string | undefined, note: undefined as string | undefined, stripPrefix: false, methodsAll: true, methods: [] as string[], enabled: true })
+const emptyForm = () => ({ id: undefined as number | undefined, path: '', target: '', requestHeaders: [] as HeaderRowInput[], responseHeaders: [] as HeaderRowInput[], note: undefined as string | undefined, stripPrefix: false, methodsAll: true, methods: [] as string[], enabled: true })
 const form = reactive(emptyForm())
 const busy = ref(false)
 const editing = ref('')
@@ -240,6 +255,8 @@ function edit(p: RouteRow) {
   form.id = p.id
   form.methodsAll = !p.methods || p.methods.length === 0
   form.methods = p.methods ? [...p.methods] : []
+  form.requestHeaders = (p.requestHeaders ?? []).map(o => ({ name: o.name, op: o.op, value: o.value ?? '' }))
+  form.responseHeaders = (p.responseHeaders ?? []).map(o => ({ name: o.name, op: o.op, value: o.value ?? '' }))
 }
 
 function reset() {
