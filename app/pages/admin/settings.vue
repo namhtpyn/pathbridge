@@ -5,6 +5,7 @@
       <p class="text-sm text-zinc-500">Authentication and logging configuration</p>
     </div>
 
+    <!-- ============ ACCESS LOG ============ -->
     <UCard :ui="{ root: 'shadow-sm' }">
       <template #header>
         <div class="flex items-center gap-2">
@@ -29,30 +30,61 @@
           </UPopover></template>
           <UInputNumber v-model="settingsForm.logRetentionDays" :min="0" :max="3650" class="w-full max-w-48" />
         </UFormField>
+        <div class="flex justify-end">
+          <UButton type="submit" icon="i-lucide-save" :loading="busy" label="Save settings" />
+        </div>
+      </UForm>
+    </UCard>
+
+    <!-- ============ AUTHENTICATION ============ -->
+    <UCard :ui="{ root: 'shadow-sm' }">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-key-round" class="size-4 text-zinc-400" />
+          <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Authentication</h3>
+        </div>
+      </template>
+      <div class="space-y-5">
+        <div>
+          <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-zinc-400">OIDC providers</h4>
+            <UButton v-if="can('settings', 'update')" icon="i-lucide-plus" size="sm" label="Add provider" @click="openOidcEditor()" />
+          </div>
+          <template v-if="oidcProviders.length">
+            <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
+              <UTable :data="oidcProviders" :columns="providerColumns">
+                <template #provider-cell="{ row }">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ row.original.label }}</span>
+                      <UBadge v-if="!row.original.secretSet" variant="subtle" color="warning" size="sm">no secret</UBadge>
+                    </div>
+                    <div class="mt-0.5 truncate text-xs font-mono text-zinc-500">{{ row.original.issuer }}</div>
+                  </div>
+                </template>
+                <template #callback-cell="{ row }">
+                  <span class="block max-w-72 truncate font-mono text-xs text-zinc-500" :title="`${publicOrigin}/auth/callback/${row.original.id}`">{{ publicOrigin }}/auth/callback/{{ row.original.id }}</span>
+                </template>
+                <template #actions-cell="{ row }">
+                  <div class="flex justify-end gap-2">
+                    <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit provider" :disabled="!can('settings', 'update')" @click="openOidcEditor(row.original)" />
+                    <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Remove provider" :disabled="!can('settings', 'update')" @click="removeOidcProvider(row.original)" />
+                  </div>
+                </template>
+              </UTable>
+            </UCard>
+            <p class="mt-2 text-xs text-zinc-400">Register each callback URL above with its identity provider.</p>
+          </template>
+          <div v-else class="rounded-xl border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
+            <UIcon name="i-lucide-key-round" class="mx-auto size-7 text-zinc-300" />
+            <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">No OIDC providers</p>
+            <p class="mt-1 text-xs text-zinc-500">Add one to enable SSO login buttons</p>
+            <UButton v-if="can('settings', 'update')" class="mt-4" size="sm" icon="i-lucide-plus" label="Add provider" @click="openOidcEditor()" />
+          </div>
+        </div>
+
         <USeparator />
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <UIcon name="i-lucide-key-round" class="size-4 text-zinc-400" />
-            <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">OIDC providers</h3>
-          </div>
-          <UButton v-if="can('settings', 'update')" icon="i-lucide-plus" size="sm" label="Add provider" @click="openOidcEditor()" />
-        </div>
-        <p v-if="oidcProviders.length === 0" class="text-sm text-zinc-500">No OIDC providers configured. Add one to enable SSO login buttons.</p>
-        <div v-else class="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800/60 dark:border-zinc-800">
-          <div v-for="prov in oidcProviders" :key="prov.id" class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ prov.label }}</span>
-                <UBadge v-if="!prov.secretSet" variant="subtle" color="warning" size="sm">no secret</UBadge>
-              </div>
-              <div class="mt-0.5 truncate text-xs font-mono text-zinc-500">{{ publicOrigin }}/auth/callback/{{ prov.id }}</div>
-            </div>
-            <div class="flex shrink-0 items-center gap-2">
-              <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit provider" :disabled="!can('settings', 'update')" @click="openOidcEditor(prov)" />
-              <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Remove provider" :disabled="!can('settings', 'update')" @click="removeOidcProvider(prov)" />
-            </div>
-          </div>
-        </div>
+
         <div class="flex items-center gap-1.5">
           <USwitch v-model="settingsForm.disablePasswordLogin" :disabled="!oidcReady" label="Disable email + password login" />
           <UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
@@ -67,10 +99,10 @@
             </template>
           </UPopover>
         </div>
-        <div class="flex justify-end">
-          <UButton type="submit" icon="i-lucide-save" :loading="busy" label="Save settings" />
-        </div>
-      </UForm>
+        <p v-if="oidcProviders.length && !oidcReady" class="text-xs text-amber-600 dark:text-amber-500">
+          Enabled once at least one provider has its secret set.
+        </p>
+      </div>
     </UCard>
 
     <!-- OIDC provider editor modal -->
@@ -100,6 +132,8 @@
 </template>
 
 <script setup lang="ts">
+import type { TableColumn } from '@nuxt/ui'
+
 definePageMeta({ layout: 'admin' })
 const { can } = await useAdminSession()
 const toast = useToast()
@@ -111,6 +145,12 @@ const oidcProviders = ref<OidcProviderRow[]>([])
 const oidcEditorOpen = ref(false)
 const oidcEditingId = ref<string | null>(null)
 const oidcForm = reactive({ id: '', label: '', issuer: '', clientId: '', clientSecret: '' })
+
+const providerColumns: TableColumn<OidcProviderRow>[] = [
+  { id: 'provider', header: 'Provider' },
+  { id: 'callback', header: 'Callback URL', meta: { class: { td: 'w-full' } } },
+  { id: 'actions', header: '' },
+]
 
 const publicOrigin = computed(() => {
   if (import.meta.server) {
