@@ -1,10 +1,10 @@
-FROM node:22-alpine AS build
+FROM oven/bun:1.4.2 AS build
 ARG APP_VERSION=dev
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci --no-audit --no-fund
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 COPY . .
-RUN npm run build
+RUN bun run build
 
 FROM oven/bun:latest AS runtime
 ARG APP_VERSION=dev
