@@ -12,7 +12,8 @@ import { getAuth } from '../utils/auth'
 export default defineEventHandler(async (event) => {
   const auth = await getAuth()
   const headers = new Headers()
-  getRequestHeaders(event).cookie && headers.set('cookie', getRequestHeaders(event).cookie)
+  const cookie = getRequestHeaders(event).cookie
+  if (cookie) headers.set('cookie', cookie)
   const session = await auth.api.getSession({ headers })
   if (!session) return null
   return {
