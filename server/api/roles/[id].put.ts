@@ -2,6 +2,7 @@ import { db } from '../../db'
 import { roles as rolesTable } from '../../db/schema'
 import { validateStatements, requirePermission } from '../../utils/permissions'
 import { eq } from 'drizzle-orm'
+import { publishChange } from '../../utils/change-bus'
 
 
 export default defineEventHandler(async (event) => {
@@ -31,5 +32,6 @@ export default defineEventHandler(async (event) => {
   }
   await db.update(rolesTable).set(patch).where(eq(rolesTable.id, id))
   const fresh = await db.query.roles.findFirst({ where: { id } })
+  await publishChange('roles', 'update')
   return { role: fresh }
 })

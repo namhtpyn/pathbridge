@@ -12,6 +12,7 @@ import { routes } from '../../db/schema'
 import { routeInputSchema } from '../route-schema'
 import { requireUser, userCan, requireRecordPermission } from '../permissions'
 import type { RouteRow } from '../../../shared/types'
+import { publishChange } from '../change-bus'
 
 /** Build a minimal H3 event so permission helpers resolve auth from headers. */
 export function eventFor(headers: Headers): H3Event {
@@ -80,7 +81,8 @@ export async function toolUpsertRoute(headers: Headers, input: unknown) {
       enabled: data.enabled,
       updatedAt: new Date().toISOString(),
     }).where(eq(routes.id, existing.id))
-    return { route: await db.query.routes.findFirst({ where: { id: existing.id } }) }
+    await publishChange('routes', 'update')
+  return { route: await db.query.routes.findFirst({ where: { id: existing.id } }) }
   }
   if (!userCan(user, 'routes', 'create')) throw new Error('Forbidden: missing permission routes:create')
   const u = new URL(data.target)
@@ -96,6 +98,7 @@ export async function toolUpsertRoute(headers: Headers, input: unknown) {
     userId: user.userId,
     updatedAt: new Date().toISOString(),
   }).onConflictDoUpdate({ target: routes.path, set: { target: targetUrl, updatedAt: new Date().toISOString() } }).returning()
+  await publishChange('routes', 'create')
   return { route: created[0] ?? await db.query.routes.findFirst({ where: { path: data.path } }) }
 }
 
@@ -139,6 +142,7 @@ export async function toolDeleteRoute(headers: Headers, input: unknown) {
   if (!target) throw new Error('route not found')
   await requireRecordPermission(eventFor(headers), 'routes', 'delete', target)
   await db.delete(routes).where(eq(routes.id, target.id))
+  await publishChange('routes', 'delete')
   return { deleted: true, id: target.id, path: target.path }
 }
 

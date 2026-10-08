@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { updateUser } from '../../utils/users'
 import { requirePermission } from '../../utils/permissions'
+import { publishChange } from '../../utils/change-bus'
 
 const bodySchema = z.strictObject({
   name: z.string().min(1).max(100).optional(),
@@ -22,5 +23,6 @@ export default defineEventHandler(async (event) => {
     await requirePermission(event, 'roles', 'update')
   }
   await updateUser(id, parsed.data)
+  await publishChange('users', 'update')
   return { ok: true }
 })

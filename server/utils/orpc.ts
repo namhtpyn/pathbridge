@@ -60,6 +60,22 @@ import { db } from '../db'
 import { routes as routesTable } from '../db/schema'
 import { desc } from 'drizzle-orm'
 import type { RouteRow } from '../../shared/types'
+import { changeBus } from './change-bus'
+import type { ChangeEvent } from './change-bus'
+
+/**
+ * Build a live generator: emits the initial snapshot, then re-emits whenever
+ * a change event for any of `resources` fires (AsyncIteratorObject over SSE
+ * via the RPCHandler). Consumers use `.liveOptions()` on the client.
+ */
+async function* liveGenerator<T>(resources: ChangeEvent['resource'][], fetch: () => Promise<T>) {
+  yield await fetch()
+  for await (const evt of changeBus.subscribe('change')) {
+    if (evt.resource === 'logs' || resources.includes(evt.resource)) {
+      yield await fetch()
+    }
+  }
+}
 
 export const router = os.router({
   hello: base.handler(() => ({ message: 'pathbridge oRPC', ts: new Date().toISOString() })),
@@ -79,6 +95,9 @@ export const router = os.router({
       const rows = await db.query.routes.findMany({ columns: { id: true } })
       return { count: rows.length }
     }),
+    /** live list — pushes a fresh snapshot on every routes change */
+    live: base.use(withPerm('routes', 'read')).handler(() => liveGenerator(['routes'], async () =>
+      (await db.query.routes.findMany({ orderBy: { path: 'asc' } })) as unknown as RouteRow[])),
   },
 
   logs: {
@@ -89,6 +108,14 @@ export const router = os.router({
         const { queryAccessLog } = await import('./access-log')
         return { entries: await queryAccessLog({ limit: input?.limit ?? 50 }) }
       }),
+    /** live tail — initial batch, then a new entry list whenever logs grow */
+    tail: base
+      .use(withPerm('logs', 'read'))
+      .input(z.object({ limit: z.number().int().min(1).max(1000).optional() }))
+      .handler(({ input }) => liveGenerator(['logs'], async () => {
+        const { queryAccessLog } = await import('./access-log')
+        return { entries: await queryAccessLog({ limit: input?.limit ?? 50 }) }
+      })),
   },
 })
 

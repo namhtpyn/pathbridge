@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { createUser } from '../../utils/users'
 import { requirePermission } from '../../utils/permissions'
+import { publishChange } from '../../utils/change-bus'
 
 const bodySchema = z.strictObject({
   email: z.string().email().max(255),
@@ -34,6 +35,7 @@ export default defineEventHandler(async (event) => {
   }
   try {
     await createUser(parsed.data.email, parsed.data.name, parsed.data.password, role, parsed.data.emailVerified ?? true)
+    await publishChange('users', 'create')
     return { ok: true }
   }
   catch (e: unknown) {

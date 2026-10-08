@@ -1,6 +1,7 @@
 // DELETE /api/keys/:id — revoke one of the CURRENT user's keys.
 import { getAuth } from '../../utils/auth'
 import { requirePermission } from '../../utils/permissions'
+import { publishChange } from '../../utils/change-bus'
 
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'settings', 'read')
@@ -14,5 +15,6 @@ export default defineEventHandler(async (event) => {
   const owned = (list.apiKeys ?? []).find(k => k.id === id)
   if (!owned) throw createError({ statusCode: 404, statusMessage: 'key not found' })
   await auth.api.deleteApiKey({ body: { keyId: id } })
+  await publishChange('keys', 'delete')
   return { ok: true }
 })

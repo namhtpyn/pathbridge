@@ -5,6 +5,7 @@ import { db } from '../../db'
 import { routes } from '../../db/schema'
 import type { RouteRow } from '../../../shared/types'
 import { requireRecordPermission } from '../../utils/permissions'
+import { publishChange } from '../../utils/change-bus'
 
 export default defineEventHandler(async (event): Promise<{ routes: RouteRow[] }> => {
   const ref = getRouterParam(event, 'path')
@@ -20,5 +21,6 @@ export default defineEventHandler(async (event): Promise<{ routes: RouteRow[] }>
   await requireRecordPermission(event, 'routes', 'delete', target)
   await db.delete(routes).where(eq(routes.id, target.id))
   const rows = await db.query.routes.findMany({ orderBy: { path: 'asc' } })
+  await publishChange('routes', 'delete')
   return { routes: rows as unknown as RouteRow[] }
 })

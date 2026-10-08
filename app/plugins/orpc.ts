@@ -1,8 +1,11 @@
-// oRPC typed client: SSR uses the router directly (no HTTP hop); client-side
-// uses RPCLink against /rpc. Provided as $client (RouterClient).
+// oRPC typed client + TanStack Query utils.
+// SSR: RPCLink with event headers; client: relative /rpc. `orpc` utils expose
+// .queryOptions/.mutationOptions/.liveOptions per procedure — live procedures
+// (AsyncIteratorObject over SSE) stream snapshots into the query cache.
 import type { RouterClient } from '@orpc/server'
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
+import { createRouterUtils } from '@orpc/tanstack-query'
 import type { Router } from '~/../server/utils/orpc'
 
 export default defineNuxtPlugin(() => {
@@ -16,5 +19,6 @@ export default defineNuxtPlugin(() => {
   })
 
   const client: RouterClient<Router> = createORPCClient(link)
-  return { provide: { client } }
+  const orpc = createRouterUtils(client)
+  return { provide: { client, orpc } }
 })
