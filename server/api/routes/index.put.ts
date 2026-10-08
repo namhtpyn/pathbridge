@@ -31,7 +31,8 @@ export default defineEventHandler(async (event): Promise<{ routes: RouteRow[] }>
   const row = {
     path,
     target: targetUrl,
-    upstreamHost: parsed.data.upstreamHost ?? null,
+    requestHeaders: parsed.data.requestHeaders?.length ? parsed.data.requestHeaders : null,
+    responseHeaders: parsed.data.responseHeaders?.length ? parsed.data.responseHeaders : null,
     stripPrefix: parsed.data.stripPrefix,
     methods: parsed.data.methods ?? null,
     note: parsed.data.note !== undefined ? parsed.data.note.slice(0, 200) : null,

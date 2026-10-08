@@ -67,6 +67,7 @@ Every form — route editor, user create, role create, profile — follows the s
 - One purpose per modal. Destructive confirms show the target name in the description and use a `color="error"` confirm button.
 - Modals that edit must PRE-POPULATE from state before opening (populate-then-open, e.g. `openProfile()`), never rely on `@update:open` side effects.
 - A no-op save must give feedback ("No changes to save"), never silently return.
+- Repeatable row editors (header overrides, future KV lists) use the shared `HeaderRowsEditor` pattern: flex row `name → op-select → value? → X`, full `sm:col-span-2` width (never half-modal — 4 controls don't fit), `font-mono text-xs`, select `w-26` so "remove" fits, `min-w-*` + `flex` so inputs share space, `title` attrs for truncated content, 20-row cap. Rows are LOOSE in the UI (empty strings while typing); the submit schema normalizes (`toOverrides`) and the backend re-validates.
 
 ## Realtime tables (live queries)
 

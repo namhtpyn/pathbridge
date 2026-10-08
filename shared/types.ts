@@ -10,8 +10,10 @@ export interface RouteRow {
   path: string
   /** Absolute upstream origin to forward to, e.g. "https://api.example.com" (no path). */
   target: string
-  /** Host header sent upstream. Defaults to the upstream's hostname. */
-  upstreamHost: string | null
+  /** Headers set/removed on the request before it reaches the upstream. */
+  requestHeaders: Array<{ name: string, op: 'set' | 'remove', value?: string }> | null
+  /** Headers set/removed on the proxied response before it reaches the client. */
+  responseHeaders: Array<{ name: string, op: 'set' | 'remove', value?: string }> | null
   /** Strip the route's path prefix before forwarding. */
   stripPrefix: boolean
   /** Allowed HTTP verbs; null = all. Serialized JSON array in the row. */
@@ -32,7 +34,8 @@ export interface RouteRow {
 export interface RouteFormInput {
   path: string
   target: string
-  upstreamHost?: string | null
+  requestHeaders?: Array<{ name: string, op: 'set' | 'remove', value?: string }> | null
+  responseHeaders?: Array<{ name: string, op: 'set' | 'remove', value?: string }> | null
   note?: string | null
   stripPrefix?: boolean
   enabled?: boolean
