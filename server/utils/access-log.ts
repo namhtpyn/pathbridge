@@ -5,6 +5,7 @@ import { db } from '../db'
 import { accessLog } from '../db/schema'
 import { getSettings } from './settings'
 import { lt, desc, eq, and, type SQL } from 'drizzle-orm'
+import { publishChange } from './change-bus'
 
 export interface AccessLogRow {
   id: number
@@ -30,7 +31,9 @@ export function recordAccess(entry: {
   userAgent: string | null
 }): void {
   // fire-and-forget; log failure must never break proxying
-  db.insert(accessLog).values(entry).catch(() => {})
+  db.insert(accessLog).values(entry)
+    .then(() => publishChange('logs', 'create'))
+    .catch(() => {})
 }
 
 export async function queryAccessLog(opts: { limit?: number, routeId?: number, beforeId?: number }): Promise<AccessLogRow[]> {
