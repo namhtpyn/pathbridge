@@ -9,7 +9,7 @@
     "build": "nuxt build",
     "start": "bun .output/server/index.mjs",
     "admin": "bun scripts/create-admin.ts",
-    "typecheck": "nuxt typecheck || tsc --noEmit"
+    "typecheck": "bunx vue-tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.7",

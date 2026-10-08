@@ -44,7 +44,7 @@ jobs:
         run: bun run build
 
       - name: Typecheck
-        run: npx vue-tsc --noEmit -p tsconfig.json
+        run: bun run typecheck
 
       - name: Semantic Release
         id: semrel
