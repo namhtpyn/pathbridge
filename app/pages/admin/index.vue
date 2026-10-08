@@ -88,7 +88,7 @@
             <UButton v-if="can('routes', 'create')" icon="i-lucide-plus" label="New route" class="self-end sm:self-auto" @click="openEditor()" />
           </div>
 
-          <UModal :open="!!editing" :title="editing === 'new' ? 'Create route' : `Edit ${editing}`" @update:open="v => !v && reset()">
+          <UModal :open="!!editing" :title="editing === 'new' ? 'Create route' : `Edit ${editing}`" @update:open="(v: boolean) => !v && reset()">
             <template #body>
             <UForm :state="form" :validate="validatePair" class="grid gap-5 sm:grid-cols-2" @submit="save">
               <UFormField name="path">
@@ -439,7 +439,7 @@
                     <div class="min-w-0">
                       <div class="flex items-center gap-2">
                         <span class="truncate text-sm font-medium text-zinc-900 dark:text-white">{{ row.original.name }}</span>
-                        <UBadge v-if="row.original.id === session.user.id" label="you" variant="subtle" color="primary" size="sm" />
+                        <UBadge v-if="session?.user?.id && row.original.id === session.user.id" label="you" variant="subtle" color="primary" size="sm" />
                       </div>
                       <div class="truncate text-xs text-zinc-500">{{ row.original.email }}</div>
                     </div>
@@ -457,7 +457,7 @@
                   <div class="flex justify-end gap-2">
                     <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit user" :disabled="!can('users', 'update')" @click="openUserEditor(row.original)" />
                     <UButton icon="i-lucide-key-round" variant="ghost" color="neutral" size="sm" aria-label="Reset password" @click="resetPassword(row.original)" />
-                    <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete user" :disabled="row.original.id === session.user.id" @click="removeUser(row.original)" />
+                    <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete user" :disabled="Boolean(session?.user?.id && row.original.id === session.user.id)" @click="removeUser(row.original)" />
                   </div>
                 </template>
               </UTable>
