@@ -1,3 +1,10 @@
+# [2.3.0](https://github.com/namhtpyn/pathbridge/compare/v2.2.0...v2.3.0) (2026-10-08)
+
+
+### Features
+
+* realtime layer — oRPC live queries over the change bus ([e01bb86](https://github.com/namhtpyn/pathbridge/commit/e01bb8681fa7dd70e60568c311bde47f08981f08))
+
 # [2.2.0](https://github.com/namhtpyn/pathbridge/compare/v2.1.1...v2.2.0) (2026-10-08)
 
 
