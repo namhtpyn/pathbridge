@@ -1,3 +1,10 @@
+## [5.0.1](https://github.com/namhtpyn/pathbridge/compare/v5.0.0...v5.0.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **ssr:** call oRPC procedures in-process during SSR via createRouterClient ([df84a04](https://github.com/namhtpyn/pathbridge/commit/df84a047e4c18aca10275821402563e2caa82643))
+
 # [5.0.0](https://github.com/namhtpyn/pathbridge/compare/v4.0.0...v5.0.0) (2026-10-11)
 
 
