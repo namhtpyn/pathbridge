@@ -50,6 +50,14 @@ is plain HTTP.
 Everything else — OIDC providers, roles, retention — is configured in the
 admin UI at runtime.
 
+### Health
+
+- `GET /health` — liveness (process up)
+- `GET /health/ready` — readiness (database reachable)
+
+The container image ships a Docker `HEALTHCHECK` probing `/health/ready`
+every 30s (readiness failures mark the container `unhealthy`).
+
 ### Forwarding
 
 Add a route in the admin UI (or via `PUT /api/routes`):

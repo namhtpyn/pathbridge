@@ -16,4 +16,8 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/scripts ./scripts
 RUN mkdir -p /data
 EXPOSE 3000
+# readiness probe: the runtime image ships no curl/wget — probe with bun's
+# fetch against /health/ready (liveness + DB reachable). ~2s grace at boot.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD ["bun", "-e", "const t=setTimeout(()=>process.exit(1),4500); const r=await fetch('http://127.0.0.1:3000/health/ready'); clearTimeout(t); process.exit(r.ok?0:1)"]
 CMD ["bun", ".output/server/index.mjs"]
