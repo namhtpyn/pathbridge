@@ -53,12 +53,12 @@
                     v-model="renaming.name" icon="i-lucide-tag" size="sm" class="w-44"
                     placeholder="key name" @keydown.enter.prevent="confirmRename" @keydown.esc.prevent="renaming = null"
                   />
-                  <IconButton tooltip="Save name" icon="i-lucide-check" color="success" :loading="renameBusy" @click="confirmRename" />
-                  <IconButton tooltip="Cancel" icon="i-lucide-x" @click="renaming = null" />
+                  <IconButton text="Save name" icon="i-lucide-check" color="success" :loading="renameBusy" @click="confirmRename" />
+                  <IconButton text="Cancel" icon="i-lucide-x" @click="renaming = null" />
                 </template>
                 <template v-else>
-                  <IconButton tooltip="Rename key" icon="i-lucide-pencil" @click="startRename(k)" />
-                  <IconButton tooltip="Revoke key" icon="i-lucide-trash-2" color="error" @click="revokeKey(k)" />
+                  <IconButton text="Rename key" icon="i-lucide-pencil" @click="startRename(k)" />
+                  <IconButton text="Revoke key" icon="i-lucide-trash-2" color="error" @click="revokeKey(k)" />
                 </template>
               </div>
             </div>

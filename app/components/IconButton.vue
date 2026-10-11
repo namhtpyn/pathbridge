@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// Icon-only buttons MUST carry a visible tooltip (DESIGN_SYSTEM law): plain
-// icons are unguessable for new users and unreadable on touch. Wraps UButton
-// in a hover UPopover; aria-label stays for screen readers.
+// Icon-only buttons MUST carry a hover popover label (DESIGN_SYSTEM law):
+// plain icons are unguessable. UButton wrapped in UPopover mode="hover";
+// aria-label stays for screen readers.
 const props = withDefaults(defineProps<{
-  tooltip: string
+  text: string
   icon: string
   ariaLabel?: string
   color?: 'primary' | 'neutral' | 'error' | 'success' | 'warning'
@@ -34,12 +34,12 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
         :disabled="props.disabled"
         :loading="props.loading"
         :type="props.type"
-        :aria-label="props.ariaLabel ?? props.tooltip"
+        :aria-label="props.ariaLabel ?? props.text"
         @click="emit('click', $event)"
       />
     </template>
     <template #content>
-      <span class="block whitespace-nowrap">{{ props.tooltip }}</span>
+      <span class="block whitespace-nowrap">{{ props.text }}</span>
     </template>
   </UPopover>
 </template>

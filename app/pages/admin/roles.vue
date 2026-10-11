@@ -106,7 +106,7 @@
                   <div v-if="row.getIsGrouped()" class="flex items-center gap-2">
                     <IconButton
                       variant="ghost" size="xs"
-                      :tooltip="row.getIsExpanded() ? 'Collapse group' : 'Expand group'"
+                      :text="row.getIsExpanded() ? 'Collapse group' : 'Expand group'"
                       :icon="row.getIsExpanded() ? 'i-lucide-minus' : 'i-lucide-plus'"
                       @click="row.toggleExpanded()"
                     />

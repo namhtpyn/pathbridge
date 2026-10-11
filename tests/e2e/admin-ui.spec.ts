@@ -7,15 +7,15 @@ let SFX = 'x'
 test.beforeEach(({ }, testInfo) => { SFX = testInfo.project.name.replace(/\W+/g, '') })
 const uniq = (base: string) => `${base}-${SFX}`
 
-test('icon-only buttons carry visible tooltips (popovers)', async ({ page }) => {
+test('icon-only buttons carry hover popovers', async ({ page }) => {
   await uiLogin(page)
   // ensure a route row exists, then hover its edit pencil — the IconButton popover shows
-  await page.request.post('/rpc/routes/save', { data: { json: { path: '/e2e-tooltip', target: 'http://127.0.0.1:4311' } } })
+  await page.request.post('/rpc/routes/save', { data: { json: { path: '/e2e-popover', target: 'http://127.0.0.1:4311' } } })
   await expect(page.getByRole('button', { name: 'Edit route' }).first()).toBeVisible({ timeout: 10_000 })
   await page.getByRole('button', { name: 'Edit route' }).first().hover()
-  // popover content renders the tooltip text outside the button's aria-label
+  // popover content renders the text outside the button's aria-label
   await expect(page.locator('[data-slot="content"]').getByText('Edit route').first()).toBeVisible({ timeout: 5_000 })
-  await page.request.post('/rpc/routes/remove', { data: { json: { path: '/e2e-tooltip' } } })
+  await page.request.post('/rpc/routes/remove', { data: { json: { path: '/e2e-popover' } } })
 })
 
 // desktop-only: the mobile drawer interaction for opening Profile is flaky in

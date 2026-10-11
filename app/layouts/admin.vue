@@ -69,7 +69,7 @@
               <span class="max-w-40 truncate">{{ session.user.name || session.user.email }}</span>
             </UButton>
           </UDropdownMenu>
-          <IconButton v-else tooltip="Profile & API keys" icon="i-lucide-circle-user" size="md" @click="openProfile" />
+          <IconButton v-else text="Profile & API keys" icon="i-lucide-circle-user" size="md" @click="openProfile" />
         </template>
       </UDashboardSidebar>
 

@@ -24,7 +24,7 @@ app/layouts/admin.vue
 - Shared session/perms/auth-config live in `app/composables/useAdminSession.ts` (useState-backed). SSR resolves the session through the in-process oRPC `session` procedure (`app/plugins/orpc.server.ts` — request cookies flow in via the forwarded event headers) — layouts run OUTSIDE the Nuxt request context, so `useRequestHeaders` inside a layout throws e1001; never call it there.
 - Login (no session): the layout swaps the whole shell for a centered card form (password + per-provider OIDC buttons, gated by `/api/auth-config`).
 - Mobile: sidebar is an off-canvas drawer opened by `UDashboardSidebarToggle` in the navbar.
-- Icon-only buttons MUST carry a visible tooltip: use the shared `IconButton` component (wraps `UButton` in a hover `UPopover`; keeps `aria-label` for screen readers). Never ship a bare icon button — plain icons are unguessable and unreadable on touch.
+- Icon-only buttons MUST carry a hover popover label: use the shared `IconButton` component (`text` prop; wraps `UButton` in a `UPopover mode="hover"`; keeps `aria-label` for screen readers). Never ship a bare icon button — plain icons are unguessable and unreadable on touch.
 
 ## Component map (use exactly these)
 
