@@ -1,3 +1,15 @@
+# [5.0.0](https://github.com/namhtpyn/pathbridge/compare/v4.0.0...v5.0.0) (2026-10-11)
+
+
+### Features
+
+* **admin:** admin panel uses oRPC procedures exclusively — REST /api twins removed from UI ([22ebe4f](https://github.com/namhtpyn/pathbridge/commit/22ebe4f2a083e3e6b17fa796f37bda302c4857c7))
+
+
+### BREAKING CHANGES
+
+* **admin:** admin panel uses oRPC procedures exclusively — REST /api twins removed from UI
+
 # [4.0.0](https://github.com/namhtpyn/pathbridge/compare/v3.1.5...v4.0.0) (2026-10-08)
 
 
