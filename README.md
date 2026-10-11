@@ -58,6 +58,16 @@ admin UI at runtime.
 The container image ships a Docker `HEALTHCHECK` probing `/health/ready`
 every 30s (readiness failures mark the container `unhealthy`).
 
+### Tests
+
+- `bun run test:unit` — vitest on bun (36 tests): route matching laws, strict
+  zod schemas (reserved paths, wildcards, header overrides), RBAC scope
+  resolution + vocabulary validation, OIDC provider-id guards
+- `bun run test:e2e` — Playwright (32 tests, desktop + 390px mobile projects):
+  auth gates, oRPC wire, H1 takeover guard, scoped-key narrowing, proxy
+  pipeline + access log, admin UI login/CRUD/realtime/mobile. Boots a built
+  server + deterministic upstream (`tests/e2e/upstream.mjs`) automatically
+
 ### Forwarding
 
 Add a route in the admin UI (or via `PUT /api/routes`):

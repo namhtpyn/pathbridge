@@ -92,6 +92,11 @@ async function buildAuth(): Promise<Auth> {
     }),
     basePath: '/auth',
     ...(env.BETTER_AUTH_URL ? { baseURL: env.BETTER_AUTH_URL } : {}),
+    // multi-host by design (reverse-proxied under several names); trust is
+    // bounded by session cookies — origins still validate per-request host
+    trustedOrigins: env.BETTER_AUTH_TRUSTED_ORIGINS
+      ? env.BETTER_AUTH_TRUSTED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+      : [],
     databaseHooks: {
       user: {
         create: {

@@ -1,7 +1,7 @@
 {
   "name": "pathbridge",
   "version": "0.1.0",
-  "description": "Configurable path-to-URL forwarding proxy with a built-in admin UI. Route selected paths to external upstreams — useful when an API must be reached from a specific network or region.",
+  "description": "Configurable path-to-URL forwarding proxy with a built-in admin UI. Route selected paths to external upstreams \u2014 useful when an API must be reached from a specific network or region.",
   "type": "module",
   "private": true,
   "scripts": {
@@ -9,7 +9,9 @@
     "build": "nuxt build",
     "start": "bun .output/server/index.mjs",
     "admin": "bun scripts/create-admin.ts",
-    "typecheck": "bunx vue-tsc --noEmit -p tsconfig.json"
+    "typecheck": "bunx vue-tsc --noEmit -p tsconfig.json",
+    "test:unit": "bunx --bun vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.7",
@@ -33,6 +35,7 @@
   },
   "devDependencies": {
     "@dxup/nuxt": "0.5.10",
+    "@playwright/test": "1.64.0",
     "@semantic-release/changelog": "7.0.0",
     "@semantic-release/commit-analyzer": "13.0.1",
     "@semantic-release/git": "11.0.1",
@@ -44,6 +47,7 @@
     "semantic-release": "25.0.9",
     "typescript": "npm:typescript-native-bridge@6.0.3-bridge.18.tsgo.7.0.2",
     "typescript-native-bridge": "6.0.3-bridge.18.tsgo.7.0.2",
+    "vitest": "5.0.3",
     "vue-tsc": "3.3.12"
   },
   "repository": {

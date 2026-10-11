@@ -143,3 +143,23 @@ Migrations auto-apply at boot from `./drizzle` (tracked in `__migrations`). Pre-
 7b. oRPC procedures use the same requireUser path too; a live query is permission-checked per subscription exactly like its REST read.
 7c. Live-query correctness = every mutation publishes; a write path that forgets publishChange breaks realtime (the logs insert once did).
 8. Builtin roles are canonicalized at boot; drift heals.
+
+## Testing
+
+- Unit (`bun run test:unit`, vitest-on-bun): pure logic — bridge matching laws
+  (pinned against `server/middleware/bridge.ts` source), `routeInputSchema`
+  strictness (reserved paths incl. `/api`, trailing-wildcard shape, hop-by-hop
+  header-override denial, injection/CRLF caps), `userCan` scope algebra
+  (`all ⊃ own`, never inverse), `validateStatements` vocabulary enforcement,
+  OIDC provider-id + secret-redaction guards.
+- E2E (`bun run test:e2e`, Playwright; `desktop` + `mobile` 390px projects):
+  built app on :4310 with a deterministic upstream on :4311. Covers public
+  probes, 401 gates, `{"json": input}` oRPC wire, session/me contracts, route
+  lifecycle, the H1 upsert-by-path takeover guard (create-only role gets
+  FORBIDDEN on another's path), scoped-key narrowing + revocation, proxy
+  forwarding + access-log recording, admin UI (login/logout, CRUD via modal,
+  live-query updates without reload, per-page render, no horizontal scroll at
+  390px).
+- e2e server env: NO `BETTER_AUTH_URL` (origin derived per request; the strict
+  origin check would reject Playwright's origin-less API-context POSTs),
+  `BETTER_AUTH_TRUSTED_ORIGINS` covers `localhost` (PW pages send Origin).
