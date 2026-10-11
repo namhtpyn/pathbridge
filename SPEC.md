@@ -152,10 +152,15 @@ sync with the better-auth CLI:
 
     bun run auth:schema
 
-which generates `scripts/generated/auth-schema.gen.ts` from
-`scripts/auth-cli.config.ts` (a config bridge mirroring the runtime plugins:
-bearer, apiKey, genericOAuth — the real instance is a settings-driven lazy
-singleton the CLI can't load). Regenerate after any better-auth/plugin
+which generates `scripts/generated/auth-schema.gen.ts` in RELATIONS V2 shape
+(`defineRelationsPart` + `authRelations`) from `scripts/auth-cli.config.ts` —
+a bridge using the SAME plugins AND the same
+`@better-auth/drizzle-adapter/relations-v2` adapter as the runtime (the real
+instance is a settings-driven lazy singleton the CLI can't load). The adapter
+in the config decides the generator: passing `--adapter drizzle` on the CLI
+would override it with the mock v1 generator (v1 `relations()` output) — never
+do that. Per the better-auth docs, merge generated `authRelations` after app
+relations when constructing the drizzle client. Regenerate after any better-auth/plugin
 upgrade and diff against `server/db/schema.ts`; adopt new columns/indexes via
 a drizzle migration. Deliberate divergences (documented in the schema header):
 `timestamp` seconds mode (existing data), `emailVerified` defaults true,

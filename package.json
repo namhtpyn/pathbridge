@@ -11,7 +11,7 @@
     "typecheck": "bunx vue-tsc --noEmit -p tsconfig.json",
     "test:unit": "bunx --bun vitest run",
     "test:e2e": "playwright test",
-    "auth:schema": "bunx --bun auth@latest generate --config scripts/auth-cli.config.ts --adapter drizzle --dialect sqlite --output scripts/generated/auth-schema.gen.ts -y"
+    "auth:schema": "bunx --bun auth@latest generate --config scripts/auth-cli.config.ts --output scripts/generated/auth-schema.gen.ts -y"
   },
   "dependencies": {
     "@better-auth/api-key": "1.7.7",

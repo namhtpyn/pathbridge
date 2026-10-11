@@ -1,10 +1,13 @@
 // Drizzle rc (Relations v2): tables + relations. Auth tables are the better-auth
 // canonical set; `routes` is pathbridge's own.
 //
-// Auth tables are kept in sync with the better-auth CLI:
-//   bunx --bun auth@latest generate --config scripts/auth-cli.config.ts \
-//     --adapter drizzle --dialect sqlite --output scripts/generated/auth-schema.gen.ts -y
-// (config bridge mirrors the runtime plugins: bearer, apiKey, genericOAuth.)
+// Auth tables are kept in sync with the better-auth CLI (v2 output —
+// defineRelationsPart/authRelations, matching our relations-v2 adapter):
+//   bun run auth:schema
+// (config bridge = scripts/auth-cli.config.ts: SAME plugins AND the
+// relations-v2 adapter as the runtime. NEVER pass --adapter drizzle on the
+// command line: it swaps in the CLI's mock adapter, which generates the OLD
+// v1 `relations()` shape instead.)
 // Deliberate divergences from the CLI output — do NOT "fix" without a migration:
 //   - timestamp (seconds) not timestamp_ms: every existing row stores epoch seconds
 //   - user.emailVerified defaults true (our invites are pre-verified)
