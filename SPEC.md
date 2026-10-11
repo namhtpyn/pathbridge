@@ -114,7 +114,8 @@ through the same strict zod schema as REST (route-schema.ts).
 - `GET/PUT /api/oidc` — multi-provider registry (secrets write-only; blank-on-edit keeps stored)
 - `GET/POST /api/keys`, `DELETE /api/keys/:id` — own API keys only
 - `GET /api/version` — build version (baked `APP_VERSION`)
-- `GET /health` — liveness
+- `GET /health` — liveness (always 200, no dependencies)
+- `GET /health/ready` — readiness: liveness + `select 1` against the database (the bridge re-queries routes per request, so a dead DB = broken forwarding). Container HEALTHCHECK probes this every 30s (bun fetch — the runtime image ships no curl)
 - `POST|GET|DELETE /mcp` — MCP server (streamable HTTP, stateless; Bearer API key or session). Tools: `list_routes`, `create_route`, `update_route`, `delete_route`, `get_logs` — same zod schemas and permission enforcement as REST (key narrowing applies per tool call).
 - `POST /rpc/*` — oRPC router (Fetch adapter at `server/routes/rpc/[...].ts`). Procedures: `hello`, `me`, `routes.{list,count,live}`, `users.live`, `roles.live`, `settings.get`, `oidc.list`, `keys.list`, `logs.{recent,tail}`. Bodies are wrapped (`{"json": <input>}`); live procedures stream snapshots as SSE (AsyncIteratorObject handlers backed by the in-process change bus). Auth = identical requireUser path (cookie session or Bearer API key, narrowing included) — no oRPC-specific privilege logic.
 
