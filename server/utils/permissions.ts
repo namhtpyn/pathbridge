@@ -11,7 +11,6 @@
 import { createAccessControl } from 'better-auth/plugins/access'
 import type { Role } from 'better-auth/plugins/access'
 import { db } from '../db'
-import { roles as rolesTable } from '../db/schema'
 import type { H3Event } from 'h3'
 import { requireSession } from './session'
 

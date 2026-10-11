@@ -119,7 +119,7 @@ export async function toolUpdateRouteById(headers: Headers, input: unknown) {
   if (!parsed.data.id) throw new Error('id is required for update')
   const strict = routeInputSchema.safeParse(parsed.data)
   if (!strict.success) throw new Error(strict.error.issues[0]?.message ?? 'invalid route payload')
-  const { user } = await requireUser(eventFor(headers))
+  await requireUser(eventFor(headers))
   const data = strict.data
   const existing = await db.query.routes.findFirst({ where: { id: data.id } })
   if (!existing) throw new Error('route not found')

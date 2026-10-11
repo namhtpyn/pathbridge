@@ -1,7 +1,7 @@
 // PUT /api/settings — auth required. Strict zod.
 // OIDC providers are managed via /api/oidc (multi-provider registry).
 import { z } from 'zod'
-import { setSetting, getSettings } from '../../utils/settings'
+import { setSetting } from '../../utils/settings'
 import { rebuildAuth } from '../../utils/auth'
 import { requirePermission } from '../../utils/permissions'
 import { getOidcProviders } from '../../utils/oidc'

@@ -1,6 +1,6 @@
 // DELETE /api/routes/:ref — remove a route by numeric id (preferred) or by
 // path-without-leading-slash (legacy). Auth required. Read-back via RQB.
-import { eq, or } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../../db'
 import { routes } from '../../db/schema'
 import type { RouteRow } from '../../../shared/types'

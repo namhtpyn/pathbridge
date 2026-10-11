@@ -4,7 +4,7 @@ import type { H3Event } from 'h3'
 // intersected with owner role) or session cookie. Tools = routes CRUD + logs.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { z, type ZodType } from 'zod'
+import { type ZodType } from 'zod'
 import { toolListRoutes, toolUpsertRoute, toolUpdateRouteById, toolDeleteRoute, toolGetLogs, mcpSchemas } from '../../utils/mcp/tools'
 import { requireSession } from '../../utils/session'
 
@@ -13,7 +13,6 @@ async function handle(event: H3Event): Promise<void> {
   // authenticate BEFORE building the server; 401s surface as HTTP, not tool errors
   await requireSession(event)
 
-  const url = new URL(getRequestURL(event))
   const server = new McpServer({ name: 'pathbridge', version: '1.0.0' })
 
   const H = event.node.req.headers as Record<string, string | string[]>

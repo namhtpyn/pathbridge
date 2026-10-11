@@ -21,7 +21,7 @@ app/layouts/admin.vue
 
 - Pages: `/admin` (Routes), `/admin/logs`, `/admin/users`, `/admin/roles`, `/admin/settings` — each `definePageMeta({ layout: 'admin' })`.
 - Sidebar nav renders ONLY what the user's permissions allow (`can()` from `useAdminSession`, fed by `/api/me`); Routes always shows.
-- Shared session/perms/auth-config live in `app/composables/useAdminSession.ts` (useState-backed). SSR request cookies come from `app/plugins/ssr-headers.server.ts` — layouts run OUTSIDE the Nuxt request context, so `useRequestHeaders` inside a layout throws e1001; never call it there.
+- Shared session/perms/auth-config live in `app/composables/useAdminSession.ts` (useState-backed). SSR resolves the session through the in-process oRPC `session` procedure (`app/plugins/orpc.server.ts` — request cookies flow in via the forwarded event headers) — layouts run OUTSIDE the Nuxt request context, so `useRequestHeaders` inside a layout throws e1001; never call it there.
 - Login (no session): the layout swaps the whole shell for a centered card form (password + per-provider OIDC buttons, gated by `/api/auth-config`).
 - Mobile: sidebar is an off-canvas drawer opened by `UDashboardSidebarToggle` in the navbar.
 

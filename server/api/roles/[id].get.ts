@@ -1,7 +1,5 @@
 import { db } from '../../db'
-import { roles as rolesTable } from '../../db/schema'
-import { validateStatements, requirePermission } from '../../utils/permissions'
-import { eq } from 'drizzle-orm'
+import { requirePermission } from '../../utils/permissions'
 
 
 export default defineEventHandler(async (event) => {

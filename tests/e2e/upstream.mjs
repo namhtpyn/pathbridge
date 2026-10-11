@@ -5,7 +5,6 @@ Bun.serve({
   port: UPSTREAM_PORT,
   fetch(req) {
     const url = new URL(req.url)
-    if (url.pathname === '/__die') return new Response('gateway simulated', { status: 502 })
     const body = {
       ok: true,
       upstream: true,

@@ -1,7 +1,6 @@
 import { db } from '../../db'
 import { roles as rolesTable } from '../../db/schema'
-import { listRoles, validateStatements, STATEMENTS, requirePermission } from '../../utils/permissions'
-import { eq } from 'drizzle-orm'
+import { requirePermission } from '../../utils/permissions'
 import { createError } from 'h3'
 import { publishChange } from '../../utils/change-bus'
 

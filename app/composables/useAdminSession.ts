@@ -18,8 +18,6 @@ export async function useAdminSession() {
   // context); loadPerms & co are later invoked from onMounted/login handlers
   // where useNuxtApp() would throw NUXT_E1001
   const client = useNuxtApp().$client as import('#app').NuxtApp['$client']
-  // request cookies captured once by the ssr-headers plugin (layouts lack request context)
-  const ssrHeaders = useState<Record<string, string> | undefined>('admin:ssr-headers', () => undefined)
 
   function can(resource: string, action: string, scope: 'own' | 'all' | 'any' = 'any'): boolean {
     const set = perms.value[resource] ?? []
@@ -65,7 +63,6 @@ export async function useAdminSession() {
    * for signed-in users; the client swap then left phantom padding).
    */
   if (import.meta.server) {
-    const ssrHeaders = useState<Record<string, string> | undefined>('admin:ssr-headers', () => undefined)
     try {
       const s = await client.session() as SessionPayload | null
       if (s?.user) {
