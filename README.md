@@ -75,7 +75,7 @@ POST /rpc/routes/live        Authorization: Bearer <session token or API key>
 
 Procedures: `hello`, `me`, `routes.{list,count,live}`, `users.live`,
 `roles.live`, `settings.get`, `oidc.list`, `keys.list`, `logs.{recent,tail}`.
-Writes stay on `PUT/POST/DELETE /api/*` — both surfaces share one permission
+The Admin Panel itself uses the oRPC procedures at `/rpc` exclusively; writes via `PUT/POST/DELETE /api/*` are the scripting surface — both share one permission
 model, so a scoped key narrows identically over REST, oRPC and MCP.
 
 ### MCP (AI agents)

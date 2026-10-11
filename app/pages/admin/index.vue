@@ -200,14 +200,14 @@
 
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { RouteRow, RoutesResponse } from '~/../shared/types'
+import type { RouteRow } from '~/../shared/types'
 import { routeSubmitSchema, type HeaderRowInput } from '~/utils/route-form'
 import { useQuery } from '@tanstack/vue-query'
 
 definePageMeta({ layout: 'admin' })
 const { can } = await useAdminSession()
 const toast = useToast()
-const { $orpc } = useNuxtApp()
+const { $orpc, $client } = useNuxtApp()
 
 // ---------- realtime routes via oRPC live query ----------
 const routesQuery = useQuery(($orpc as any).routes.live.liveOptions())
@@ -277,13 +277,10 @@ async function save() {
       busy.value = false
       return
     }
-    await $fetch<RoutesResponse>('/api/routes', {
-      method: 'PUT',
-      body: {
-        ...parsed.data,
-        id: editing.value && editing.value !== 'new' ? form.id : undefined,
-        methods: form.methodsAll || form.methods.length === 0 ? undefined : form.methods,
-      },
+    await $client.routes.save({
+      ...parsed.data,
+      id: editing.value && editing.value !== 'new' ? form.id : undefined,
+      methods: (form.methodsAll || form.methods.length === 0 ? undefined : form.methods) as Array<'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS'> | undefined,
     })
     toast.add({ title: editing.value && editing.value !== 'new' ? 'Route updated' : 'Route added', color: 'success' })
     reset()
@@ -307,7 +304,7 @@ function remove(p: RouteRow) {
 
 async function confirmDelete() {
   try {
-    await $fetch(`/api/routes/${encodeURIComponent(deleteModal.routePath)}`, { method: 'DELETE' })
+    await $client.routes.remove({ path: deleteModal.routePath })
     if (editing.value === deleteModal.routePath) reset()
     toast.add({ title: 'Route deleted', color: 'success' })
   }

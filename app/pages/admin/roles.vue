@@ -220,8 +220,8 @@ const editingRoleId = ref<string | null>(null)
 const builtinEdit = computed(() => roles.value.find(r => r.id === editingRoleId.value)?.builtin ?? false)
 
 async function loadRoles() {
-  const data = await $fetch<{ roles: RoleRow[], vocabulary: Record<string, string[]> }>('/api/roles')
-  roles.value = data.roles
+  const data = await useNuxtApp().$client.roles.list()
+  roles.value = data.roles as RoleRow[]
   vocabulary.value = data.vocabulary
 }
 
@@ -327,17 +327,11 @@ async function saveRole() {
   busy.value = true
   try {
     if (editingRoleId.value) {
-      await $fetch(`/api/roles/${encodeURIComponent(editingRoleId.value)}`, {
-        method: 'PUT',
-        body: { description: roleForm.description.trim() || null, statements: roleForm.statements },
-      })
+      await useNuxtApp().$client.roles.update({ id: editingRoleId.value, description: roleForm.description.trim() || null, statements: roleForm.statements })
       toast.add({ title: 'Role updated', color: 'success' })
     }
     else {
-      await $fetch('/api/roles', {
-        method: 'POST',
-        body: { name: roleForm.name.trim().toLowerCase(), description: roleForm.description.trim() || null, statements: roleForm.statements },
-      })
+      await useNuxtApp().$client.roles.save({ name: roleForm.name.trim().toLowerCase(), description: roleForm.description.trim() || null, statements: roleForm.statements })
       toast.add({ title: 'Role created', color: 'success' })
     }
     await loadRoles()
@@ -352,7 +346,7 @@ async function saveRole() {
 
 async function deleteRole(r: RoleRow) {
   try {
-    await $fetch(`/api/roles/${encodeURIComponent(r.id)}`, { method: 'DELETE' })
+    await useNuxtApp().$client.roles.remove({ id: r.id })
     await loadRoles()
     toast.add({ title: 'Role deleted', color: 'success' })
   }

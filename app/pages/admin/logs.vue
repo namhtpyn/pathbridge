@@ -129,8 +129,8 @@ async function loadFiltered() {
   if (!filterRouteId.value) { older.value = []; return }
   olderBusy.value = true
   try {
-    const r = await $fetch<{ entries: LogRow[] }>('/api/logs', { query: { limit: pageSize, routeId: filterRouteId.value } })
-    older.value = r.entries
+    const r = await useNuxtApp().$client.logs.recent({ limit: pageSize, routeId: filterRouteId.value ?? undefined })
+    older.value = r.entries as LogRow[]
   }
   catch { older.value = [] }
   olderBusy.value = false
@@ -142,8 +142,8 @@ async function loadMore() {
     const beforeCursor = list.length ? list[list.length - 1]!.id : undefined
     const params: Record<string, number> = { limit: pageSize, routeId: filterRouteId.value }
     if (beforeCursor !== undefined) params.beforeId = beforeCursor
-    const r = await $fetch<{ entries: LogRow[] }>('/api/logs', { query: params })
-    older.value = [...older.value, ...r.entries]
+    const r = await useNuxtApp().$client.logs.recent({ limit: params.limit, routeId: params.routeId, beforeId: params.beforeId })
+    older.value = [...older.value, ...r.entries as LogRow[]]
     hasMore.value = r.entries.length === pageSize
   }
   else {
@@ -153,8 +153,8 @@ async function loadMore() {
     const beforeCursor = list.length ? list[list.length - 1]!.id : undefined
     const params: Record<string, number> = { limit: pageSize }
     if (beforeCursor !== undefined) params.beforeId = beforeCursor
-    const r = await $fetch<{ entries: LogRow[] }>('/api/logs', { query: params })
-    paged.value = [...paged.value, ...r.entries]
+    const r = await useNuxtApp().$client.logs.recent({ limit: params.limit, beforeId: params.beforeId })
+    paged.value = [...paged.value, ...r.entries as LogRow[]]
     hasMore.value = r.entries.length === pageSize
   }
 }

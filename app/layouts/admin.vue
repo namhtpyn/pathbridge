@@ -108,6 +108,7 @@ const toast = useToast()
 const loginState = reactive({ email: '', password: '' })
 const loginError = ref('')
 const busy = ref(false)
+const { $client } = useNuxtApp()
 
 // auth-config + version resolved during SSR by the composable already on layout;
 // ensure they're loaded (layout runs before pages)
@@ -115,11 +116,11 @@ if (!authConfig.value) await loadAuthConfigSafe()
 if (appVersion.value === 'dev') await loadVersionSafe()
 
 async function loadAuthConfigSafe() {
-  try { authConfig.value = await $fetch('/api/auth-config') }
+  try { authConfig.value = await $client.authConfig() }
   catch { authConfig.value = { passwordEnabled: true, oidcEnabled: false, providers: [] } }
 }
 async function loadVersionSafe() {
-  try { appVersion.value = (await $fetch<{ version: string }>('/api/version')).version }
+  try { appVersion.value = (await $client.version()).version }
   catch { appVersion.value = 'dev' }
 }
 

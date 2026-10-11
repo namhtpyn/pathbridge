@@ -218,8 +218,9 @@ watch(() => props.open, async (o) => {
     keyForm.scoped = false
     keyForm.scope = {}
     try {
-      const r = await $fetch<{ vocabulary: Record<string, string[]> }>('/api/roles')
-      vocabulary.value = r.vocabulary
+      // vocabulary rides the admin-session state (loaded once via `me`)
+      const { vocabulary: vocab } = await useAdminSession()
+      vocabulary.value = vocab.value
     }
     catch { vocabulary.value = {} }
   }
@@ -231,7 +232,7 @@ async function createKey() {
     const body: Record<string, unknown> = { name: keyForm.name.trim() }
     if (keyForm.expiresInDays && keyForm.expiresInDays > 0) body.expiresIn = keyForm.expiresInDays * 86400
     if (keyForm.scoped && Object.keys(keyForm.scope).length > 0) body.permissions = keyForm.scope
-    const r = await $fetch<{ key: string }>('/api/keys', { method: 'POST', body })
+    const r = await useNuxtApp().$client.keys.create(body as { name: string, expiresIn?: number, permissions?: Record<string, string[]> })
     emit('created', r.key)
     emit('update:open', false)
   }
