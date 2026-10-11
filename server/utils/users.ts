@@ -1,6 +1,7 @@
 // User management: list/create/update/delete users + change password.
 // Owns its writes (not better-auth API calls) — password hashing uses the
 // same better-auth/crypto primitives so accounts stay compatible.
+import { v7 as uuidv7 } from 'uuid'
 import { db } from '../db'
 import { user, account, session as sessionTable } from '../db/schema'
 import { hashPassword } from 'better-auth/crypto'
@@ -38,7 +39,7 @@ export async function listUsers(): Promise<AdminUserView[]> {
 }
 
 export async function createUser(email: string, name: string, password: string, role = 'viewer', emailVerified = true): Promise<void> {
-  const id = crypto.randomUUID()
+  const id = uuidv7()
   const now = new Date()
   const hash = await hashPassword(password)
   // one transaction: no orphan user rows if the account insert fails.
@@ -48,7 +49,7 @@ export async function createUser(email: string, name: string, password: string, 
       id, email, name, emailVerified, role, createdAt: now, updatedAt: now,
     }).run()
     tx.insert(account).values({
-      id: crypto.randomUUID(),
+      id: uuidv7(),
       accountId: id,
       providerId: 'credential',
       userId: id,
@@ -83,7 +84,7 @@ export async function setPassword(id: string, password: string): Promise<void> {
   }
   else {
     await db.insert(account).values({
-      id: crypto.randomUUID(),
+      id: uuidv7(),
       accountId: id,
       providerId: 'credential',
       userId: id,

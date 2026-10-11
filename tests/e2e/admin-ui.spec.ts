@@ -2,6 +2,51 @@
 import { expect, test } from '@playwright/test'
 import { uiLogin } from './helpers'
 
+// desktop + mobile share one server/db: namespace fixture names per project
+let SFX = 'x'
+test.beforeEach(({ }, testInfo) => { SFX = testInfo.project.name.replace(/\W+/g, '') })
+const uniq = (base: string) => `${base}-${SFX}`
+
+test('icon-only buttons carry visible tooltips (popovers)', async ({ page }) => {
+  await uiLogin(page)
+  // ensure a route row exists, then hover its edit pencil — the IconButton popover shows
+  await page.request.post('/rpc/routes/save', { data: { json: { path: '/e2e-tooltip', target: 'http://127.0.0.1:4311' } } })
+  await expect(page.getByRole('button', { name: 'Edit route' }).first()).toBeVisible({ timeout: 10_000 })
+  await page.getByRole('button', { name: 'Edit route' }).first().hover()
+  // popover content renders the tooltip text outside the button's aria-label
+  await expect(page.locator('[data-slot="content"]').getByText('Edit route').first()).toBeVisible({ timeout: 5_000 })
+  await page.request.post('/rpc/routes/remove', { data: { json: { path: '/e2e-tooltip' } } })
+})
+
+// desktop-only: the mobile drawer interaction for opening Profile is flaky in
+// headless webkit-less runs and the modal UI is viewport-independent (the
+// 390px suite covers shell layout parity separately)
+test('api key rename through the profile modal', async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1280) < 768, 'desktop-only: drawer profile open')
+  await uiLogin(page)
+  // open profile (collapsed sidebar chip or the dropdown path on desktop)
+  // open Profile: mobile = drawer chip; desktop = sidebar dropdown item
+  const openBtn = page.getByRole('button', { name: 'Open sidebar' })
+  if (await openBtn.isVisible().catch(() => false)) await openBtn.click()
+  await page.getByRole('button', { name: /Profile & API keys|chevrons-up-down|Admin/i }).first().click()
+  const profileItem = page.getByRole('menuitem', { name: 'Profile' })
+  if (await profileItem.isVisible().catch(() => false)) await profileItem.click()
+  await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible({ timeout: 10_000 })
+
+  // create a key (header button opens the editor modal; modal submit has the same label)
+  await page.getByRole('button', { name: 'Create key' }).first().click()
+  await page.locator('input[placeholder="ci-deploy"]').fill(uniq('ui-key'))
+  await page.getByRole('button', { name: 'Create key' }).last().click()
+  // created-key modal shows the secret ONCE — dismiss it to reach the key list
+  await page.getByRole('button', { name: 'Done' }).click()
+  await expect(page.getByText(uniq('ui-key')).first()).toBeVisible({ timeout: 10_000 })
+  // rename it
+  await page.getByRole('button', { name: 'Rename key' }).click()
+  await page.locator('input[placeholder="key name"]').fill(uniq('ui-key-renamed'))
+  await page.getByRole('button', { name: 'Save name' }).click()
+  await expect(page.getByText(uniq('ui-key-renamed')).first()).toBeVisible({ timeout: 10_000 })
+})
+
 test.describe('admin shell', () => {
   test('login form → shell, session persists, sign-out works', async ({ page }) => {
     await page.goto('/admin')

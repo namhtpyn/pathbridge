@@ -167,9 +167,9 @@
         </template>
         <template #actions-cell="{ row }">
           <div class="flex justify-end gap-2">
-            <UButton v-if="can('logs', 'read')" icon="i-lucide-chart-line" variant="ghost" color="neutral" size="sm" aria-label="Route logs" @click="viewRouteLogs(row.original)" />
-            <UButton v-if="can('routes', 'update')" icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit route" @click="edit(row.original)" />
-            <UButton v-if="can('routes', 'delete')" icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete route" @click="remove(row.original)" />
+            <IconButton v-if="can('logs', 'read')" tooltip="Route logs" icon="i-lucide-chart-line" @click="viewRouteLogs(row.original)" />
+            <IconButton v-if="can('routes', 'update')" tooltip="Edit route" icon="i-lucide-pencil" @click="edit(row.original)" />
+            <IconButton v-if="can('routes', 'delete')" tooltip="Delete route" icon="i-lucide-trash-2" color="error" @click="remove(row.original)" />
           </div>
         </template>
       </UTable>

@@ -104,10 +104,10 @@
               >
                 <template #resource-cell="{ row }">
                   <div v-if="row.getIsGrouped()" class="flex items-center gap-2">
-                    <UButton
-                      variant="ghost" color="neutral" size="xs"
+                    <IconButton
+                      variant="ghost" size="xs"
+                      :tooltip="row.getIsExpanded() ? 'Collapse group' : 'Expand group'"
                       :icon="row.getIsExpanded() ? 'i-lucide-minus' : 'i-lucide-plus'"
-                      aria-label="Toggle group"
                       @click="row.toggleExpanded()"
                     />
                     <span class="font-mono text-xs font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">{{ row.original.resource }}</span>

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { v7 as uuidv7 } from 'uuid'
 // oRPC server: router mounted at /rpc via the Fetch API adapter.
 // Auth = our existing better-auth instance (session resolved from request
 // headers, exactly like the REST API); permissions reuse requireUser/
@@ -496,7 +497,7 @@ export const router = os.router({
       if (stmtErr) badRequest(stmtErr)
       const exists = await db.query.roles.findFirst({ where: { name } })
       if (exists) throw new ORPCError('CONFLICT', { message: `role "${name}" already exists` })
-      const id = crypto.randomUUID()
+      const id = uuidv7()
       const now = new Date().toISOString()
       const statements = input.statements ?? {}
       await db.insert(rolesTable).values({ id, name, description, statements, builtin: false, createdAt: now, updatedAt: now })
@@ -662,6 +663,26 @@ export const router = os.router({
       if (!owned || owned.referenceId !== context.user.userId) notFound('key not found')
       await db.delete(apiKeyTable).where(eq(apiKeyTable.id, input.id))
       await publishChange('keys', 'delete')
+      return { ok: true }
+    }),
+
+    /** rename an own key (auth.api.updateApiKey enforces the plugin's rules) */
+    rename: base.use(withUser).input(z.strictObject({
+      id: z.string().min(1),
+      name: z.string().trim().min(1).max(64),
+    })).handler(async ({ context, input }) => {
+      const { publishChange } = await import('./change-bus')
+      // ownership first: same rule as revoke — no renaming other people's keys
+      const owned = (await db.select().from(apiKeyTable).where(eq(apiKeyTable.id, input.id)))[0]
+      if (!owned || owned.referenceId !== context.user.userId) notFound('key not found')
+      const { getAuth } = await import('./auth')
+      const auth = await getAuth()
+      // endpoint-style call: needs the caller's session headers (same as createApiKey)
+      await auth.api.updateApiKey({
+        headers: context.reqHeaders,
+        body: { keyId: input.id, userId: context.user.userId, name: input.name },
+      })
+      await publishChange('keys', 'update')
       return { ok: true }
     }),
   },

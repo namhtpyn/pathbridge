@@ -48,7 +48,18 @@
                 </div>
               </div>
               <div class="flex shrink-0 items-center gap-2">
-                <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Revoke key" @click="revokeKey(k)" />
+                <template v-if="renaming?.id === k.id">
+                  <UInput
+                    v-model="renaming.name" icon="i-lucide-tag" size="sm" class="w-44"
+                    placeholder="key name" @keydown.enter.prevent="confirmRename" @keydown.esc.prevent="renaming = null"
+                  />
+                  <IconButton tooltip="Save name" icon="i-lucide-check" color="success" :loading="renameBusy" @click="confirmRename" />
+                  <IconButton tooltip="Cancel" icon="i-lucide-x" @click="renaming = null" />
+                </template>
+                <template v-else>
+                  <IconButton tooltip="Rename key" icon="i-lucide-pencil" @click="startRename(k)" />
+                  <IconButton tooltip="Revoke key" icon="i-lucide-trash-2" color="error" @click="revokeKey(k)" />
+                </template>
               </div>
             </div>
           </div>
@@ -159,6 +170,34 @@ async function changePassword() {
     toast.add({ title: 'Change failed', description: err.data?.statusMessage || err.data?.message || err.message, color: 'error' })
   }
   pwBusy.value = false
+}
+
+const renaming = ref<{ id: string, name: string } | null>(null)
+const renameBusy = ref(false)
+
+function startRename(k: ApiKeyRow) {
+  renaming.value = { id: k.id, name: k.name ?? '' }
+}
+
+async function confirmRename() {
+  if (!renaming.value || renameBusy.value) return
+  const { id, name } = renaming.value
+  if (!name.trim()) {
+    toast.add({ title: 'Name required', color: 'error' })
+    return
+  }
+  renameBusy.value = true
+  try {
+    await useNuxtApp().$client.keys.rename({ id, name: name.trim() })
+    toast.add({ title: 'Key renamed', color: 'success' })
+    renaming.value = null
+    await loadApiKeys()
+  }
+  catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string }, message?: string }
+    toast.add({ title: 'Rename failed', description: err.data?.statusMessage || err.message, color: 'error' })
+  }
+  renameBusy.value = false
 }
 
 async function revokeKey(k: ApiKeyRow) {

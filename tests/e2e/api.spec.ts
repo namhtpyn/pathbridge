@@ -164,10 +164,20 @@ test('scoped API key narrows permissions over /rpc', async ({ request }) => {
   const users = await request.post('/rpc/users/list', { data: { json: {} }, headers: auth })
   expect(users.status()).toBe(403)
 
+  // rename (own key; plugin updateApiKey underneath)
+  const toRename = await rpc<{ keys: Array<{ id: string, name: string, permissions: Record<string, string[]> | null }> }>(request, 'keys/list')
+  const target = toRename.keys.find(k => k.name === 'e2e-scoped')!
+  expect(target.permissions).toEqual({ routes: ['read:all'] }) // stored permissions are returned
+  await rpc(request, 'keys/rename', { id: target.id, name: 'e2e-renamed' })
+  const renamed = await rpc<{ keys: Array<{ name: string }> }>(request, 'keys/list')
+  expect(renamed.keys.some(k => k.name === 'e2e-renamed')).toBe(true)
+  // rename validation: empty name rejected
+  const bad = await request.post('/rpc/keys/rename', { data: { json: { id: target.id, name: '' } } })
+  expect(bad.status()).toBe(400)
+
   // revoke, then the key dies
-  const listed = await rpc<{ keys: Array<{ id: string, name: string, permissions: Record<string, string[]> | null }> }>(request, 'keys/list')
-  const row = listed.keys.find(k => k.name === 'e2e-scoped')!
-  expect(row.permissions).toEqual({ routes: ['read:all'] }) // stored permissions are returned
+  const listed = await rpc<{ keys: Array<{ id: string, name: string }> }>(request, 'keys/list')
+  const row = listed.keys.find(k => k.name === 'e2e-renamed')!
   await rpc(request, 'keys/revoke', { id: row.id })
   const after = await request.post('/rpc/routes/count', { data: { json: {} }, headers: auth })
   expect(after.status()).toBe(401)

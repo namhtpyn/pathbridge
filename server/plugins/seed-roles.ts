@@ -1,3 +1,4 @@
+import { v7 as uuidv7 } from 'uuid'
 // Seed builtin roles at boot (idempotent).
 import { db } from '../db'
 import { eq } from 'drizzle-orm'
@@ -34,7 +35,7 @@ export default defineEventHandler(async () => {
     const row = existing.find(e => e.name === r.name)
     if (!row) {
       await db.insert(rolesTable).values({
-        id: crypto.randomUUID(),
+        id: uuidv7(),
         name: r.name,
         description: r.description,
         statements: r.statements,

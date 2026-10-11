@@ -11,6 +11,7 @@
 //
 // Runtime: /admin -> Settings tab -> stored in the `settings` table.
 import { betterAuth } from 'better-auth'
+import { v7 as uuidv7 } from 'uuid'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
 import { genericOAuth } from 'better-auth/plugins/generic-oauth'
 import { bearer } from 'better-auth/plugins/bearer'
@@ -69,6 +70,7 @@ interface Auth {
     createApiKey: (opts: { body: Record<string, unknown> }) => Promise<{ key: string, referenceId: string }>
     listApiKeys: (opts: { headers: Headers }) => Promise<{ apiKeys: Array<{ id: string, name: string, start: string, enabled: boolean, expiresAt: string | null, lastRequest: string | null, requestCount: number, permissions: Record<string, string[]> | null }> }>
     deleteApiKey: (opts: { body: { keyId: string } }) => Promise<unknown>
+    updateApiKey: (opts: { headers: Headers, body: { keyId: string, name?: string, enabled?: boolean, userId?: string } }) => Promise<unknown>
   }
 }
 let instance: Auth | null = null
@@ -157,7 +159,12 @@ async function buildAuth(): Promise<Auth> {
     },
     advanced: {
       database: {
-        generateId: () => crypto.randomUUID(),
+        // uuidv7: time-ordered ids -> b-tree-friendly inserts, sortable by
+        // creation time, no hot-page contention of random v4
+        generateId: () => uuidv7(),
+        // relations-v2 adapter supports joins since 1.4.0 — 2-3x faster
+        // session/full-object fetches (single query instead of N)
+        joins: true,
       },
     },
   }) as unknown as Auth

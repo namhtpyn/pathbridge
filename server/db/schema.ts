@@ -156,6 +156,7 @@ export const relations = defineRelations(
     user: {
       sessions: helpers.many.session({ from: helpers.user.id, to: helpers.session.userId }),
       accounts: helpers.many.account({ from: helpers.user.id, to: helpers.account.userId }),
+      apikeys: helpers.many.apikey({ from: helpers.user.id, to: helpers.apikey.referenceId }),
     },
     session: {
       user: helpers.one.user({ from: helpers.session.userId, to: helpers.user.id }),
@@ -168,7 +169,10 @@ export const relations = defineRelations(
     settings: {},
     accessLog: {},
     roles: {},
-    apiKey: {},
+    apikey: {
+      // plugin canonical link: apikey.referenceId -> user.id (NOT the legacy user_id column)
+      user: helpers.one.user({ from: helpers.apikey.referenceId, to: helpers.user.id }),
+    },
   }),
 )
 
