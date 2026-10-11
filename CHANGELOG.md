@@ -1,3 +1,15 @@
+# [6.2.0](https://github.com/namhtpyn/pathbridge/compare/v6.1.0...v6.2.0) (2026-10-11)
+
+
+### Bug Fixes
+
+* **types:** non-optional Headers for updateApiKey call ([c56a5bf](https://github.com/namhtpyn/pathbridge/commit/c56a5bf0d3ae287d74c6cb0aa7cd1e715d1d5f7a))
+
+
+### Features
+
+* **ui:** tooltips on all icon-only buttons + api key naming/rename ([2dd70de](https://github.com/namhtpyn/pathbridge/commit/2dd70debfa7681b484f16fe8f772a7f79c591ccf))
+
 # [6.1.0](https://github.com/namhtpyn/pathbridge/compare/v6.0.1...v6.1.0) (2026-10-11)
 
 
