@@ -26,9 +26,15 @@ try {
     if (applied) continue
     const sqlFile = readdirSync(join(drizzleDir, dir)).find((f: string) => f.endsWith('.sql'))
     if (!sqlFile) continue
-    const raw = readFileSync(join(drizzleDir, dir, sqlFile), 'utf8')
-    const stmts = raw.split('--> statement-breakpoint').map((s: string) => s.trim()).filter(Boolean)
-    for (const stmt of stmts) sqlite.exec(stmt)
+    const raw = readFileSync(join(drizzleDir, dir, sqlFile), 'utf-8')
+        // strip leading `--` comment lines per chunk: a comment-only chunk (e.g. a
+        // trailing explanation after the last breakpoint) makes sqlite.exec throw
+        // "no valid SQL statement" AFTER the real statements ran — losing the
+        // journal row and re-running the migration on every boot
+        const stmts = raw.split('--> statement-breakpoint')
+          .map(s => s.split('\n').filter(l => !l.trimStart().startsWith('--')).join('\n').trim())
+          .filter(Boolean)
+        for (const stmt of stmts) sqlite.exec(stmt)
     sqlite.query('INSERT INTO __migrations (name, applied_at) VALUES (?, ?)').run(dir, new Date().toISOString())
   }
 }

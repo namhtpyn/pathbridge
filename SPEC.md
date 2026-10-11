@@ -143,6 +143,24 @@ Migrations auto-apply at boot from `./drizzle` (tracked in `__migrations`). Pre-
 7c. Live-query correctness = every mutation publishes; a write path that forgets publishChange breaks realtime (the logs insert once did).
 8. Builtin roles are canonicalized at boot; drift heals.
 
+## Auth schema provenance
+
+The better-auth tables (user/session/account/verification/apikey) are kept in
+sync with the better-auth CLI:
+
+    bun run auth:schema
+
+which generates `scripts/generated/auth-schema.gen.ts` from
+`scripts/auth-cli.config.ts` (a config bridge mirroring the runtime plugins:
+bearer, apiKey, genericOAuth — the real instance is a settings-driven lazy
+singleton the CLI can't load). Regenerate after any better-auth/plugin
+upgrade and diff against `server/db/schema.ts`; adopt new columns/indexes via
+a drizzle migration. Deliberate divergences (documented in the schema header):
+`timestamp` seconds mode (existing data), `emailVerified` defaults true,
+legacy `apikey.user_id`, no `$onUpdate` hooks. Adopted from the CLI reference
+in 20261011090000_auth_indexes: 6 lookup indexes + FK delete cascades
+(declared in schema; user deletion already cascades in `users.remove`).
+
 ## Testing
 
 - Unit (`bun run test:unit`, vitest-on-bun): pure logic — bridge matching laws

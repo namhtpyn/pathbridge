@@ -1,6 +1,18 @@
 // Drizzle rc (Relations v2): tables + relations. Auth tables are the better-auth
-// canonical set (Date fields = integer timestamp mode); `routes` is pathbridge's own.
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+// canonical set; `routes` is pathbridge's own.
+//
+// Auth tables are kept in sync with the better-auth CLI:
+//   bunx --bun auth@latest generate --config scripts/auth-cli.config.ts \
+//     --adapter drizzle --dialect sqlite --output scripts/generated/auth-schema.gen.ts -y
+// (config bridge mirrors the runtime plugins: bearer, apiKey, genericOAuth.)
+// Deliberate divergences from the CLI output — do NOT "fix" without a migration:
+//   - timestamp (seconds) not timestamp_ms: every existing row stores epoch seconds
+//   - user.emailVerified defaults true (our invites are pre-verified)
+//   - apikey.user_id legacy nullable column (plugin canonical is reference_id)
+//   - $onUpdate hooks omitted (we set updatedAt explicitly)
+// Regenerating: diff the .gen.ts against this file; adopt new columns/indexes
+// via a drizzle migration, never by hand-editing the live tables.
+import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
 import { defineRelations } from 'drizzle-orm'
 
 export const user = sqliteTable('user', {
@@ -22,14 +34,16 @@ export const session = sqliteTable('session', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
   ipAddress: text('ip_address'),
   userAgent: text('user_agent'),
-  userId: text('user_id').notNull().references(() => user.id),
-})
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+}, (t) => [
+  index('session_userId_idx').on(t.userId),
+])
 
 export const account = sqliteTable('account', {
   id: text('id').primaryKey(),
   accountId: text('account_id').notNull(),
   providerId: text('provider_id').notNull(),
-  userId: text('user_id').notNull().references(() => user.id),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   accessToken: text('access_token'),
   refreshToken: text('refresh_token'),
   idToken: text('id_token'),
@@ -39,7 +53,9 @@ export const account = sqliteTable('account', {
   password: text('password'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-})
+}, (t) => [
+  index('account_userId_idx').on(t.userId),
+])
 
 export const verification = sqliteTable('verification', {
   id: text('id').primaryKey(),
@@ -48,7 +64,9 @@ export const verification = sqliteTable('verification', {
   expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }),
   updatedAt: integer('updated_at', { mode: 'timestamp' }),
-})
+}, (t) => [
+  index('verification_identifier_idx').on(t.identifier),
+])
 
 
 // runtime roles: name + statement set (subset of the static ac vocabulary)
@@ -87,7 +105,11 @@ export const apiKey = sqliteTable('apikey', {
   refillInterval: integer('refill_interval'),
   metadata: text('metadata', { mode: 'json' }),
   permissions: text('permissions', { mode: 'json' }),
-})
+}, (t) => [
+  index('apikey_configId_idx').on(t.configId),
+  index('apikey_referenceId_idx').on(t.referenceId),
+  index('apikey_key_idx').on(t.key),
+])
 
 // pathbridge's own tables (ISO strings here — our code owns these writes)
 export const settings = sqliteTable('settings', {
