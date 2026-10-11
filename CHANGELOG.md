@@ -1,3 +1,10 @@
+# [5.1.0](https://github.com/namhtpyn/pathbridge/compare/v5.0.1...v5.1.0) (2026-10-11)
+
+
+### Features
+
+* **health:** readiness endpoint + container HEALTHCHECK ([6c54c4d](https://github.com/namhtpyn/pathbridge/commit/6c54c4da8c7bc9ba03193dc6e6772c02f8b00673))
+
 ## [5.0.1](https://github.com/namhtpyn/pathbridge/compare/v5.0.0...v5.0.1) (2026-10-11)
 
 
