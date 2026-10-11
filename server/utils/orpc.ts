@@ -679,7 +679,7 @@ export const router = os.router({
       const auth = await getAuth()
       // endpoint-style call: needs the caller's session headers (same as createApiKey)
       await auth.api.updateApiKey({
-        headers: context.reqHeaders,
+        headers: context.reqHeaders ?? new Headers(),
         body: { keyId: input.id, userId: context.user.userId, name: input.name },
       })
       await publishChange('keys', 'update')
