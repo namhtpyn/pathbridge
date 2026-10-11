@@ -1,3 +1,20 @@
+# [6.0.0](https://github.com/namhtpyn/pathbridge/compare/v5.1.1...v6.0.0) (2026-10-11)
+
+
+### Features
+
+* **api:** remove the REST /api surface — oRPC at /rpc is the only API ([fedca5b](https://github.com/namhtpyn/pathbridge/commit/fedca5bacaa42cbacb4e20c54205fbc932bf2f89))
+
+
+### BREAKING CHANGES
+
+* **api:** scripts hitting /api/* must move to the /rpc wire
+(same permission model; Bearer API keys narrow identically — e2e covers
+the wire end-to-end). README/SPEC updated in this commit.
+
+verified: typecheck 0, 36/36 unit, 32/32 e2e, /api/* -> 404 + /rpc
+procedures answering on a live build
+
 ## [5.1.1](https://github.com/namhtpyn/pathbridge/compare/v5.1.0...v5.1.1) (2026-10-11)
 
 
