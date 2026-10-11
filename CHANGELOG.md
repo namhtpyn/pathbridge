@@ -1,3 +1,10 @@
+## [5.1.1](https://github.com/namhtpyn/pathbridge/compare/v5.1.0...v5.1.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **ssr:** keep the oRPC server router out of the browser bundle ([bca2325](https://github.com/namhtpyn/pathbridge/commit/bca23256d801b1693b60daa54a587aa2dc292905))
+
 # [5.1.0](https://github.com/namhtpyn/pathbridge/compare/v5.0.1...v5.1.0) (2026-10-11)
 
 
