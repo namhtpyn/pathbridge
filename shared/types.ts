@@ -3,7 +3,7 @@
 // (loose, UX) — frontend validation is for UX, the backend re-validates
 // everything for security.
 
-/** Row shape returned by /api/routes (serialized JSON — dates as ISO strings). */
+/** Row shape returned by routes procedures (serialized JSON — dates as ISO strings). */
 export interface RouteRow {
   id: number
   /** URL path prefix this route claims, e.g. "/hook". Always starts with "/". */

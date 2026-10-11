@@ -75,7 +75,7 @@ export async function toolUpsertRoute(headers: Headers, input: unknown) {
   const { user } = await requireUser(eventFor(headers))
   const data = strict.data
 
-  // upsert-by-path semantics identical to PUT /api/routes
+  // upsert-by-path semantics identical to routes.save
   const existing = await db.query.routes.findFirst({ where: { path: data.path } })
   if (existing) {
     await requireRecordPermission(eventFor(headers), 'routes', 'update', existing)

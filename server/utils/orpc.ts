@@ -249,7 +249,7 @@ const keyCreateInput = z.strictObject({
 export const router = os.router({
   // ---------- public (login screen) ----------
 
-  /** public auth capabilities for the login screen (was GET /api/auth-config) */
+  /** public auth capabilities for the login screen */
   authConfig: base.handler(async () => {
     const { resolveAuthPolicy } = await import('./auth')
     const p = await resolveAuthPolicy()
@@ -260,7 +260,7 @@ export const router = os.router({
     }
   }),
 
-  /** build version (was GET /api/version) */
+  /** build version (baked APP_VERSION) */
   version: base.handler(() => ({ version: process.env.APP_VERSION || 'dev' })),
 
   // ---------- session ----------
@@ -310,7 +310,7 @@ export const router = os.router({
       return { count: rows.length }
     }),
 
-    /** save (create/update/upsert) — REST PUT /api/routes semantics, takeover-safe */
+    /** save (create/update/upsert, takeover-safe) */
     save: base.use(withUser).input(routeSaveInput).handler(async ({ context, input }) => {
       const { routeInputSchema } = await import('./route-schema')
       const { publishChange } = await import('./change-bus')
@@ -545,7 +545,7 @@ export const router = os.router({
     get: base.use(withPerm('settings', 'read')).handler(async () => {
       const { getSettings } = await import('./settings')
       const s = await getSettings()
-      // never expose secrets through the RPC surface (legacy /api/settings
+      // never expose secrets through the RPC surface (settings
       // parity: only the two public knobs)
       return { disablePasswordLogin: s.disablePasswordLogin, logRetentionDays: s.logRetentionDays }
     }),

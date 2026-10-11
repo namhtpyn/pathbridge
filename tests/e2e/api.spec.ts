@@ -22,16 +22,17 @@ export const test = base.extend({
 const uniq = (base: string) => `${base}-${SFX}`
 
 test('public: version + health', async ({ request }) => {
-  expect((await (await request.get('/api/version')).json()).version).toBeTruthy()
+  expect((await rpc<{ version: string }>(request, 'version')).version).toBeTruthy()
   expect((await request.get('/health')).status()).toBe(200)
   const ready = await request.get('/health/ready')
   expect(ready.status()).toBe(200)
   expect((await ready.json()).db).toBe(true)
 })
 
-test('unauthenticated /api/* is 401', async ({ request }) => {
-  for (const p of ['/api/routes', '/api/users', '/api/roles', '/api/settings', '/api/keys', '/api/logs']) {
-    expect(await (await request.get(p)).status(), p).toBe(401)
+test('unauthenticated authed /rpc procedures are 401', async ({ request }) => {
+  for (const proc of ['routes/count', 'users/list', 'roles/list', 'settings/get', 'keys/list', 'logs/recent']) {
+    const r = await request.post(`/rpc/${proc}`, { data: { json: {} } })
+    expect(r.status(), proc).toBe(401)
   }
 })
 

@@ -70,7 +70,7 @@ every 30s (readiness failures mark the container `unhealthy`).
 
 ### Forwarding
 
-Add a route in the admin UI (or via `PUT /api/routes`):
+Add a route in the admin UI (or via the `routes.save` procedure at `POST /rpc/routes/save`):
 
 ```json
 { "path": "/hook", "target": "https://api.example.com" }
@@ -93,8 +93,10 @@ POST /rpc/routes/live        Authorization: Bearer <session token or API key>
 
 Procedures: `hello`, `me`, `routes.{list,count,live}`, `users.live`,
 `roles.live`, `settings.get`, `oidc.list`, `keys.list`, `logs.{recent,tail}`.
-The Admin Panel itself uses the oRPC procedures at `/rpc` exclusively; writes via `PUT/POST/DELETE /api/*` are the scripting surface — both share one permission
-model, so a scoped key narrows identically over REST, oRPC and MCP.
+Everything — admin UI, scripts, agents — goes through the oRPC procedures at
+`POST /rpc/<path>` (body `{"json": <input>}`, Bearer API key or session): one
+permission model, so a scoped key narrows identically everywhere. There is no
+REST `/api` surface (`/api/*` returns 404; reserved namespace).
 
 ### MCP (AI agents)
 
