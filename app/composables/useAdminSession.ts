@@ -10,9 +10,14 @@ export interface AuthConfig { passwordEnabled: boolean, oidcEnabled: boolean, pr
 export async function useAdminSession() {
   const session = useState<SessionPayload | null>('admin:session', () => null)
   const perms = useState<Record<string, string[]>>('admin:perms', () => ({}))
+  const vocabulary = useState<Record<string, string[]>>('admin:vocabulary', () => ({}))
   const authConfig = useState<AuthConfig | null>('admin:auth-config', () => null)
   const appVersion = useState<string>('admin:version', () => 'dev')
   const booted = useState<boolean>('admin:booted', () => false)
+  // resolve the oRPC client ONCE here (composables run inside the Nuxt
+  // context); loadPerms & co are later invoked from onMounted/login handlers
+  // where useNuxtApp() would throw NUXT_E1001
+  const client = useNuxtApp().$client as import('#app').NuxtApp['$client']
   // request cookies captured once by the ssr-headers plugin (layouts lack request context)
   const ssrHeaders = useState<Record<string, string> | undefined>('admin:ssr-headers', () => undefined)
 
@@ -25,8 +30,10 @@ export async function useAdminSession() {
 
   async function loadPerms() {
     try {
-      const me = await $fetch<{ permissions: Record<string, string[]> }>('/api/me', { headers: ssrHeaders.value })
+      // ADMIN PANEL LAW: oRPC procedures only (better-auth /auth/* excepted)
+      const me = await client.me()
       perms.value = me.permissions ?? {}
+      vocabulary.value = me.vocabulary ?? {}
     }
     catch (e) {
       if (import.meta.server) console.warn('[admin-session] loadPerms failed:', e instanceof Error ? e.message : e)
@@ -36,7 +43,7 @@ export async function useAdminSession() {
 
   async function loadAuthConfig() {
     try {
-      authConfig.value = await $fetch<AuthConfig>('/api/auth-config', { headers: ssrHeaders.value })
+      authConfig.value = await client.authConfig()
     }
     catch {
       authConfig.value = { passwordEnabled: true, oidcEnabled: false, providers: [] }
@@ -45,25 +52,22 @@ export async function useAdminSession() {
 
   async function loadVersion() {
     try {
-      appVersion.value = (await $fetch<{ version: string }>('/api/version', { headers: ssrHeaders.value })).version
+      appVersion.value = (await client.version()).version
     }
     catch { appVersion.value = 'dev' }
   }
 
   /**
-   * Resolve session during SSR. NOT via the better-auth vue client: its
-   * baseURL comes from useRequestURL().origin, which behind the reverse
-   * proxy is the public https origin — the SSR fetch looped out through
-   * nginx without the cookie and every page server-rendered as the login
-   * shell (the client swap then left the login wrapper's p-6 centering
-   * around the dashboard = phantom mobile padding). We hit our own
-   * /api/auth-session with the captured request cookies instead:
-   * in-process, proxy-free, cookie-forwarding guaranteed.
+   * Resolve session during SSR via the oRPC `session` procedure: the
+   * RPCLink runs in-process with the forwarded event headers, so the
+   * request never loops out through the reverse proxy (nginx silently
+   * dropped the cookie on that path — pages rendered as the login shell
+   * for signed-in users; the client swap then left phantom padding).
    */
   if (import.meta.server) {
     const ssrHeaders = useState<Record<string, string> | undefined>('admin:ssr-headers', () => undefined)
     try {
-      const s = await $fetch<SessionPayload | null>('/api/auth-session', { headers: ssrHeaders.value })
+      const s = await client.session() as SessionPayload | null
       if (s?.user) {
         session.value = s
         if (!booted.value) {
@@ -108,7 +112,7 @@ export async function useAdminSession() {
     await navigateTo('/admin')
   }
 
-  return { session, perms, authConfig, appVersion, can, loadPerms, loadAuthConfig, loadVersion, logout }
+  return { session, perms, vocabulary, authConfig, appVersion, can, loadPerms, loadAuthConfig, loadVersion, logout }
 }
 
 /** shared row type re-export for pages */

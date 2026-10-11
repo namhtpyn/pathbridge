@@ -200,11 +200,12 @@ onMounted(async () => {
 
 async function refresh() {
   try {
+    const client = useNuxtApp().$client
     const [u, r] = await Promise.all([
-      $fetch<{ users: AdminUser[] }>('/api/users'),
-      can('roles', 'read') ? $fetch<{ roles: { id: string, name: string }[] }>('/api/roles').catch(() => ({ roles: [] })) : Promise.resolve({ roles: [] }),
+      client.users.list(),
+      can('roles', 'read') ? client.roles.list().then(r => ({ roles: r.roles as { id: string, name: string }[] })).catch(() => ({ roles: [] as { id: string, name: string }[] })) : Promise.resolve({ roles: [] as { id: string, name: string }[] }),
     ])
-    users.value = u.users
+    users.value = u.users as AdminUser[]
     roles.value = r.roles
   }
   catch { /* ignore */ }
@@ -240,7 +241,7 @@ async function saveUserEdit() {
     if (userEditForm.email.trim()) body.email = userEditForm.email.trim()
     if (can('roles', 'update')) body.role = userEditForm.role
     body.emailVerified = userEditForm.emailVerified
-    await $fetch(`/api/users/${encodeURIComponent(userEditForm.id)}`, { method: 'PUT', body })
+    await useNuxtApp().$client.users.update({ id: userEditForm.id, ...body })
     await refresh()
     userEditOpen.value = false
     toast.add({ title: 'User updated', color: 'success' })
@@ -257,7 +258,7 @@ async function addUser() {
   try {
     const body: Record<string, string | boolean> = { email: newUser.email.trim(), name: newUser.name.trim(), password: newUser.password, emailVerified: newUser.emailVerified }
     if (can('roles', 'update')) body.role = newUser.role
-    await $fetch('/api/users', { method: 'POST', body })
+    await useNuxtApp().$client.users.save(body as { email: string, name: string, password: string, emailVerified: boolean, role?: string })
     newUser.email = ''
     newUser.name = ''
     newUser.password = ''
@@ -290,7 +291,7 @@ async function submitPasswordReset() {
   }
   busy.value = true
   try {
-    await $fetch(`/api/users/${encodeURIComponent(pwModal.userId)}/password`, { method: 'PUT', body: { password: pwModal.password } })
+    await useNuxtApp().$client.users.setPassword({ id: pwModal.userId, password: pwModal.password })
     pwModalOpen.value = false
     toast.add({ title: `Password updated for ${pwModal.email}`, color: 'success' })
   }
@@ -312,7 +313,7 @@ function removeUser(u: AdminUser) {
 
 async function confirmDelete() {
   try {
-    await $fetch(`/api/users/${encodeURIComponent(deleteModal.id)}`, { method: 'DELETE' })
+    await useNuxtApp().$client.users.remove({ id: deleteModal.id })
     await refresh()
     toast.add({ title: 'User deleted', color: 'success' })
   }

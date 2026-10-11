@@ -159,15 +159,15 @@ const publicOrigin = computed(() => {
 const oidcReady = computed(() => oidcProviders.value.some(p => p.secretSet))
 
 async function loadSettings() {
-  const s = await $fetch<{ disablePasswordLogin: boolean, logRetentionDays: number }>('/api/settings')
+  const s = await useNuxtApp().$client.settings.get()
   settingsForm.disablePasswordLogin = s.disablePasswordLogin
   settingsForm.logRetentionDays = s.logRetentionDays
   await loadOidcProviders()
 }
 
 async function loadOidcProviders() {
-  const r = await $fetch<{ providers: OidcProviderRow[] }>('/api/oidc')
-  oidcProviders.value = r.providers
+  const r = await useNuxtApp().$client.oidc.list()
+  oidcProviders.value = r.providers as OidcProviderRow[]
 }
 
 onMounted(() => { loadSettings().catch(() => {}) })
@@ -197,7 +197,7 @@ async function saveOidcProvider() {
     clientSecret: oidcForm.clientSecret,
   })
   try {
-    await $fetch('/api/oidc', { method: 'PUT', body: { providers: list } })
+    await useNuxtApp().$client.oidc.save({ providers: list })
     toast.add({ title: oidcEditingId.value ? 'Provider updated' : 'Provider added', color: 'success' })
     oidcEditorOpen.value = false
     await loadOidcProviders()
@@ -211,7 +211,7 @@ async function saveOidcProvider() {
 async function removeOidcProvider(prov: OidcProviderRow) {
   const list = oidcProviders.value.filter(p => p.id !== prov.id).map(p => ({ id: p.id, label: p.label, issuer: p.issuer, clientId: p.clientId, clientSecret: '' }))
   try {
-    await $fetch('/api/oidc', { method: 'PUT', body: { providers: list } })
+    await useNuxtApp().$client.oidc.save({ providers: list })
     toast.add({ title: 'Provider removed', color: 'success' })
     await loadOidcProviders()
   }
@@ -224,12 +224,9 @@ async function removeOidcProvider(prov: OidcProviderRow) {
 async function saveSettings() {
   busy.value = true
   try {
-    await $fetch('/api/settings', {
-      method: 'PUT',
-      body: {
-        disablePasswordLogin: settingsForm.disablePasswordLogin,
-        logRetentionDays: settingsForm.logRetentionDays,
-      },
+    await useNuxtApp().$client.settings.save({
+      disablePasswordLogin: settingsForm.disablePasswordLogin,
+      logRetentionDays: settingsForm.logRetentionDays,
     })
     toast.add({ title: 'Settings saved', color: 'success' })
     await loadSettings()

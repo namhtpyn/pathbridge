@@ -103,8 +103,8 @@ watch(() => props.open, (o) => {
 
 async function loadApiKeys() {
   try {
-    const r = await $fetch<{ keys: ApiKeyRow[] }>('/api/keys')
-    apiKeys.value = r.keys
+    const r = await useNuxtApp().$client.keys.list()
+    apiKeys.value = r.keys as ApiKeyRow[]
   }
   catch { apiKeys.value = [] }
 }
@@ -163,7 +163,7 @@ async function changePassword() {
 
 async function revokeKey(k: ApiKeyRow) {
   try {
-    await $fetch(`/api/keys/${encodeURIComponent(k.id)}`, { method: 'DELETE' })
+    await useNuxtApp().$client.keys.revoke({ id: k.id })
     toast.add({ title: 'Key revoked', color: 'success' })
     await loadApiKeys()
   }

@@ -58,12 +58,22 @@ export default defineEventHandler(async (event): Promise<{ routes: RouteRow[] }>
     }
   }
   else {
-    // create — new routes belong to their creator (unless policy changes later)
-    if (!userCan(user, 'routes', 'create')) {
-      throw createError({ statusCode: 403, statusMessage: 'Forbidden: missing permission routes:create' })
+    // create — new routes belong to their creator (unless policy changes later).
+    // UPSERT GUARD: a route already sitting at this path can only be replaced
+    // by a caller who may UPDATE that record — create-permission alone must
+    // never repoint someone else's route (takeover via header overrides).
+    const existing = await db.query.routes.findFirst({ where: { path }, columns: { id: true, userId: true, path: true, target: true } })
+    if (existing) {
+      await requireRecordPermission(event, 'routes', 'update', existing)
+      await db.update(routes).set(row).where(eq(routes.id, existing.id))
     }
-    await db.insert(routes).values({ ...row, userId: user.userId })
-      .onConflictDoUpdate({ target: routes.path, set: row })
+    else {
+      if (!userCan(user, 'routes', 'create')) {
+        throw createError({ statusCode: 403, statusMessage: 'Forbidden: missing permission routes:create' })
+      }
+      await db.insert(routes).values({ ...row, userId: user.userId })
+        .onConflictDoUpdate({ target: routes.path, set: row })
+    }
   }
 
   const rows = await db.query.routes.findMany({ orderBy: { path: 'asc' } })
