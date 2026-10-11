@@ -1,3 +1,10 @@
+## [6.0.1](https://github.com/namhtpyn/pathbridge/compare/v6.0.0...v6.0.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **docker:** drop COPY of deleted scripts/ dir — v6.0.0 image build was failing ([9fb348c](https://github.com/namhtpyn/pathbridge/commit/9fb348c0c45265ff663f0816639c461aa4368afe))
+
 # [6.0.0](https://github.com/namhtpyn/pathbridge/compare/v5.1.1...v6.0.0) (2026-10-11)
 
 
