@@ -1,3 +1,10 @@
+# [6.1.0](https://github.com/namhtpyn/pathbridge/compare/v6.0.1...v6.1.0) (2026-10-11)
+
+
+### Features
+
+* **db:** better-auth CLI schema generation + auth-table indexes ([0fa0479](https://github.com/namhtpyn/pathbridge/commit/0fa047965b366c0148224d8899ad1ef306e8ca2b))
+
 ## [6.0.1](https://github.com/namhtpyn/pathbridge/compare/v6.0.0...v6.0.1) (2026-10-11)
 
 
