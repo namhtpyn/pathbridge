@@ -19,8 +19,12 @@ If you add/rename/remove an endpoint, procedure, field, env var, permission, or 
 - bun-only toolchain; dependencies pinned exact.
 
 ## Backend module structure
-- New admin domain = `server/modules/<domain>/` with `<domain>.router.ts` (thin procedures)
-  and `<domain>.service.ts` (drizzle/domain logic); register it in `server/modules/app.router.ts`.
+- NEVER name a server dir `modules/` — nitro auto-scans `<scanDir>/modules/**` as NITRO
+  modules (magic dir) and jiti-imports every file in it; namespace exports without `setup`
+  crash the clean-install build with `Attempted to assign to readonly property` (only
+  reproduces on a FRESH node_modules — stale dev trees pass). Domain folders live in
+  `server/features/`.- New admin domain = `server/features/<domain>/` with `<domain>.router.ts` (thin procedures)
+  and `<domain>.service.ts` (drizzle/domain logic); register it in `server/features/app.router.ts`.
 - Cross-cutting infra lives in `server/lib/` (auth, permissions, session, change-bus, mcp).
   `server/utils/` does not exist anymore — do not recreate it.
 - Routers/services must LAZY-import (`await import`) anything reaching `server/db` —

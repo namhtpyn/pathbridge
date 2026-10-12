@@ -4,7 +4,7 @@ const getDb = async () => (await import('../../db')).db
 // DELETE older than retention every 6h + on boot (1 min after).
 // lazy: nuxt prepare (jiti/Node) must not statically reach bun:sqlite
 import { accessLog } from '../../db/schema'
-import { getSettings } from '../../modules/settings/settings.service'
+import { getSettings } from '../settings/settings.service'
 import { lt, desc, eq, and, type SQL } from 'drizzle-orm'
 import { publishChange } from '../../lib/change-bus'
 

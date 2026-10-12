@@ -1,6 +1,6 @@
 // Unit tests for the STRICT backend route schema (security boundary).
 import { describe, expect, it } from 'vitest'
-import { routeInputSchema, headerOverridesSchema, methodsSchema } from '../../server/modules/routes/routes.schema'
+import { routeInputSchema, headerOverridesSchema, methodsSchema } from '../../server/features/routes/routes.schema'
 
 describe('routeInputSchema (strict security boundary)', () => {
   const valid = { path: '/hook', target: 'https://api.example.com' }

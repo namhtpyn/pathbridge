@@ -7,7 +7,7 @@ import type { RouterClient } from '@orpc/server'
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { createRouterUtils } from '@orpc/tanstack-query'
-import type { Router } from '~/../server/modules/app.router'
+import type { Router } from '~/../server/features/app.router'
 
 export default defineNuxtPlugin(() => {
   const link = new RPCLink({ url: '/rpc' })
