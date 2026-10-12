@@ -1,6 +1,6 @@
 // E2E: public surface + auth gates + the oRPC wire (no UI).
 import { expect, test as base } from '@playwright/test'
-import { rpc, signIn } from './helpers'
+import { ADMIN, rpc, signIn } from './helpers'
 
 // desktop + mobile projects run against ONE server/db: namespace fixture paths
 // by project so cross-project upsert-by-path can't collide (the takeover guard
@@ -140,6 +140,46 @@ test('route takeover guard: create-permission cannot repoint another user\'s rou
   // delete of the victim also forbidden
   const del = await request.post('/rpc/routes/remove', { data: { json: { id: victim.route.id } } })
   expect(del.status()).toBe(403)
+})
+
+// PB-03 regression pin: the MCP create_route tool must never repoint a foreign
+// route either — the old onConflictDoUpdate did exactly that under a race.
+test('MCP create_route cannot take over an existing foreign route (PB-03)', async ({ request }) => {
+  const adminLogin = await request.post('/auth/sign-in/email', {
+    data: ADMIN,
+    headers: { origin: 'http://127.0.0.1:4310' },
+  })
+  expect(adminLogin.status(), `admin login: ${await adminLogin.text()}`).toBe(200)
+  // victim route owned by admin
+  const victim = uniq('/e2e-pb03-victim')
+  await rpc(request, 'routes/save', { path: victim, target: 'http://127.0.0.1:4311' })
+
+  // op (routes:create only, no update) calls the MCP tool surface
+  await request.post('/auth/sign-in/email', {
+    data: { email: 'op@pathbridge.dev', password: 'op-password-123' },
+    headers: { origin: 'http://127.0.0.1:4310' },
+  })
+  const mcpBody = JSON.stringify({
+    jsonrpc: '2.0', id: 1, method: 'tools/call',
+    params: { name: 'create_route', arguments: { path: victim, target: 'http://127.0.0.1:4311/evil' } },
+  })
+  const r = await request.post('/mcp', { headers: { 'mcp-session-id': 'e2e-pb03', accept: 'application/json, text/event-stream', 'content-type': 'application/json' }, data: mcpBody })
+  const text = await r.text()
+  const blocked = /Forbidden|forbidden|error/i.test(text) && !/"target":\s*"http:\/\/127\.0\.0\.1:4311\/evil"/.test(text)
+  expect(blocked, `MCP takeover not blocked: ${text.slice(0, 200)}`).toBeTruthy()
+
+  // the victim route is unchanged: read it back through MCP list_routes as admin
+  const relogin = await request.post('/auth/sign-in/email', {
+    data: ADMIN,
+    headers: { origin: 'http://127.0.0.1:4310' },
+  })
+  expect(relogin.status()).toBe(200)
+  const listBody = JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'list_routes', arguments: {} } })
+  const lr = await request.post('/mcp', { headers: { 'mcp-session-id': 'e2e-pb03', accept: 'application/json, text/event-stream', 'content-type': 'application/json' }, data: listBody })
+  const ltext = await lr.text()
+  expect(ltext).toContain(victim)
+  expect(ltext).not.toContain('4311/evil')
+  await rpc(request, 'routes/remove', { path: victim }).catch(() => {})
 })
 
 test('scoped API key narrows permissions over /rpc', async ({ request }) => {

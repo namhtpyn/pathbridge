@@ -97,20 +97,47 @@ export async function toolUpsertRoute(headers: Headers, input: unknown) {
   if (!userCan(user, 'routes', 'create')) throw new Error('Forbidden: missing permission routes:create')
   const u = new URL(data.target)
   const targetUrl = u.pathname === '/' ? u.origin : `${u.origin}${u.pathname}`.replace(/\/+$/, '')
-  const created = await db.insert(routes).values({
-    path: data.path,
-    target: targetUrl,
-    requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
+  // SECURITY (H1 law): the unguarded onConflictDoUpdate is GONE — a lost
+  // insert race must never silently repoint whatever row now owns the path.
+  // Insert plainly; on the unique-path race, re-run the guarded upsert branch
+  // (ownership check + update), mirroring routes.service.saveRoute.
+  try {
+    const created = await db.insert(routes).values({
+      path: data.path,
+      target: targetUrl,
+      requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
       responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-    stripPrefix: data.stripPrefix,
-    methods: data.methods ?? null,
-    note: data.note !== undefined ? data.note.slice(0, 200) : null,
-    enabled: data.enabled,
-    userId: user.userId,
-    updatedAt: new Date().toISOString(),
-  }).onConflictDoUpdate({ target: routes.path, set: { target: targetUrl, updatedAt: new Date().toISOString() } }).returning()
-  await publishChange('routes', 'create')
-  return { route: created[0] ?? await db.query.routes.findFirst({ where: { path: data.path } }) }
+      stripPrefix: data.stripPrefix,
+      methods: data.methods ?? null,
+      note: data.note !== undefined ? data.note.slice(0, 200) : null,
+      enabled: data.enabled,
+      userId: user.userId,
+      updatedAt: new Date().toISOString(),
+    }).returning()
+    await publishChange('routes', 'create')
+    return { route: created[0] ?? await db.query.routes.findFirst({ where: { path: data.path } }) }
+  }
+  catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (!msg.includes('UNIQUE')) throw e
+    // lost the race: someone else created this path between findFirst and insert.
+    // The guarded update path above applies: requireRecordPermission on the winner.
+    const winner = await db.query.routes.findFirst({ where: { path: data.path } })
+    if (!winner) throw e
+    await requireRecordPermission(eventFor(headers), 'routes', 'update', winner)
+    await db.update(routes).set({
+      target: targetUrl,
+      requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
+      responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
+      stripPrefix: data.stripPrefix,
+      methods: data.methods ?? null,
+      note: data.note !== undefined ? data.note.slice(0, 200) : null,
+      enabled: data.enabled,
+      updatedAt: new Date().toISOString(),
+    }).where(eq(routes.id, winner.id))
+    await publishChange('routes', 'update')
+    return { route: await db.query.routes.findFirst({ where: { id: winner.id } }) }
+  }
 }
 
 export async function toolUpdateRouteById(headers: Headers, input: unknown) {
