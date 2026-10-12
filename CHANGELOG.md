@@ -1,3 +1,10 @@
+## [6.3.1](https://github.com/namhtpyn/pathbridge/compare/v6.3.0...v6.3.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* **mcp:** create_route race could repoint a foreign route (PB-03, H1 class) ([6d0c8bb](https://github.com/namhtpyn/pathbridge/commit/6d0c8bb3d82207525157da62f7f8849120a2a3d4))
+
 # [6.3.0](https://github.com/namhtpyn/pathbridge/compare/v6.2.1...v6.3.0) (2026-10-12)
 
 
