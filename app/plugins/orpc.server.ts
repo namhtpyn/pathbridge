@@ -10,9 +10,9 @@
 import type { RouterClient } from '@orpc/server'
 import { createRouterClient } from '@orpc/server'
 import { createRouterUtils } from '@orpc/tanstack-query'
-import type { Router } from '~/../server/features/app.router'
-import { appRouter } from '~/../server/features/app.router'
-import { buildServerContext } from '~/../server/features/shared/context'
+import type { Router } from '~/../server/domains/app.router'
+import { appRouter } from '~/../server/domains/app.router'
+import { buildServerContext } from '~/../server/domains/shared/context'
 
 export default defineNuxtPlugin(() => {
   const event = useRequestEvent()

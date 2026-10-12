@@ -32,7 +32,7 @@ export const routeFormSchema = z.object({
 
 export type RouteFormState = z.input<typeof routeFormSchema>
 
-// keep in sync with HOP_BY_HOP in server/features/routes/routes.schema.ts
+// keep in sync with HOP_BY_HOP in server/domains/routes/routes.schema.ts
 const HOP_BY_HOP_UI = ['content-length', 'transfer-encoding', 'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'upgrade']
 
 const headerRow = z.object({

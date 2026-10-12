@@ -1,8 +1,8 @@
 // /rpc — oRPC Fetch API adapter (RPCHandler). Auth context built per request
 // via buildServerContext (cookie session or Bearer API key).
 import { RPCHandler } from '@orpc/server/fetch'
-import { appRouter } from '../../features/app.router'
-import { buildServerContext as buildCtx } from '../../features/shared/context'
+import { appRouter } from '../../domains/app.router'
+import { buildServerContext as buildCtx } from '../../domains/shared/context'
 
 const handler = new RPCHandler(appRouter)
 

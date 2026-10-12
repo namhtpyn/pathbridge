@@ -2,7 +2,7 @@
 // module router. Extracted from the former server/utils/orpc.ts monolith.
 // ADMIN PANEL LAW (Nam, 2026-10-11): the Admin Panel uses oRPC procedures
 // ONLY (better-auth /auth/* endpoints excepted). New admin features get a
-// procedure in server/features/<domain>/<domain>.router.ts first — never a
+// procedure in server/domains/<domain>/<domain>.router.ts first — never a
 // new $fetch('/api/...') in app/.
 import { os } from '@orpc/server'
 import { ORPCError } from '@orpc/server'

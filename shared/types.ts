@@ -1,5 +1,5 @@
 // Shared TYPES only (no validation). Schemas intentionally live separately:
-// server/features/routes/routes.schema.ts (strict, security) and inline in the admin UI
+// server/domains/routes/routes.schema.ts (strict, security) and inline in the admin UI
 // (loose, UX) — frontend validation is for UX, the backend re-validates
 // everything for security.
 

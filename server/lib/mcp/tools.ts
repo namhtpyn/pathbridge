@@ -9,7 +9,7 @@ import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { db } from '../../db'
 import { routes } from '../../db/schema'
-import { routeInputSchema } from '../../features/routes/routes.schema'
+import { routeInputSchema } from '../../domains/routes/routes.schema'
 import { requireUser, userCan, requireRecordPermission } from '../permissions'
 import type { RouteRow } from '../../../shared/types'
 import { publishChange } from '../change-bus'
@@ -192,7 +192,7 @@ export async function toolGetLogs(headers: Headers, input: unknown) {
   const grants = user.grants.get('logs') ?? new Set<string>()
   if (!grants.has('read:all') && !grants.has('read:own')) throw new Error('Forbidden: missing permission logs:read')
 
-  const { queryAccessLog } = await import('../../features/logs/access-log.service')
+  const { queryAccessLog } = await import('../../domains/logs/access-log.service')
   const limit = parsed.data.limit ?? 100
   const routeId = parsed.data.routeId
 
