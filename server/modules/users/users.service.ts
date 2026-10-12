@@ -1,9 +1,10 @@
+const getDb = async () => (await import('../../db')).db
 // User management: list/create/update/delete users + change password.
 // Owns its writes (not better-auth API calls) — password hashing uses the
 // same better-auth/crypto primitives so accounts stay compatible.
 import { v7 as uuidv7 } from 'uuid'
-import { db } from '../db'
-import { user, account, session as sessionTable } from '../db/schema'
+// lazy: nuxt prepare (jiti/Node) must not statically reach bun:sqlite
+import { user, account, session as sessionTable } from '../../db/schema'
 import { hashPassword } from 'better-auth/crypto'
 
 export interface AdminUserView {
@@ -19,9 +20,9 @@ export interface AdminUserView {
 }
 
 export async function listUsers(): Promise<AdminUserView[]> {
-  const users = await db.query.user.findMany({ orderBy: (u, { asc }) => asc(u.createdAt) })
-  const accounts = await db.query.account.findMany()
-  const sessions = await db.query.session.findMany()
+  const users = await (await getDb()).query.user.findMany({ orderBy: (u, { asc }) => asc(u.createdAt) })
+  const accounts = await (await getDb()).query.account.findMany()
+  const sessions = await (await getDb()).query.session.findMany()
   return users.map((u) => {
     const mine = accounts.filter(a => a.userId === u.id)
     return {
@@ -44,6 +45,7 @@ export async function createUser(email: string, name: string, password: string, 
   const hash = await hashPassword(password)
   // one transaction: no orphan user rows if the account insert fails.
   // bun:sqlite is a SYNC driver — the callback must not be async.
+  const db = await getDb()
   db.transaction((tx) => {
     tx.insert(user).values({
       id, email, name, emailVerified, role, createdAt: now, updatedAt: now,
@@ -66,24 +68,24 @@ export async function updateUser(id: string, patch: { name?: string, email?: str
   if (patch.email !== undefined) sets.email = patch.email
   if (patch.emailVerified !== undefined) sets.emailVerified = patch.emailVerified
   if (patch.role !== undefined) sets.role = patch.role
-  await db.update(user).set(sets).where(eqUser(id))
+  await (await getDb()).update(user).set(sets).where(eqUser(id))
 }
 
 export async function deleteUser(id: string): Promise<void> {
-  await db.delete(sessionTable).where(eqSessionUser(id))
-  await db.delete(account).where(eqAccountUser(id))
-  await db.delete(user).where(eqUser(id))
+  await (await getDb()).delete(sessionTable).where(eqSessionUser(id))
+  await (await getDb()).delete(account).where(eqAccountUser(id))
+  await (await getDb()).delete(user).where(eqUser(id))
 }
 
 export async function setPassword(id: string, password: string): Promise<void> {
   const hash = await hashPassword(password)
-  const rows = await db.query.account.findMany()
+  const rows = await (await getDb()).query.account.findMany()
   const cred = rows.find(a => a.userId === id && a.providerId === 'credential')
   if (cred) {
-    await db.update(account).set({ password: hash, updatedAt: new Date() }).where(eqAccount(cred.id))
+    await (await getDb()).update(account).set({ password: hash, updatedAt: new Date() }).where(eqAccount(cred.id))
   }
   else {
-    await db.insert(account).values({
+    await (await getDb()).insert(account).values({
       id: uuidv7(),
       accountId: id,
       providerId: 'credential',

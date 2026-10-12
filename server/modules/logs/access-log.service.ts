@@ -1,11 +1,12 @@
+const getDb = async () => (await import('../../db')).db
 // Access log: record forwarded requests + retention sweeper.
 // Insert on every proxied request (fire-and-forget, never blocks the proxy),
 // DELETE older than retention every 6h + on boot (1 min after).
-import { db } from '../db'
-import { accessLog } from '../db/schema'
-import { getSettings } from './settings'
+// lazy: nuxt prepare (jiti/Node) must not statically reach bun:sqlite
+import { accessLog } from '../../db/schema'
+import { getSettings } from '../../modules/settings/settings.service'
 import { lt, desc, eq, and, type SQL } from 'drizzle-orm'
-import { publishChange } from './change-bus'
+import { publishChange } from '../../lib/change-bus'
 
 export interface AccessLogRow {
   id: number
@@ -31,8 +32,9 @@ export function recordAccess(entry: {
   userAgent: string | null
 }): void {
   // fire-and-forget; log failure must never break proxying
-  db.insert(accessLog).values(entry)
+  void getDb().then(db => db.insert(accessLog).values(entry)
     .then(() => publishChange('logs', 'create'))
+    .catch(() => {}))
     .catch(() => {})
 }
 
@@ -41,7 +43,7 @@ export async function queryAccessLog(opts: { limit?: number, routeId?: number, b
   const conditions: SQL[] = []
   if (opts.routeId !== undefined) conditions.push(eq(accessLog.routeId, opts.routeId))
   if (opts.beforeId !== undefined) conditions.push(lt(accessLog.id, opts.beforeId))
-  const rows = await db.select().from(accessLog)
+  const rows = await (await getDb()).select().from(accessLog)
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(accessLog.id))
     .limit(limit)
@@ -52,7 +54,7 @@ export async function purgeOldLogs(): Promise<number> {
   const s = await getSettings()
   if (s.logRetentionDays <= 0) return 0
   const cutoff = new Date(Date.now() - s.logRetentionDays * 86400_000).toISOString()
-  const res = await db.delete(accessLog).where(lt(accessLog.ts, cutoff)).returning({ id: accessLog.id })
+  const res = await (await getDb()).delete(accessLog).where(lt(accessLog.ts, cutoff)).returning({ id: accessLog.id })
   return res.length
 }
 

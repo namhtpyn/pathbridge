@@ -16,10 +16,10 @@ export async function listRoles() {
 export async function createRole(input: {
   name: string, description?: string | null, statements?: Record<string, string[]>,
 }) {
-  const { publishChange } = await import('../../utils/change-bus')
+  const { publishChange } = await import('../../lib/change-bus')
   const name = input.name.trim().toLowerCase()
   const description = input.description?.trim() ? input.description.trim() : null
-  const stmtErr = (await import('../../utils/permissions')).validateStatements(input.statements ?? {})
+  const stmtErr = (await import('../../lib/permissions')).validateStatements(input.statements ?? {})
   if (stmtErr) badRequest(stmtErr)
   const exists = await (await getDb()).query.roles.findFirst({ where: { name } })
   if (exists) throw new ORPCError('CONFLICT', { message: `role "${name}" already exists` })
@@ -34,7 +34,7 @@ export async function createRole(input: {
 export async function updateRole(input: {
   id: string, description?: string | null, statements?: Record<string, string[]>,
 }) {
-  const { publishChange } = await import('../../utils/change-bus')
+  const { publishChange } = await import('../../lib/change-bus')
   const row = await (await getDb()).query.roles.findFirst({ where: { id: input.id } })
   if (!row) notFound('Role not found')
   if (row.builtin && input.statements !== undefined) badRequest('builtin roles cannot be modified')
@@ -44,7 +44,7 @@ export async function updateRole(input: {
     else badRequest('description: must be a non-empty string or null')
   }
   if (input.statements !== undefined) {
-    const stmtErr = (await import('../../utils/permissions')).validateStatements(input.statements)
+    const stmtErr = (await import('../../lib/permissions')).validateStatements(input.statements)
     if (stmtErr) badRequest(stmtErr)
     patch.statements = input.statements
   }
@@ -54,7 +54,7 @@ export async function updateRole(input: {
 }
 
 export async function removeRole(input: { id: string }) {
-  const { publishChange } = await import('../../utils/change-bus')
+  const { publishChange } = await import('../../lib/change-bus')
   const row = await (await getDb()).query.roles.findFirst({ where: { id: input.id } })
   if (!row) notFound('Role not found')
   if (row.builtin) badRequest('builtin roles cannot be deleted')

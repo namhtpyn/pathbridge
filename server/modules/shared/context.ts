@@ -7,12 +7,12 @@
 import { os } from '@orpc/server'
 import { ORPCError } from '@orpc/server'
 import type { RequestHeadersHandlerPluginContext } from '@orpc/server/plugins'
-import { once } from '../../utils/once'
+import { once } from '../../lib/once'
 // permissions imports the db (bun:sqlite) — keep the chain DYNAMIC so nuxt
 // prepare (jiti over Node) never statically reaches it through this module
-import type { ResolvedUser } from '../../utils/permissions'
-import { changeBus } from '../../utils/change-bus'
-import type { ChangeEvent } from '../../utils/change-bus'
+import type { ResolvedUser } from '../../lib/permissions'
+import { changeBus } from '../../lib/change-bus'
+import type { ChangeEvent } from '../../lib/change-bus'
 
 export interface ServerContext extends RequestHeadersHandlerPluginContext {
   getSessionUser: () => Promise<ResolvedUser | null>
@@ -32,7 +32,7 @@ export const withUser = base.middleware(async ({ context, next }) => {
 
 export const withPerm = (resource: string, action: string) =>
   base.use(withUser).middleware(async ({ context, next }) => {
-    const { userCan } = await import('../../utils/permissions')
+    const { userCan } = await import('../../lib/permissions')
     if (!userCan(context.user, resource as never, action as never)) {
       throw new ORPCError('FORBIDDEN', { message: `missing permission ${resource}:${action}` })
     }
@@ -43,7 +43,7 @@ export function buildServerContext(headers: Headers | undefined): ServerContext 
   const getSessionUser = once(async (): Promise<ResolvedUser | null> => {
     // requireUser resolves BOTH cookie sessions and Bearer API keys (with
     // key narrowing) — the single shared auth path used by oRPC and MCP.
-    const { requireUser } = await import('../../utils/permissions')
+    const { requireUser } = await import('../../lib/permissions')
     const raw: Record<string, string | string[]> = {}
     headers?.forEach((v, k) => { raw[k] = v })
     const event = { node: { req: { headers: raw } } }
@@ -69,7 +69,7 @@ export function eventFromContext(context: { reqHeaders?: Headers }) {
 
 /** requireRecordPermission throws h3 errors — remap to ORPCError codes */
 export async function guardRecord(context: { reqHeaders?: Headers }, resource: 'routes' | 'logs' | 'keys', action: 'update' | 'delete', record: { userId?: string | null }) {
-  const { requireRecordPermission } = await import('../../utils/permissions')
+  const { requireRecordPermission } = await import('../../lib/permissions')
   try {
     await requireRecordPermission(eventFromContext(context), resource, action, record)
   }
@@ -90,7 +90,7 @@ export function notFound(message = 'not found'): never {
 
 /** Read-scope resolution: 'all' | 'own' for an ownable resource. */
 export async function readScopeOf(user: ResolvedUser, resource: 'routes' | 'logs'): Promise<'all' | 'own' | null> {
-  const { userCan } = await import('../../utils/permissions')
+  const { userCan } = await import('../../lib/permissions')
   if (userCan(user, resource, 'read', 'all')) return 'all'
   if (userCan(user, resource, 'read', 'own')) return 'own'
   return null
@@ -112,6 +112,6 @@ export async function* liveGenerator<T>(resources: ChangeEvent['resource'][], fe
 
 /** STATEMENTS as a plain mutable Record (wire-friendly, client-friendly) */
 export async function vocabularyOut(): Promise<Record<string, string[]>> {
-  const { STATEMENTS } = await import('../../utils/permissions')
+  const { STATEMENTS } = await import('../../lib/permissions')
   return Object.fromEntries(Object.entries(STATEMENTS).map(([k, v]) => [k, [...v]]))
 }

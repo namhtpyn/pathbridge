@@ -5,8 +5,8 @@ import type { H3Event } from 'h3'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { type ZodType } from 'zod'
-import { toolListRoutes, toolUpsertRoute, toolUpdateRouteById, toolDeleteRoute, toolGetLogs, mcpSchemas } from '../../utils/mcp/tools'
-import { requireSession } from '../../utils/session'
+import { toolListRoutes, toolUpsertRoute, toolUpdateRouteById, toolDeleteRoute, toolGetLogs, mcpSchemas } from '../../lib/mcp/tools'
+import { requireSession } from '../../lib/session'
 
 // stateless mode: one transport per request, no session store
 async function handle(event: H3Event): Promise<void> {

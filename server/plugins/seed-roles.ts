@@ -3,7 +3,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { db } from '../db'
 import { eq } from 'drizzle-orm'
 import { roles as rolesTable } from '../db/schema'
-import { STATEMENTS } from '../utils/permissions'
+import { STATEMENTS } from '../lib/permissions'
 
 const BUILTIN = [
   {

@@ -7,7 +7,7 @@
 // first login, or set the env vars before first boot.
 import { db } from '../db'
 import { user } from '../db/schema'
-import { createUser } from '../utils/users'
+import { createUser } from '../modules/users/users.service'
 
 export default defineEventHandler(async () => {
   const existing = await db.query.user.findMany({ columns: { id: true } })

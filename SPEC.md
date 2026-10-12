@@ -155,14 +155,17 @@ The /rpc surface is composed of domain modules under `server/modules/`:
       shared/context.ts         ServerContext, buildServerContext, withUser/withPerm,
                                 guardRecord, liveGenerator, vocabularyOut (shared middlewares)
       meta/meta.router.ts       authConfig, version, session, me
-      routes/  routes.router.ts + routes.service.ts   (proxy route table CRUD)
-      logs/    logs.router.ts   + logs.service.ts     (scoped access-log queries)
-      users/   users.router.ts                          (delegates to utils/users.ts)
+      routes/  routes.router.ts + routes.service.ts + routes.schema.ts (zod/strict boundary)
+      logs/    logs.router.ts   + logs.service.ts + access-log.service.ts
+      users/   users.router.ts  + users.service.ts    (createUser/updateUser/setPassword)
       roles/   roles.router.ts  + roles.service.ts
-      settings/settings.router.ts
-      oidc/    oidc.router.ts                           (delegates to utils/oidc.ts)
+      settings/settings.router.ts + settings.service.ts
+      oidc/    oidc.router.ts   + oidc.service.ts     (provider registry, secret redaction)
       keys/    keys.router.ts   + keys.service.ts
       app.router.ts             appRouter = os.router({...modules}) — mounted at /rpc
+    server/lib/                 cross-cutting infra (NOT domain logic)
+      auth.ts permissions.ts session.ts change-bus.ts once.ts mcp/tools.ts
+    (server/utils/ no longer exists)
 
 Conventions:
 - `<domain>.router.ts` = procedures (parse → permission → service call). Thin.

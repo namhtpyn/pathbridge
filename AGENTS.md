@@ -21,5 +21,10 @@ If you add/rename/remove an endpoint, procedure, field, env var, permission, or 
 ## Backend module structure
 - New admin domain = `server/modules/<domain>/` with `<domain>.router.ts` (thin procedures)
   and `<domain>.service.ts` (drizzle/domain logic); register it in `server/modules/app.router.ts`.
+- Cross-cutting infra lives in `server/lib/` (auth, permissions, session, change-bus, mcp).
+  `server/utils/` does not exist anymore — do not recreate it.
 - Routers/services must LAZY-import (`await import`) anything reaching `server/db` —
   `nuxt prepare` (jiti/Node) cannot resolve `bun:sqlite` through static chains.
+- NEVER start a statement line with `(await getDb()).` after an un-semicolon'd line — JS ASI
+  glues it to the previous expression (bit us: `await hashPassword(p)` + next line `(...)`
+  parsed as a call). Bind first: `const db = await getDb(); db.x(...)`.

@@ -1,12 +1,12 @@
 // logs service: scoped access-log queries (own-scope filtering, parity with old REST)
 import { readScopeOf } from '../shared/context'
-import type { ResolvedUser } from '../../utils/permissions'
+import type { ResolvedUser } from '../../lib/permissions'
 // lazy db access: nuxt prepare (jiti/Node) must never statically reach
 // bun:sqlite through this module — services load the client on first call
 const getDb = async () => (await import('../../db')).db
 
 export async function queryLogsScoped(user: ResolvedUser, input: { limit?: number, routeId?: number, beforeId?: number }) {
-  const { queryAccessLog } = await import('../../utils/access-log')
+  const { queryAccessLog } = await import('./access-log.service')
   const limit = input.limit ?? 100
   const routeId = input.routeId
   if ((await readScopeOf(user, 'logs')) === 'all') {

@@ -1,11 +1,12 @@
+const getDb = async () => (await import('../../db')).db
 // Settings store: key/value in the `settings` table, cached in memory.
 // Runtime-editable knobs that used to be env-only (OIDC config, password
 // login toggle, access-log retention).
-import { db } from '../db'
-import { settings } from '../db/schema'
+// lazy: nuxt prepare (jiti/Node) must not statically reach bun:sqlite
+import { settings } from '../../db/schema'
 
 export interface AppSettings {
-  /** multi-provider registry; JSON string of OidcProvider[] (utils/oidc.ts) */
+  /** multi-provider registry; JSON string of OidcProvider[] (modules/oidc/oidc.service.ts) */
   oidcProviders: string
   /** legacy single-provider config; migrated lazily into oidcProviders */
   oidcIssuer: string
@@ -40,7 +41,7 @@ function coerce(raw: string | undefined, key: keyof AppSettings): string | numbe
 }
 
 export async function getSettings(): Promise<AppSettings> {
-  const rows = await db.query.settings.findMany()
+  const rows = await (await getDb()).query.settings.findMany()
   const out = { ...DEFAULTS }
   for (const row of rows) {
     const v = coerce(row.value, row.key as keyof AppSettings)
@@ -50,7 +51,7 @@ export async function getSettings(): Promise<AppSettings> {
 }
 
 export async function setSetting(key: keyof AppSettings, value: string | number | boolean): Promise<void> {
-  await db.insert(settings).values({ key, value: String(value), updatedAt: new Date().toISOString() })
+  await (await getDb()).insert(settings).values({ key, value: String(value), updatedAt: new Date().toISOString() })
     .onConflictDoUpdate({ target: settings.key, set: { value: String(value), updatedAt: new Date().toISOString() } })
 }
 

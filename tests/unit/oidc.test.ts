@@ -1,6 +1,6 @@
 // Unit tests for OIDC provider id handling (callback-path crafting guard).
 import { describe, expect, it } from 'vitest'
-import { validProviderId, newProviderId, providersToPublic } from '../../server/utils/oidc'
+import { validProviderId, newProviderId, providersToPublic } from '../../server/modules/oidc/oidc.service'
 
 describe('provider ids', () => {
   it('accepts uuids not in the reserved set', () => {

@@ -21,24 +21,24 @@ const userUpdateInput = z.strictObject({
 
 export const usersRouter = {
   /** one-shot user list (live twin below for realtime UIs) */
-  list: base.use(withPerm('users', 'read')).handler(async () => ({ users: await (await import('../../utils/users')).listUsers() })),
+  list: base.use(withPerm('users', 'read')).handler(async () => ({ users: await (await import('./users.service')).listUsers() })),
 
   /** live user list — refreshes on any users change */
-  live: base.use(withPerm('users', 'read')).handler(() => liveGenerator(['users'], async () => ({ users: await (await import('../../utils/users')).listUsers() }))),
+  live: base.use(withPerm('users', 'read')).handler(() => liveGenerator(['users'], async () => ({ users: await (await import('./users.service')).listUsers() }))),
 
   save: base.use(withPerm('users', 'create')).input(userSaveInput).handler(async ({ context, input }) => {
-    const { publishChange } = await import('../../utils/change-bus')
+    const { publishChange } = await import('../../lib/change-bus')
     // assigning a role requires roles:update (viewer default otherwise)
     let role = 'viewer'
     if (input.role) {
-      const { userCan } = await import('../../utils/permissions')
+      const { userCan } = await import('../../lib/permissions')
       if (!userCan(context.user, 'roles', 'update')) {
         throw new ORPCError('FORBIDDEN', { message: 'missing permission roles:update (needed to assign a role)' })
       }
       role = input.role
     }
     try {
-      await (await import('../../utils/users')).createUser(input.email, input.name, input.password, role, input.emailVerified ?? true)
+      await (await import('./users.service')).createUser(input.email, input.name, input.password, role, input.emailVerified ?? true)
       await publishChange('users', 'create')
       return { ok: true }
     }
@@ -49,14 +49,14 @@ export const usersRouter = {
   }),
 
   update: base.use(withPerm('users', 'update')).input(userUpdateInput).handler(async ({ context, input }) => {
-    const { publishChange } = await import('../../utils/change-bus')
-    const { userCan } = await import('../../utils/permissions')
+    const { publishChange } = await import('../../lib/change-bus')
+    const { userCan } = await import('../../lib/permissions')
     if (input.role !== undefined && !userCan(context.user, 'roles', 'update')) {
       throw new ORPCError('FORBIDDEN', { message: 'missing permission roles:update (needed to assign a role)' })
     }
     const { id, ...patch } = input
     if (Object.keys(patch).length === 0) badRequest('nothing to update')
-    await (await import('../../utils/users')).updateUser(id, patch)
+    await (await import('./users.service')).updateUser(id, patch)
     await publishChange('users', 'update')
     return { ok: true }
   }),
@@ -65,16 +65,16 @@ export const usersRouter = {
     id: z.string().min(1),
     password: z.string().min(8).max(128),
   })).handler(async ({ input }) => {
-    await (await import('../../utils/users')).setPassword(input.id, input.password)
+    await (await import('./users.service')).setPassword(input.id, input.password)
     return { ok: true }
   }),
 
   remove: base.use(withPerm('users', 'delete')).input(z.strictObject({
     id: z.string().min(1),
   })).handler(async ({ context, input }) => {
-    const { publishChange } = await import('../../utils/change-bus')
+    const { publishChange } = await import('../../lib/change-bus')
     if (input.id === context.user.userId) badRequest('cannot delete your own account')
-    await (await import('../../utils/users')).deleteUser(input.id)
+    await (await import('./users.service')).deleteUser(input.id)
     await publishChange('users', 'delete')
     return { ok: true }
   }),

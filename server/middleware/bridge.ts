@@ -3,7 +3,7 @@
 // Route lookup uses RQB (drizzle relations-v2 query API).
 import { proxyRequest } from 'h3'
 import { db } from '../db'
-import { recordAccess } from '../utils/access-log'
+import { recordAccess } from '../modules/logs/access-log.service'
 
 const RESERVED = ['/auth', '/health', '/api', '/admin', '/mcp', '/rpc']
 

@@ -20,8 +20,8 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { user as userTable } from '../db/schema'
 import { authSchema } from '../db/schema'
-import { getSettings } from './settings'
-import { getOidcProviders, type OidcProvider } from './oidc'
+import { getSettings } from '../modules/settings/settings.service'
+import { getOidcProviders, type OidcProvider } from '../modules/oidc/oidc.service'
 
 const env = process.env
 

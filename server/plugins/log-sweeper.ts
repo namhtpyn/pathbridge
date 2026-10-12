@@ -1,5 +1,5 @@
 // boot the access-log retention sweeper
-import { startLogSweeper } from '../utils/access-log'
+import { startLogSweeper } from '../modules/logs/access-log.service'
 
 export default defineNitroPlugin(() => {
   startLogSweeper()

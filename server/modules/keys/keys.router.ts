@@ -14,10 +14,10 @@ export const keysRouter = {
   list: base.use(withUser).handler(async ({ context }) => await svc.listKeys(context.user.userId)),
 
   create: base.use(withUser).input(keyCreateInput).handler(async ({ context, input }) => {
-    const { getAuth } = await import('../../utils/auth')
-    const { publishChange } = await import('../../utils/change-bus')
+    const { getAuth } = await import('../../lib/auth')
+    const { publishChange } = await import('../../lib/change-bus')
     // validate resource names + statements exist in the RBAC vocabulary
-    const { STATEMENTS } = await import('../../utils/permissions')
+    const { STATEMENTS } = await import('../../lib/permissions')
     const clean: Record<string, string[]> = {}
     if (input.permissions) {
       for (const [resource, statements] of Object.entries(input.permissions)) {
@@ -43,7 +43,7 @@ export const keysRouter = {
   }),
 
   revoke: base.use(withUser).input(z.strictObject({ id: z.string().min(1) })).handler(async ({ context, input }) => {
-    const { publishChange } = await import('../../utils/change-bus')
+    const { publishChange } = await import('../../lib/change-bus')
     // verify ownership before revoking (key must belong to the caller)
     await svc.requireOwnedKey(input.id, context.user.userId)
     await svc.deleteKey(input.id)
@@ -56,10 +56,10 @@ export const keysRouter = {
     id: z.string().min(1),
     name: z.string().trim().min(1).max(64),
   })).handler(async ({ context, input }) => {
-    const { publishChange } = await import('../../utils/change-bus')
+    const { publishChange } = await import('../../lib/change-bus')
     // ownership first: same rule as revoke — no renaming other people's keys
     await svc.requireOwnedKey(input.id, context.user.userId)
-    const { getAuth } = await import('../../utils/auth')
+    const { getAuth } = await import('../../lib/auth')
     const auth = await getAuth()
     // endpoint-style call: needs the caller's session headers (same as createApiKey)
     await auth.api.updateApiKey({

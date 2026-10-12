@@ -2,7 +2,7 @@
 // Providers live in the settings table as one JSON blob (key `oidcProviders`);
 // the legacy single-provider keys (oidcIssuer/oidcClientId/oidcClientSecret)
 // migrate lazily into provider id `oidc` so existing linked accounts keep working.
-import { getSettings, setSetting } from './settings'
+import { getSettings, setSetting } from '../settings/settings.service'
 
 export interface OidcProvider {
   /** slug used as better-auth providerId; callback = /auth/callback/<id> */

@@ -4,7 +4,7 @@ import { base, withUser, eventFromContext, vocabularyOut } from '../shared/conte
 export const metaRouter = {
   /** public auth capabilities for the login screen */
   authConfig: base.handler(async () => {
-    const { resolveAuthPolicy } = await import('../../utils/auth')
+    const { resolveAuthPolicy } = await import('../../lib/auth')
     const p = await resolveAuthPolicy()
     return {
       passwordEnabled: p.passwordEnabled,
@@ -18,7 +18,7 @@ export const metaRouter = {
 
   /** session payload for the admin shell; null when signed out (SSR-safe) */
   session: base.handler(async ({ context }) => {
-    const { requireSession } = await import('../../utils/session')
+    const { requireSession } = await import('../../lib/session')
     try {
       const session = await requireSession(eventFromContext(context))
       return {

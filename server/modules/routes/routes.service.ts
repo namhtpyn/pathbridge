@@ -3,7 +3,7 @@
 import { eq } from 'drizzle-orm'
 import { ORPCError } from '@orpc/server'
 import { guardRecord, badRequest, notFound, readScopeOf } from '../shared/context'
-import type { ResolvedUser } from '../../utils/permissions'
+import type { ResolvedUser } from '../../lib/permissions'
 // lazy db access: nuxt prepare (jiti/Node) must never statically reach
 // bun:sqlite through this module — services load the client on first call
 const getDb = async () => (await import('../../db')).db
@@ -41,8 +41,8 @@ export async function saveRoute(
     stripPrefix: boolean, methods?: string[], note?: string, enabled: boolean,
   },
 ) {
-  const { routeInputSchema } = await import('../../utils/route-schema')
-  const { publishChange } = await import('../../utils/change-bus')
+  const { routeInputSchema } = await import('./routes.schema')
+  const { publishChange } = await import('../../lib/change-bus')
   // strict security boundary: the loose router input above is UX-shaped; the
   // strict schema (refinements incl. reserved paths + header rules)
   // re-validates everything the UI sends
@@ -87,7 +87,7 @@ export async function saveRoute(
     await publishChange('routes', 'update')
     return { route: await (await getDb()).query.routes.findFirst({ where: { id: existing.id } }), created: false }
   }
-  const { userCan } = await import('../../utils/permissions')
+  const { userCan } = await import('../../lib/permissions')
   if (!userCan(context.user, 'routes', 'create')) {
     throw new ORPCError('FORBIDDEN', { message: 'missing permission routes:create' })
   }
@@ -100,7 +100,7 @@ export async function removeRoute(
   context: Parameters<typeof guardRecord>[0] & { user: ResolvedUser },
   input: { id?: number, path?: string },
 ) {
-  const { publishChange } = await import('../../utils/change-bus')
+  const { publishChange } = await import('../../lib/change-bus')
   const target = input.id
     ? await (await getDb()).query.routes.findFirst({ where: { id: input.id } })
     : input.path

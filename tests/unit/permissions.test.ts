@@ -1,7 +1,7 @@
 // Unit tests for the permission core (RBAC resolution + narrowing).
 import { describe, expect, it } from 'vitest'
-import { userCan, validateStatements, STATEMENTS } from '../../server/utils/permissions'
-import type { ResolvedUser } from '../../server/utils/permissions'
+import { userCan, validateStatements, STATEMENTS } from '../../server/lib/permissions'
+import type { ResolvedUser } from '../../server/lib/permissions'
 
 function userWith(grants: Record<string, string[]>): ResolvedUser {
   const map = new Map(Object.entries(grants).map(([k, v]) => [k, new Set(v)])) as ResolvedUser['grants']

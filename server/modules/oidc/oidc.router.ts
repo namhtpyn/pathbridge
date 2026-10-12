@@ -23,14 +23,14 @@ const oidcSaveInput = z.strictObject({
 
 export const oidcRouter = {
   list: base.use(withPerm('settings', 'read')).handler(async () => {
-    const { getOidcProviders, providersToPublic } = await import('../../utils/oidc')
+    const { getOidcProviders, providersToPublic } = await import('./oidc.service')
     return { providers: providersToPublic(await getOidcProviders()) }
   }),
 
   save: base.use(withPerm('settings', 'update')).input(oidcSaveInput).handler(async ({ input }) => {
-    const { getOidcProviders, setOidcProviders, validProviderId, newProviderId } = await import('../../utils/oidc')
-    type OidcProvider = import('../../utils/oidc').OidcProvider
-    const { rebuildAuth } = await import('../../utils/auth')
+    const { getOidcProviders, setOidcProviders, validProviderId, newProviderId } = await import('./oidc.service')
+    type OidcProvider = import('./oidc.service').OidcProvider
+    const { rebuildAuth } = await import('../../lib/auth')
     const existing = await getOidcProviders()
     const out: OidcProvider[] = []
     const seen = new Set<string>()
