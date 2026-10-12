@@ -1,3 +1,10 @@
+# [6.4.0](https://github.com/namhtpyn/pathbridge/compare/v6.3.2...v6.4.0) (2026-10-12)
+
+
+### Features
+
+* **rbac:** profile resource (read:own / update:own) + move auth schema to server/db/schema.auth.ts ([7ffb3c5](https://github.com/namhtpyn/pathbridge/commit/7ffb3c500d2b98fd35ca6fd5fee9111b117d5c8d))
+
 ## [6.3.2](https://github.com/namhtpyn/pathbridge/compare/v6.3.1...v6.3.2) (2026-10-12)
 
 
