@@ -152,15 +152,19 @@ sync with the better-auth CLI:
 
     bun run auth:schema
 
-which generates `scripts/generated/auth-schema.gen.ts` in RELATIONS V2 shape
-(`defineRelationsPart` + `authRelations`) from `scripts/auth-cli.config.ts` —
-a bridge using the SAME plugins AND the same
-`@better-auth/drizzle-adapter/relations-v2` adapter as the runtime (the real
-instance is a settings-driven lazy singleton the CLI can't load). The adapter
-in the config decides the generator: passing `--adapter drizzle` on the CLI
-would override it with the mock v1 generator (v1 `relations()` output) — never
-do that. Per the better-auth docs, merge generated `authRelations` after app
-relations when constructing the drizzle client. Regenerate after any better-auth/plugin
+which regenerates `scripts/generated/auth-schema.gen.ts` — THE source of truth
+for the auth tables (relations-v2 output: `defineRelationsPart` +
+`authRelations`). `server/db/schema.ts` imports and re-exports the generated
+tables and adds only app tables (`routes`, `settings`, `access_log`, `roles`)
+plus app relations. The config bridge (`scripts/auth-cli.config.ts`) uses the
+SAME plugins and the same `@better-auth/drizzle-adapter/relations-v2` adapter
+as the runtime. Never pass `--adapter drizzle` on the CLI — it overrides the
+config adapter with the mock v1 generator (v1 `relations()` output).
+
+Column modes are `timestamp_ms` (CLI canonical). Existing rows stored epoch
+seconds; migration `20261011120000_auth_timestamp_ms` converts them (guarded:
+values < 10^12 are treated as seconds) and drops the legacy `apikey.user_id`
+column. Regenerating that adds columns needs a matching data migration. Regenerate after any better-auth/plugin
 upgrade and diff against `server/db/schema.ts`; adopt new columns/indexes via
 a drizzle migration. Deliberate divergences (documented in the schema header):
 `timestamp` seconds mode (existing data), `emailVerified` defaults true,

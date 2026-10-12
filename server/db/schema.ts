@@ -1,138 +1,22 @@
-// Drizzle rc (Relations v2): tables + relations. Auth tables are the better-auth
-// canonical set; `routes` is pathbridge's own.
-//
-// Auth tables are kept in sync with the better-auth CLI (v2 output —
-// defineRelationsPart/authRelations, matching our relations-v2 adapter):
-//   bun run auth:schema
-// (config bridge = scripts/auth-cli.config.ts: SAME plugins AND the
-// relations-v2 adapter as the runtime. NEVER pass --adapter drizzle on the
-// command line: it swaps in the CLI's mock adapter, which generates the OLD
-// v1 `relations()` shape instead.)
-// Deliberate divergences from the CLI output — do NOT "fix" without a migration:
-//   - timestamp (seconds) not timestamp_ms: every existing row stores epoch seconds
-//   - user.emailVerified defaults true (our invites are pre-verified)
-//   - apikey.user_id legacy nullable column (plugin canonical is reference_id)
-//   - $onUpdate hooks omitted (we set updatedAt explicitly)
-// Regenerating: diff the .gen.ts against this file; adopt new columns/indexes
-// via a drizzle migration, never by hand-editing the live tables.
+// Drizzle rc (Relations v2). AUTH TABLES = the better-auth CLI's generated
+// schema (scripts/generated/auth-schema.gen.ts), imported & re-exported — the
+// gen file is the single source of truth, this file only adds app tables
+// (routes, settings, access_log, roles) + relations. Regen: `bun run auth:schema`
+// (NO --adapter flag — it swaps the CLI to the v1 generator).
+// Legacy data: prod rows stored epoch seconds; migration 20261011120000_auth_timestamp_ms
+// converts them to ms and drops the legacy apikey.user_id column.
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
 import { defineRelations } from 'drizzle-orm'
 
-export const user = sqliteTable('user', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  emailVerified: integer('email_verified', { mode: 'boolean' }).notNull().default(true),
-  image: text('image'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-  role: text('role').notNull().default('viewer'),
-})
+// AUTH TABLES: single source of truth = the better-auth CLI's generated schema
+// (scripts/generated/auth-schema.gen.ts, relations-v2 output; regen via
+// `bun run auth:schema` — NEVER pass --adapter on the CLI, it swaps in the v1
+// generator). This file adds ONLY app tables + relations around the generated ones.
+import { user, session, account, verification, apikey } from '../../scripts/generated/auth-schema.gen'
 
-export const session = sqliteTable('session', {
-  id: text('id').primaryKey(),
-  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-  token: text('token').notNull().unique(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-  ipAddress: text('ip_address'),
-  userAgent: text('user_agent'),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-}, (t) => [
-  index('session_userId_idx').on(t.userId),
-])
-
-export const account = sqliteTable('account', {
-  id: text('id').primaryKey(),
-  accountId: text('account_id').notNull(),
-  providerId: text('provider_id').notNull(),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-  accessToken: text('access_token'),
-  refreshToken: text('refresh_token'),
-  idToken: text('id_token'),
-  accessTokenExpiresAt: integer('access_token_expires_at', { mode: 'timestamp' }),
-  refreshTokenExpiresAt: integer('refresh_token_expires_at', { mode: 'timestamp' }),
-  scope: text('scope'),
-  password: text('password'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-}, (t) => [
-  index('account_userId_idx').on(t.userId),
-])
-
-export const verification = sqliteTable('verification', {
-  id: text('id').primaryKey(),
-  identifier: text('identifier').notNull(),
-  value: text('value').notNull(),
-  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }),
-}, (t) => [
-  index('verification_identifier_idx').on(t.identifier),
-])
-
-
-// runtime roles: name + statement set (subset of the static ac vocabulary)
-export const roles = sqliteTable('roles', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull().unique(),
-  description: text('description'),
-  statements: text('statements', { mode: 'json' }).$type<Record<string, string[]>>().notNull(),
-  builtin: integer('builtin', { mode: 'boolean' }).notNull().default(false),
-  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
-  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
-})
-
-// @better-auth/api-key plugin table (plugin owns these writes)
-export const apiKey = sqliteTable('apikey', {
-  id: text('id').primaryKey(),
-  name: text('name'),
-  start: text('start'),
-  configId: text('config_id').notNull().default('default'),
-  requestCount: integer('request_count').notNull().default(0),
-  prefix: text('prefix'),
-  key: text('key').notNull(),
-  userId: text('user_id'),
-  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
-  expiresAt: integer('expires_at', { mode: 'timestamp' }),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-  lastRequest: integer('last_request', { mode: 'timestamp' }),
-  referenceId: text('reference_id').notNull(),
-  lastRefillAt: integer('last_refill_at', { mode: 'timestamp' }),
-  rateLimitEnabled: integer('rate_limit_enabled', { mode: 'boolean' }),
-  rateLimitTimeWindow: integer('rate_limit_time_window'),
-  rateLimitMax: integer('rate_limit_max'),
-  remaining: integer('remaining'),
-  refillAmount: integer('refill_amount'),
-  refillInterval: integer('refill_interval'),
-  metadata: text('metadata', { mode: 'json' }),
-  permissions: text('permissions', { mode: 'json' }),
-}, (t) => [
-  index('apikey_configId_idx').on(t.configId),
-  index('apikey_referenceId_idx').on(t.referenceId),
-  index('apikey_key_idx').on(t.key),
-])
-
-// pathbridge's own tables (ISO strings here — our code owns these writes)
-export const settings = sqliteTable('settings', {
-  key: text('key').primaryKey(),
-  value: text('value').notNull(),
-  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
-})
-
-export const accessLog = sqliteTable('access_log', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  ts: text('ts').notNull().$defaultFn(() => new Date().toISOString()),
-  routeId: integer('route_id'),
-  routePath: text('route_path'),
-  method: text('method').notNull(),
-  path: text('path').notNull(),
-  status: integer('status').notNull(),
-  durationMs: integer('duration_ms').notNull().default(0),
-  clientIp: text('client_ip'),
-  userAgent: text('user_agent'),
-})
+export { user, session, account, verification, apikey }
+// legacy alias: pre-gen consumers import `apiKey`
+export { apikey as apiKey }
 
 export const routes = sqliteTable('routes', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -151,10 +35,37 @@ export const routes = sqliteTable('routes', {
   userId: text('user_id'),
 })
 
+export const roles = sqliteTable('roles', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  description: text('description'),
+  statements: text('statements', { mode: 'json' }).$type<Record<string, string[]>>().notNull(),
+  builtin: integer('builtin', { mode: 'boolean' }).notNull().default(false),
+  createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
+})
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
+})
+export const accessLog = sqliteTable('access_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  ts: text('ts').notNull().$defaultFn(() => new Date().toISOString()),
+  routeId: integer('route_id'),
+  routePath: text('route_path'),
+  method: text('method').notNull(),
+  path: text('path').notNull(),
+  status: integer('status').notNull(),
+  durationMs: integer('duration_ms').notNull().default(0),
+  clientIp: text('client_ip'),
+  userAgent: text('user_agent'),
+})
+
 // Relations v2 (drizzle rc) — the shape better-auth's relations-v2 adapter consumes
 // via db._.relations and db.query.
 export const relations = defineRelations(
-  { user, session, account, verification, routes, settings, accessLog, apikey: apiKey, roles },
+  { user, session, account, verification, routes, settings, accessLog, apikey, roles },
   (helpers) => ({
     user: {
       sessions: helpers.many.session({ from: helpers.user.id, to: helpers.session.userId }),
@@ -185,7 +96,7 @@ export const authSchema = {
   session,
   account,
   verification,
-  apikey: apiKey,
+  apikey,
 }
 
 // ---- inferred row types (single source of truth for app code) ----
