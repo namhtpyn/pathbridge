@@ -1,3 +1,10 @@
+# [6.3.0](https://github.com/namhtpyn/pathbridge/compare/v6.2.1...v6.3.0) (2026-10-12)
+
+
+### Features
+
+* **db:** adopt the CLI-generated auth schema as source of truth ([030109c](https://github.com/namhtpyn/pathbridge/commit/030109c34077dce7fdfd3de223ff60b4f12b1d1d))
+
 ## [6.2.1](https://github.com/namhtpyn/pathbridge/compare/v6.2.0...v6.2.1) (2026-10-11)
 
 
