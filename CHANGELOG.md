@@ -1,3 +1,10 @@
+## [6.3.2](https://github.com/namhtpyn/pathbridge/compare/v6.3.1...v6.3.2) (2026-10-12)
+
+
+### Bug Fixes
+
+* **build:** rename server/modules -> server/features (nitro magic dir broke clean builds) ([57b1f02](https://github.com/namhtpyn/pathbridge/commit/57b1f0284387b6009a08e5ad28b8cf0c3432ceb0))
+
 ## [6.3.1](https://github.com/namhtpyn/pathbridge/compare/v6.3.0...v6.3.1) (2026-10-12)
 
 
