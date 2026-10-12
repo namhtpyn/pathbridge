@@ -1,4 +1,4 @@
-// MCP tool handlers — thin wrappers over the SAME logic the REST API uses
+// MCP tool handlers — thin wrappers sharing the SAME services as the oRPC procedures
 // (shared zod schemas, same permission enforcement via requireUser on a
 // synthetic event). A tool call is exactly as privileged as the API key
 // (or session) that authenticated the MCP connection: key statements are

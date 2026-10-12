@@ -10,8 +10,8 @@ or when you want a stable public hostname in front of changing backends.
 
 - **Path forwarding** — map `/prefix` → `https://api.example.com`, longest-prefix match wins
 - **Admin UI** — dashboard with sidebar navigation (`/admin`), manage everything at runtime, no rebuilds or restarts
-- **Realtime** — routes table and access-log tail update live (oRPC live queries over SSE); mutations from any client (UI, REST, MCP) push instantly
-- **oRPC** — typed RPC API at `/rpc` for first-party clients; same auth + RBAC as REST
+- **Realtime** — routes table and access-log tail update live (oRPC live queries over SSE); mutations from any client (UI, oRPC, MCP) push instantly
+- **oRPC** — typed RPC API at `/rpc` for first-party clients and the Admin UI; cookie-session or Bearer-key auth with full RBAC (incl. key narrowing)
 - **SSO** — one or more OIDC providers, per-provider login buttons
 - **Users & roles** — RBAC with a permission matrix; custom roles
 - **API keys** — programmatic access for scripts and agents
@@ -98,7 +98,7 @@ POST /rpc/routes/live        Authorization: Bearer <session token or API key>
 {"json": {}}                 -> SSE stream of route snapshots
 ```
 
-Procedures: `hello`, `me`, `routes.{list,count,live}`, `users.live`,
+Procedures: `authConfig`, `version`, `session`, `me`, `routes.{live,count,save,remove}`, `users.live`,
 `roles.live`, `settings.get`, `oidc.list`, `keys.list`, `logs.{recent,tail}`.
 Everything — admin UI, scripts, agents — goes through the oRPC procedures at
 `POST /rpc/<path>` (body `{"json": <input>}`, Bearer API key or session): one

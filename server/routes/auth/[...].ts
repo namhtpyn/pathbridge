@@ -1,8 +1,7 @@
 // Mount better-auth under /auth/* — basePath is /auth in the auth config,
-import { resolveAuthPolicy, anyUserExists } from '../../lib/auth'
 // so the handler expects the FULL original path; no rewriting needed.
+import { resolveAuthPolicy, anyUserExists, getAuth } from '../../lib/auth'
 import type { H3Event } from 'h3'
-import { getAuth } from '../../lib/auth'
 
 function headerValue(v: string | string[] | undefined): string | undefined {
   if (v === undefined) return undefined

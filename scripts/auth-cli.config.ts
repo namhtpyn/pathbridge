@@ -1,5 +1,5 @@
 // better-auth CLI config bridge (bun run auth:schema).
-// The real auth instance is a settings-driven lazy singleton (server/utils/auth.ts)
+// The real auth instance is a settings-driven lazy singleton (server/lib/auth.ts)
 // that the CLI can't load (needs DB + settings). This bridge feeds `generate` the
 // SAME plugins + adapter as the runtime — crucially the relations-v2 adapter, so
 // the CLI emits v2 output (defineRelationsPart + authRelations) instead of the

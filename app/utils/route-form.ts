@@ -32,7 +32,8 @@ export const routeFormSchema = z.object({
 
 export type RouteFormState = z.input<typeof routeFormSchema>
 
-const HOP_BY_HOP_UI = ['content-length', 'transfer-encoding', 'connection', 'keep-alive', 'te', 'trailer', 'upgrade']
+// keep in sync with HOP_BY_HOP in server/modules/routes/routes.schema.ts
+const HOP_BY_HOP_UI = ['content-length', 'transfer-encoding', 'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'upgrade']
 
 const headerRow = z.object({
   name: z.string()
@@ -61,7 +62,8 @@ export const routeSubmitSchema = z.object({
     .refine(v => v.startsWith('/'), 'path must start with "/"')
     .refine(v => v !== '/', 'path "/" is reserved — it redirects to the admin UI')
     .refine(v => v !== '/admin' && !v.startsWith('/admin/'), 'path must not collide with the admin UI')
-    .refine(v => v !== '/auth' && !v.startsWith('/auth/') && v !== '/health' && !v.startsWith('/health/'), 'path must not collide with reserved app routes')
+    .refine(v => !v.startsWith('/_'), 'path must not use reserved prefix "_"')
+    .refine(v => v !== '/auth' && !v.startsWith('/auth/') && v !== '/health' && !v.startsWith('/health/') && v !== '/api' && !v.startsWith('/api/') && v !== '/mcp' && !v.startsWith('/mcp/') && v !== '/rpc' && !v.startsWith('/rpc/'), 'path must not collide with reserved app routes')
     .refine((v) => {
       if (!v.includes('*')) return true
       return v.endsWith('/*') && !v.slice(0, -2).endsWith('/') && !v.slice(0, -2).includes('*')

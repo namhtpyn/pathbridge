@@ -20,9 +20,9 @@ app/layouts/admin.vue
 ```
 
 - Pages: `/admin` (Routes), `/admin/logs`, `/admin/users`, `/admin/roles`, `/admin/settings` — each `definePageMeta({ layout: 'admin' })`.
-- Sidebar nav renders ONLY what the user's permissions allow (`can()` from `useAdminSession`, fed by `/api/me`); Routes always shows.
+- Sidebar nav renders ONLY what the user's permissions allow (`can()` from `useAdminSession`, fed by the oRPC `me` procedure); Routes always shows.
 - Shared session/perms/auth-config live in `app/composables/useAdminSession.ts` (useState-backed). SSR resolves the session through the in-process oRPC `session` procedure (`app/plugins/orpc.server.ts` — request cookies flow in via the forwarded event headers) — layouts run OUTSIDE the Nuxt request context, so `useRequestHeaders` inside a layout throws e1001; never call it there.
-- Login (no session): the layout swaps the whole shell for a centered card form (password + per-provider OIDC buttons, gated by `/api/auth-config`).
+- Login (no session): the layout swaps the whole shell for a centered card form (password + per-provider OIDC buttons, gated by the oRPC `authConfig` procedure).
 - Mobile: sidebar is an off-canvas drawer opened by `UDashboardSidebarToggle` in the navbar.
 - Icon-only buttons MUST carry a hover popover label: use the shared `IconButton` component (`text` prop; wraps `UButton` in a `UPopover mode="hover"`; keeps `aria-label` for screen readers). Never ship a bare icon button — plain icons are unguessable and unreadable on touch.
 
@@ -96,5 +96,5 @@ Every form — route editor, user create, role create, profile — follows the s
 - Icon-only buttons without `aria-label`.
 - New colors outside zinc/primary/error/success semantics.
 - Unstyled or pure-HTML inputs; custom CSS files; component libraries besides Nuxt UI.
-- Permission-dependent UI decided by anything other than `/api/me` permissions.
+- Permission-dependent UI decided by anything other than the oRPC `me` permissions.
 - Success toasts on failure paths; silent no-op handlers.

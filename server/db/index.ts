@@ -44,9 +44,5 @@ catch (e) {
   console.warn('migration skip:', msg)
 }
 
-// tables-only schema object (namespace import carries type exports too)
-const tables = { user, session, account, verification, routes }
-
 // rc: `schema` lives inside defineRelations() — drizzle() takes relations only
 export const db = drizzle({ client: sqlite, relations })
-export { tables }

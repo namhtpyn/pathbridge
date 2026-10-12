@@ -1,5 +1,5 @@
 // Permission core: static statement vocabulary (compile-time) + runtime roles
-// (DB rows). Enforcement lives here; routes call requirePermission().
+// (DB rows). Enforcement lives here; oRPC middlewares (modules/shared/context.ts) and MCP call requireUser/userCan.
 //
 // Statement grammar: "<action>:<scope>" e.g. "read:all", "update:own".
 //   action: create | read | update | delete
@@ -8,8 +8,6 @@
 // users, roles) only ever list ":all". Vocabulary law: a statement exists
 // only if some route checks it.
 
-import { createAccessControl } from 'better-auth/plugins/access'
-import type { Role } from 'better-auth/plugins/access'
 import { db } from '../db'
 import type { H3Event } from 'h3'
 import { requireSession } from './session'
@@ -33,7 +31,6 @@ export const STATEMENTS = {
 export type StatementMap = typeof STATEMENTS
 export type Resource = keyof StatementMap
 
-export const ac = createAccessControl(STATEMENTS)
 
 const STATEMENT_RE = /^(create|read|update|delete):(all|own)$/
 
@@ -78,21 +75,6 @@ export function validateStatements(stmts: unknown): string | null {
     }
   }
   return null
-}
-
-/** Build the better-auth Role objects for the auth factory (not used for
- *  enforcement — enforcement resolves from DB directly per request). */
-export async function buildRoleMap(): Promise<Record<string, Role>> {
-  const rows = await listRoles()
-  const map: Record<string, Role> = {}
-  for (const r of rows) {
-    try {
-      map[r.name] = ac.newRole(r.statements as never)
-    } catch {
-      // role predates a vocabulary change; skip it (stays unassignable)
-    }
-  }
-  return map
 }
 
 // ---- permission resolution -------------------------------------------------
@@ -176,21 +158,6 @@ export async function requireUser(event: H3Event): Promise<{ session: AppSession
     user = { ...user, grants: narrowed }
   }
   return { session, user }
-}
-
-/** Require a permission. Scope omitted = any; pass 'own'/'all' to be strict. */
-export async function requirePermission(event: H3Event, resource: Resource, action: Action, scope?: Scope) {
-  const { user } = await requireUser(event)
-  if (!userCan(user, resource, action, scope)) forbidden(resource, scope ? `${action}:${scope}` : action)
-  return user
-}
-
-/** Require read on an ownable resource; returns the widest scope held. */
-export async function requireReadScope(event: H3Event, resource: Resource): Promise<{ user: ResolvedUser, scope: 'all' | 'own' }> {
-  const { user } = await requireUser(event)
-  if (userCan(user, resource, 'read', 'all')) return { user, scope: 'all' }
-  if (userCan(user, resource, 'read', 'own')) return { user, scope: 'own' }
-  forbidden(resource, 'read')
 }
 
 /** Require an action on a specific record — enforces ownership for own-scope. */

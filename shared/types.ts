@@ -1,5 +1,5 @@
 // Shared TYPES only (no validation). Schemas intentionally live separately:
-// server/utils/route-schema.ts (strict, security) and inline in the admin UI
+// server/modules/routes/routes.schema.ts (strict, security) and inline in the admin UI
 // (loose, UX) — frontend validation is for UX, the backend re-validates
 // everything for security.
 
@@ -31,15 +31,6 @@ export interface RouteRow {
  * (server/utils/route-schema.ts) is the strict authority and accepts none
  * of those for required fields.
  */
-export interface RouteFormInput {
-  path: string
-  target: string
-  requestHeaders?: Array<{ name: string, op: 'set' | 'remove', value?: string }> | null
-  responseHeaders?: Array<{ name: string, op: 'set' | 'remove', value?: string }> | null
-  note?: string | null
-  stripPrefix?: boolean
-  enabled?: boolean
-}
 
 export interface RoutesResponse {
   routes: RouteRow[]
