@@ -17,3 +17,9 @@ If you add/rename/remove an endpoint, procedure, field, env var, permission, or 
 - Backend re-validates everything with strict zod; frontend validation is UX only.
 - Verify before commit: typecheck + build + browser E2E (desktop AND 390px mobile) — probe the artifact, never trust recall.
 - bun-only toolchain; dependencies pinned exact.
+
+## Backend module structure
+- New admin domain = `server/modules/<domain>/` with `<domain>.router.ts` (thin procedures)
+  and `<domain>.service.ts` (drizzle/domain logic); register it in `server/modules/app.router.ts`.
+- Routers/services must LAZY-import (`await import`) anything reaching `server/db` —
+  `nuxt prepare` (jiti/Node) cannot resolve `bun:sqlite` through static chains.

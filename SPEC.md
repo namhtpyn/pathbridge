@@ -147,6 +147,34 @@ Migrations auto-apply at boot from `./drizzle` (tracked in `__migrations`). Pre-
 
 ## Auth schema provenance
 
+## Backend module structure (NestJS-style)
+
+The /rpc surface is composed of domain modules under `server/modules/`:
+
+    server/modules/
+      shared/context.ts         ServerContext, buildServerContext, withUser/withPerm,
+                                guardRecord, liveGenerator, vocabularyOut (shared middlewares)
+      meta/meta.router.ts       authConfig, version, session, me
+      routes/  routes.router.ts + routes.service.ts   (proxy route table CRUD)
+      logs/    logs.router.ts   + logs.service.ts     (scoped access-log queries)
+      users/   users.router.ts                          (delegates to utils/users.ts)
+      roles/   roles.router.ts  + roles.service.ts
+      settings/settings.router.ts
+      oidc/    oidc.router.ts                           (delegates to utils/oidc.ts)
+      keys/    keys.router.ts   + keys.service.ts
+      app.router.ts             appRouter = os.router({...modules}) — mounted at /rpc
+
+Conventions:
+- `<domain>.router.ts` = procedures (parse → permission → service call). Thin.
+- `<domain>.service.ts` = drizzle/domain logic, unit-testable without oRPC.
+- Adding a domain = new module dir + one spread line in app.router.ts.
+- Wire contract is pinned by the e2e suite; a module refactor must keep
+  paths, error codes, and the {"json":{...}} envelope byte-identical.
+- Lazy imports: routers/services must not statically import `server/db`
+  (bun:sqlite) or anything that pulls it (utils/permissions, utils/users) —
+  `nuxt prepare` runs jiti over Node and would fail to resolve bun:sqlite.
+  Use `await import('...')` inside handlers/services.
+
 The better-auth tables (user/session/account/verification/apikey) are kept in
 sync with the better-auth CLI:
 

@@ -1,9 +1,10 @@
 // /rpc — oRPC Fetch API adapter (RPCHandler). Auth context built per request
-// via buildServerContext (cookie session or Bearer API key, same as REST).
+// via buildServerContext (cookie session or Bearer API key).
 import { RPCHandler } from '@orpc/server/fetch'
-import { router, buildServerContext } from '../../utils/orpc'
+import { appRouter } from '../../modules/app.router'
+import { buildServerContext as buildCtx } from '../../modules/shared/context'
 
-const handler = new RPCHandler(router)
+const handler = new RPCHandler(appRouter)
 
 export default defineEventHandler(async (event) => {
   const request = toWebRequest(event)
@@ -11,7 +12,7 @@ export default defineEventHandler(async (event) => {
   request.headers.forEach((v, k) => headers.set(k, v))
   const { response } = await handler.handle(request, {
     prefix: '/rpc',
-    context: buildServerContext(headers),
+    context: buildCtx(headers),
   })
   if (response) return response
   setResponseStatus(event, 404, 'Not found')

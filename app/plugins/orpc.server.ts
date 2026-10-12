@@ -10,8 +10,9 @@
 import type { RouterClient } from '@orpc/server'
 import { createRouterClient } from '@orpc/server'
 import { createRouterUtils } from '@orpc/tanstack-query'
-import type { Router } from '~/../server/utils/orpc'
-import { router, buildServerContext } from '~/../server/utils/orpc'
+import type { Router } from '~/../server/modules/app.router'
+import { appRouter } from '~/../server/modules/app.router'
+import { buildServerContext } from '~/../server/modules/shared/context'
 
 export default defineNuxtPlugin(() => {
   const event = useRequestEvent()
@@ -23,7 +24,7 @@ export default defineNuxtPlugin(() => {
     else headers.set(k, v)
   }
 
-  const ssrClient: RouterClient<Router> = createRouterClient(router, {
+  const ssrClient: RouterClient<Router> = createRouterClient(appRouter, {
     context: buildServerContext(headers),
   })
   const orpc = createRouterUtils(ssrClient)
