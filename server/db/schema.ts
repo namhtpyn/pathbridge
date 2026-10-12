@@ -1,5 +1,5 @@
 // Drizzle rc (Relations v2). AUTH TABLES = the better-auth CLI's generated
-// schema (scripts/generated/auth-schema.gen.ts), imported & re-exported — the
+// schema (server/db/schema.auth.ts), imported & re-exported — the
 // gen file is the single source of truth, this file only adds app tables
 // (routes, settings, access_log, roles) + relations. Regen: `bun run auth:schema`
 // (NO --adapter flag — it swaps the CLI to the v1 generator).
@@ -9,10 +9,10 @@ import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
 import { defineRelations } from 'drizzle-orm'
 
 // AUTH TABLES: single source of truth = the better-auth CLI's generated schema
-// (scripts/generated/auth-schema.gen.ts, relations-v2 output; regen via
+// (server/db/schema.auth.ts, relations-v2 output; regen via
 // `bun run auth:schema` — NEVER pass --adapter on the CLI, it swaps in the v1
 // generator). This file adds ONLY app tables + relations around the generated ones.
-import { user, session, account, verification, apikey } from '../../scripts/generated/auth-schema.gen'
+import { user, session, account, verification, apikey } from './schema.auth'
 
 export { user, session, account, verification, apikey }
 // legacy alias: pre-gen consumers import `apiKey`

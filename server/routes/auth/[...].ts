@@ -51,6 +51,26 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: 'OIDC not configured' })
     }
   }
+  // profile RBAC gate: self-service endpoints are a permission (resource `profile`,
+  // statements read:own / update:own) — enforced here in the wrapper, NOT inside
+  // better-auth hooks (a hook re-resolving the user through the session store
+  // deadlocks the request pipeline).
+  const isProfileRead = full.includes('/auth/get-session')
+  const isProfileUpdate = (event.method === 'POST' && (full.includes('/auth/update-user') || full.includes('/auth/change-password')))
+  if (isProfileRead || isProfileUpdate) {
+    const { requireUser, userCan } = await import('../../lib/permissions')
+    try {
+      const { user } = await requireUser(event as never)
+      const action = isProfileUpdate ? 'update' : 'read'
+      if (!userCan(user, 'profile', action, 'own')) {
+        throw createError({ statusCode: 403, statusMessage: `missing permission profile:${action}:own` })
+      }
+    }
+    catch (e) {
+      // no session -> let better-auth answer with its own 401 (uniform errors)
+      if ((e as { statusCode?: number }).statusCode === 403) throw e
+    }
+  }
 
   const raw = event.method !== 'GET' && event.method !== 'HEAD'
     ? await readRawBody(event, false)

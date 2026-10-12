@@ -26,6 +26,10 @@ export const STATEMENTS = {
   users: ['create:all', 'read:all', 'update:all', 'delete:all'],
   roles: ['create:all', 'read:all', 'update:all', 'delete:all'],
   keys: ['create:all', 'read:own', 'read:all', 'update:own', 'update:all', 'delete:own', 'delete:all'],
+  // own profile only: name/email display + password change in the Profile modal.
+  // NO :all variants — nobody edits other people's profiles through this resource
+  // (admin user management stays under users:*).
+  profile: ['read:own', 'update:own'],
 } as const
 
 export type StatementMap = typeof STATEMENTS

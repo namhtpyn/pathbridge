@@ -11,15 +11,20 @@ const BUILTIN = [
     description: 'Full access to everything',
     // :all only - "action:all" implies "action:own", so own-scoped
     // statements are redundant for the admin role
-    statements: Object.fromEntries(
-      Object.entries(STATEMENTS).map(([r, actions]) => [r, actions.filter(a => a.endsWith(':all'))]),
-    ),
+    statements: {
+      ...Object.fromEntries(
+        Object.entries(STATEMENTS).map(([r, actions]) => [r, actions.filter(a => a.endsWith(':all'))]),
+      ),
+      // profile is own-only by design; admins still manage their own profile
+      profile: ['read:own', 'update:own'],
+    },
   },
   {
     name: 'viewer',
-    description: 'Read own routes (default for new users)',
+    description: 'Read own routes + manage own profile (default for new users)',
     statements: {
       routes: ['read:own'],
+      profile: ['read:own', 'update:own'],
     },
   },
 ]

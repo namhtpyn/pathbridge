@@ -62,7 +62,7 @@ every 30s (readiness failures mark the container `unhealthy`).
 
 `bun run auth:schema` regenerates the better-auth table definitions from the
 official CLI (config bridge in `scripts/auth-cli.config.ts`, output in
-`scripts/generated/`). Diff against `server/db/schema.ts` after upgrading
+`server/db/schema.auth.ts`, committed). It is imported & re-exported by `server/db/schema.ts`
 better-auth.
 
 ### Tests
