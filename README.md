@@ -58,23 +58,6 @@ admin UI at runtime.
 The container image ships a Docker `HEALTHCHECK` probing `/health/ready`
 every 30s (readiness failures mark the container `unhealthy`).
 
-### Auth schema
-
-`bun run auth:schema` regenerates the better-auth table definitions from the
-official CLI (config bridge in `scripts/auth-cli.config.ts`, output in
-`server/db/schema.auth.ts`, committed). It is imported & re-exported by `server/db/schema.ts`
-better-auth.
-
-### Tests
-
-- `bun run test:unit` — vitest on bun (36 tests): route matching laws, strict
-  zod schemas (reserved paths, wildcards, header overrides), RBAC scope
-  resolution + vocabulary validation, OIDC provider-id guards
-- `bun run test:e2e` — Playwright (32 tests, desktop + 390px mobile projects):
-  auth gates, oRPC wire, H1 takeover guard, scoped-key narrowing, proxy
-  pipeline + access log, admin UI login/CRUD/realtime/mobile. Boots a built
-  server + deterministic upstream (`tests/e2e/upstream.mjs`) automatically
-
 ### Forwarding
 
 Add a route in the admin UI (or via the `routes.save` procedure at `POST /rpc/routes/save`):
