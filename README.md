@@ -20,6 +20,8 @@ or when you want a stable public hostname in front of changing backends.
 
 ## Quick start
 
+### Docker
+
 ```bash
 docker run -d \
   --name pathbridge \
@@ -27,6 +29,29 @@ docker run -d \
   -v pb-data:/data \
   ghcr.io/namhtpyn/pathbridge
 ```
+
+### Docker Compose
+
+```yaml
+services:
+  pathbridge:
+    image: ghcr.io/namhtpyn/pathbridge
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      BETTER_AUTH_SECRET: "change-me-to-a-long-random-string"
+      # ADMIN_EMAIL: "admin@example.com"      # optional, first boot only
+      # ADMIN_PASSWORD: "a-strong-password"    # optional, first boot only
+    volumes:
+      - pb-data:/data
+
+volumes:
+  pb-data:
+```
+
+Save as `compose.yaml` and run `docker compose up -d`. To upgrade later:
+`docker compose pull && docker compose up -d`.
 
 Open `http://localhost:3000/admin` and sign in with the seeded admin:
 
