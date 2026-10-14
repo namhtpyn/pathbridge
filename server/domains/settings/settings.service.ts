@@ -28,7 +28,11 @@ const DEFAULTS: AppSettings = {
   logRetentionDays: 30,
 }
 
-function coerce(raw: string | undefined, key: keyof AppSettings) {
+// explicit return union: inferred type would keep `undefined` widened per-branch and
+// defeat `out[key] = v` narrowing below (AGENTS law: lossy-inference exception)
+type SettingValue = boolean | number | string
+
+function coerce(raw: string | undefined, key: keyof AppSettings): SettingValue | undefined {
   if (raw === undefined) return undefined
   switch (key) {
     case 'disablePasswordLogin': return raw === 'true'
@@ -43,12 +47,15 @@ function coerce(raw: string | undefined, key: keyof AppSettings) {
 export async function getSettings() {
   const rows = await (await getDb()).query.settings.findMany()
   const out = { ...DEFAULTS }
-  const KEYS = Object.keys(DEFAULTS) as Array<keyof AppSettings>
   for (const row of rows) {
-    const key = KEYS.find(k => k === row.key)
-    if (!key) continue
-    const v = coerce(row.value, key)
-    if (v !== undefined) out[key] = v
+    const v = coerce(row.value, row.key as keyof AppSettings)
+    if (v === undefined) continue
+    if (typeof v === 'boolean') out.disablePasswordLogin = v
+    else if (typeof v === 'number') out.logRetentionDays = v
+    else if (row.key === 'oidcProviders') out.oidcProviders = v
+    else if (row.key === 'oidcIssuer') out.oidcIssuer = v
+    else if (row.key === 'oidcClientId') out.oidcClientId = v
+    else if (row.key === 'oidcClientSecret') out.oidcClientSecret = v
   }
   return out
 }

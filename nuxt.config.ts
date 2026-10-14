@@ -21,6 +21,9 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-01-01',
   nitro: {
     compatibilityDate: '2026-01-01',
+    // bun preset: we run on bun + bun:sqlite — the default preset can mis-bundle
+    // Bun-specific package exports (bun.com/guides/ecosystem/nuxt)
+    preset: 'bun',
     experimental: { openAPI: false },
   },
   app: {

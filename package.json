@@ -5,7 +5,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "nuxt dev",
+    "dev": "bun --bun run nuxt dev",
     "build": "nuxt build",
     "start": "bun .output/server/index.mjs",
     "typecheck": "bunx vue-tsc --noEmit -p tsconfig.json",
