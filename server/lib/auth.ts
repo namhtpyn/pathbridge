@@ -32,14 +32,14 @@ export interface AuthPolicy {
 }
 
 /** Settings-first, env-fallback policy resolution. */
-export async function resolveAuthPolicy(): Promise<AuthPolicy> {
+export async function resolveAuthPolicy() {
   const s = await getSettings()
   const providers = await getOidcProviders()
   const oidcEnabled = providers.length > 0
   const passwordEnabled = !(oidcEnabled && (s.disablePasswordLogin || env.OIDC_DISABLED_PASSWORD_LOGIN === 'true'))
   return { passwordEnabled, oidcEnabled, oidcProviders: providers }
 }
-export async function anyUserExists(): Promise<boolean> {
+export async function anyUserExists() {
   return await db.query.user.findFirst({ columns: { id: true } }).then(r => r != null)
 }
 
@@ -76,13 +76,13 @@ interface Auth {
 let instance: Auth | null = null
 let builtWith = ''
 
-function policyKey(p: AuthPolicy): string {
+function policyKey(p: AuthPolicy) {
   // everything that feeds betterAuth() config — a stale instance would keep
   // serving the old OIDC secret. In-memory only; never logged.
   return JSON.stringify([p.oidcProviders.map(x => [x.id, x.issuer, x.clientId, x.clientSecret]), p.passwordEnabled])
 }
 
-async function buildAuth(): Promise<Auth> {
+async function buildAuth() {
   const p = await resolveAuthPolicy()
   builtWith = policyKey(p)
   // single justified cast: the plugin-heavy Auth<...> return is structurally
@@ -171,7 +171,7 @@ async function buildAuth(): Promise<Auth> {
 }
 
 /** Lazily-built auth instance; auto-rebuilds when the policy changed. */
-export async function getAuth(): Promise<Auth> {
+export async function getAuth() {
   const p = await resolveAuthPolicy()
   const key = policyKey(p)
   if (!instance || key !== builtWith) {
@@ -181,7 +181,7 @@ export async function getAuth(): Promise<Auth> {
 }
 
 /** Force an immediate rebuild after Settings writes. */
-export async function rebuildAuth(): Promise<void> {
+export async function rebuildAuth() {
   instance = await buildAuth()
 }
 

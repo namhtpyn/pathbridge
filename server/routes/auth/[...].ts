@@ -3,12 +3,12 @@
 import { resolveAuthPolicy, anyUserExists, getAuth } from '../../lib/auth'
 import type { H3Event } from 'h3'
 
-function headerValue(v: string | string[] | undefined): string | undefined {
+function headerValue(v: string | string[] | undefined) {
   if (v === undefined) return undefined
   return Array.isArray(v) ? v[0] : v
 }
 
-function buildIncomingRequest(event: H3Event, body: ArrayBuffer | undefined): Request {
+function buildIncomingRequest(event: H3Event, body: ArrayBuffer | undefined) {
   const headers = event.node.req.headers
   const host = headers.host ?? 'localhost'
   const proto = headerValue(headers['x-forwarded-proto']) ?? 'http'

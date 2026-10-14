@@ -15,7 +15,7 @@ import type { RouteRow } from '../../../shared/types'
 import { publishChange } from '../change-bus'
 
 /** Build a minimal H3 event so permission helpers resolve auth from headers. */
-export function eventFor(headers: Headers): H3Event {
+export function eventFor(headers: Headers) {
   // h3 v1: node req + headers; the permission path only reads
   // event.node.req.headers — synthesize exactly that surface.
   const raw: Record<string, string | string[]> = {}
@@ -25,7 +25,7 @@ export function eventFor(headers: Headers): H3Event {
   } as unknown as H3Event
 }
 
-async function listRoutes(): Promise<RouteRow[]> {
+async function listRoutes() {
   return await db.query.routes.findMany({ orderBy: { path: 'asc' } }) as RouteRow[]
 }
 

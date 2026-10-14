@@ -9,7 +9,7 @@ import { toolListRoutes, toolUpsertRoute, toolUpdateRouteById, toolDeleteRoute, 
 import { requireSession } from '../../lib/session'
 
 // stateless mode: one transport per request, no session store
-async function handle(event: H3Event): Promise<void> {
+async function handle(event: H3Event) {
   // authenticate BEFORE building the server; 401s surface as HTTP, not tool errors
   await requireSession(event)
 

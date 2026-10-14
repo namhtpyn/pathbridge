@@ -25,6 +25,11 @@ If you add/rename/remove an endpoint, procedure, field, env var, permission, or 
 - Backend re-validates everything with strict zod; frontend validation is UX only.
 - Verify before commit: typecheck + build + browser E2E (desktop AND 390px mobile) — probe the artifact, never trust recall.
 - bun-only toolchain; dependencies pinned exact.
+- Do NOT explicitly annotate return types unless absolutely necessary — let TypeScript
+  infer them. Annotate returns only when inference is wrong/lossy (e.g. widening a
+  union for a public API) or when a type annotation is load-bearing (type predicates,
+  `satisfies`, generic constraints). Unnecessary `: SomeType` on returns is drift
+  waiting to happen: the annotation silently goes stale when the body changes.
 
 ## Backend module structure
 - NEVER name a server dir `modules/` — nitro auto-scans `<scanDir>/modules/**` as NITRO

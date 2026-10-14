@@ -20,7 +20,7 @@ interface MatchedRoute {
 }
 
 /** Match: /hook exact; /hook/* subtree. */
-function routeMatches(routePath: string, reqPath: string): boolean {
+function routeMatches(routePath: string, reqPath: string) {
   if (routePath.endsWith('/*')) {
     const base = routePath.slice(0, -2) // "/hook"
     return reqPath === base || reqPath.startsWith(`${base}/`)
@@ -29,7 +29,7 @@ function routeMatches(routePath: string, reqPath: string): boolean {
 }
 
 /** Wildcard routes only — strip the base prefix, keep the remainder. */
-function strip(routePath: string, reqPath: string): string {
+function strip(routePath: string, reqPath: string) {
   const base = routePath.slice(0, -2) // "/hook"
   if (reqPath === base) return '/'
   return reqPath.slice(base.length) // keeps leading "/"

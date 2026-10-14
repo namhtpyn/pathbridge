@@ -24,7 +24,7 @@ export const changeBus = new MemoryPublisher<Events>({
 export async function publishChange(
   resource: ChangeEvent['resource'],
   action: ChangeEvent['action'],
-): Promise<void> {
+) {
   seq += 1
   await changeBus.publish('change', {
     id: `${Date.now()}-${seq}`,

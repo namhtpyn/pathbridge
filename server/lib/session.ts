@@ -7,7 +7,7 @@ import { db } from '../db'
 
 export type AppSession = Session
 
-export async function requireSession(event: H3Event): Promise<AppSession> {
+export async function requireSession(event: H3Event) {
   // node's IncomingHttpHeaders -> standard Headers
   const headers = new Headers()
   for (const [k, v] of Object.entries(event.node.req.headers)) {

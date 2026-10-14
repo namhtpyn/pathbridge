@@ -28,7 +28,7 @@ const DEFAULTS: AppSettings = {
   logRetentionDays: 30,
 }
 
-function coerce(raw: string | undefined, key: keyof AppSettings): string | number | boolean | undefined {
+function coerce(raw: string | undefined, key: keyof AppSettings) {
   if (raw === undefined) return undefined
   switch (key) {
     case 'disablePasswordLogin': return raw === 'true'
@@ -40,7 +40,7 @@ function coerce(raw: string | undefined, key: keyof AppSettings): string | numbe
   }
 }
 
-export async function getSettings(): Promise<AppSettings> {
+export async function getSettings() {
   const rows = await (await getDb()).query.settings.findMany()
   const out = { ...DEFAULTS }
   const KEYS = Object.keys(DEFAULTS) as Array<keyof AppSettings>
@@ -53,7 +53,7 @@ export async function getSettings(): Promise<AppSettings> {
   return out
 }
 
-export async function setSetting(key: keyof AppSettings, value: string | number | boolean): Promise<void> {
+export async function setSetting(key: keyof AppSettings, value: string | number | boolean) {
   await (await getDb()).insert(settings).values({ key, value: String(value), updatedAt: new Date().toISOString() })
     .onConflictDoUpdate({ target: settings.key, set: { value: String(value), updatedAt: new Date().toISOString() } })
 }

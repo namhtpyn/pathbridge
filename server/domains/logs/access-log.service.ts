@@ -30,7 +30,7 @@ export function recordAccess(entry: {
   durationMs: number
   clientIp: string | null
   userAgent: string | null
-}): void {
+}) {
   // fire-and-forget; log failure must never break proxying
   void getDb().then(db => db.insert(accessLog).values(entry)
     .then(() => publishChange('logs', 'create'))
@@ -38,7 +38,7 @@ export function recordAccess(entry: {
     .catch(() => {})
 }
 
-export async function queryAccessLog(opts: { limit?: number, routeId?: number, beforeId?: number }): Promise<AccessLogRow[]> {
+export async function queryAccessLog(opts: { limit?: number, routeId?: number, beforeId?: number }) {
   const limit = Math.min(opts.limit ?? 100, 1000)
   const conditions: SQL[] = []
   if (opts.routeId !== undefined) conditions.push(eq(accessLog.routeId, opts.routeId))
@@ -50,7 +50,7 @@ export async function queryAccessLog(opts: { limit?: number, routeId?: number, b
   return rows as AccessLogRow[]
 }
 
-export async function purgeOldLogs(): Promise<number> {
+export async function purgeOldLogs() {
   const s = await getSettings()
   if (s.logRetentionDays <= 0) return 0
   const cutoff = new Date(Date.now() - s.logRetentionDays * 86400_000).toISOString()
@@ -59,7 +59,7 @@ export async function purgeOldLogs(): Promise<number> {
 }
 
 // start sweeper (6h interval; first run after 1 min). unref'd so bun exits freely.
-export function startLogSweeper(): void {
+export function startLogSweeper() {
   const t = setTimeout(() => { purgeOldLogs().catch(() => {}) }, 60_000)
   t.unref?.()
   const i = setInterval(() => { purgeOldLogs().catch(() => {}) }, 6 * 3600_000)

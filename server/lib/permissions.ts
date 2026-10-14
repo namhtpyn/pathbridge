@@ -49,7 +49,7 @@ export type RoleRow = {
 }
 
 /** All role rows from the DB (source of truth). */
-export async function listRoles(): Promise<RoleRow[]> {
+export async function listRoles() {
   const rows = await db.query.roles.findMany()
   return rows.map(r => ({
     id: r.id,
@@ -62,7 +62,7 @@ export async function listRoles(): Promise<RoleRow[]> {
 
 /** Validate a statements payload against the static vocabulary.
  *  Returns error message or null. Used by the roles API (strict backend). */
-export function validateStatements(stmts: unknown): string | null {
+export function validateStatements(stmts: unknown) {
   if (typeof stmts !== 'object' || stmts === null || Array.isArray(stmts)) return 'statements must be an object'
   const map = stmts as Record<string, unknown>
   for (const [resource, actions] of Object.entries(map)) {
@@ -93,7 +93,7 @@ export type ResolvedUser = {
 }
 
 /** Resolve a user's effective permissions from their roles. */
-export async function resolveUser(user: { id: string, email: string, role: string }): Promise<ResolvedUser> {
+export async function resolveUser(user: { id: string, email: string, role: string }) {
   const names = user.role.split(',').map(s => s.trim()).filter(Boolean)
   const all = await listRoles()
   const grants = new Map<Resource, Set<string>>()
@@ -114,7 +114,7 @@ export async function resolveUser(user: { id: string, email: string, role: strin
 
 /** Pure check against resolved grants. Scope omitted = any scope.
  *  "action:all" satisfies "action:own". */
-export function userCan(u: ResolvedUser, resource: Resource, action: Action, scope?: Scope): boolean {
+export function userCan(u: ResolvedUser, resource: Resource, action: Action, scope?: Scope) {
   const set = u.grants.get(resource)
   if (!set) return false
   if (scope) {
@@ -128,7 +128,7 @@ export function userCan(u: ResolvedUser, resource: Resource, action: Action, sco
 // ---- enforcement -----------------------------------------------------------
 
 /** Thrown as H3 403 with the missing permission named. */
-function forbidden(resource: Resource, statement: string): never {
+function forbidden(resource: Resource, statement: string) {
   throw createError({
     statusCode: 403,
     statusMessage: `Forbidden: missing permission ${resource}:${statement}`,
@@ -138,7 +138,7 @@ function forbidden(resource: Resource, statement: string): never {
 export type AppSessionLike = Awaited<ReturnType<typeof requireSession>>
 
 /** Authenticated user with resolved permissions. */
-export async function requireUser(event: H3Event): Promise<{ session: AppSessionLike, user: ResolvedUser }> {
+export async function requireUser(event: H3Event) {
   const session = await requireSession(event)
   const role = (session.user as unknown as { role?: string | null }).role ?? 'viewer'
   let user = await resolveUser({ id: session.user.id, email: session.user.email, role })

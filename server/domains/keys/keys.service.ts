@@ -7,7 +7,7 @@ const getDb = async () => (await import('../../db')).db
 import { apiKey as apiKeyTable } from '../../db/schema'
 
 /** parse stored key permissions (plain or double-JSON-encoded) */
-export function parseKeyPermissions(raw: string | null | undefined): Record<string, string[]> | null {
+export function parseKeyPermissions(raw: string | null | undefined) {
   if (!raw) return null
   try {
     const parsed = JSON.parse(raw)

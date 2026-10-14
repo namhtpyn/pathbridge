@@ -41,7 +41,7 @@ export const withPerm = (resource: Resource, action: Action) =>
     return next()
   })
 
-export function buildServerContext(headers: Headers | undefined): ServerContext {
+export function buildServerContext(headers: Headers | undefined) {
   const getSessionUser = once(async (): Promise<ResolvedUser | null> => {
     // requireUser resolves BOTH cookie sessions and Bearer API keys (with
     // key narrowing) — the single shared auth path used by oRPC and MCP.
@@ -91,7 +91,7 @@ export function notFound(message = 'not found'): never {
 }
 
 /** Read-scope resolution: 'all' | 'own' for an ownable resource. */
-export async function readScopeOf(user: ResolvedUser, resource: 'routes' | 'logs'): Promise<'all' | 'own' | null> {
+export async function readScopeOf(user: ResolvedUser, resource: 'routes' | 'logs') {
   const { userCan } = await import('../../lib/permissions')
   if (userCan(user, resource, 'read', 'all')) return 'all'
   if (userCan(user, resource, 'read', 'own')) return 'own'
@@ -113,7 +113,7 @@ export async function* liveGenerator<T>(resources: ChangeEvent['resource'][], fe
 }
 
 /** STATEMENTS as a plain mutable Record (wire-friendly, client-friendly) */
-export async function vocabularyOut(): Promise<Record<string, string[]>> {
+export async function vocabularyOut() {
   const { STATEMENTS } = await import('../../lib/permissions')
   return Object.fromEntries(Object.entries(STATEMENTS).map(([k, v]) => [k, [...v]]))
 }

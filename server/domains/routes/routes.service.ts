@@ -11,12 +11,12 @@ import { routes as routesTable } from '../../db/schema'
 import type { RouteRow } from '../../../shared/types'
 
 /** Normalize a target URL: keep origin+path, strip trailing slashes. */
-export function normalizeTarget(target: string): string {
+export function normalizeTarget(target: string) {
   const u = new URL(target) // schema guaranteed http(s), no query/hash
   return u.pathname === '/' ? u.origin : `${u.origin}${u.pathname}`.replace(/\/+$/, '')
 }
 
-export async function listRoutes(user: ResolvedUser): Promise<RouteRow[]> {
+export async function listRoutes(user: ResolvedUser) {
   const scope = await readScopeOf(user, 'routes')
   const rows = scope === 'own'
     ? await (await getDb()).query.routes.findMany({ where: { userId: user.userId }, orderBy: { path: 'asc' } })
@@ -24,7 +24,7 @@ export async function listRoutes(user: ResolvedUser): Promise<RouteRow[]> {
   return rows as RouteRow[]
 }
 
-export async function countRoutes(user: ResolvedUser): Promise<number> {
+export async function countRoutes(user: ResolvedUser) {
   const scope = await readScopeOf(user, 'routes')
   const rows = scope === 'own'
     ? await (await getDb()).query.routes.findMany({ where: { userId: user.userId }, columns: { id: true } })

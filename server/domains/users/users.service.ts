@@ -19,7 +19,7 @@ export interface AdminUserView {
   oidcLinked: boolean
 }
 
-export async function listUsers(): Promise<AdminUserView[]> {
+export async function listUsers() {
   const users = await (await getDb()).query.user.findMany({ orderBy: (u, { asc }) => asc(u.createdAt) })
   const accounts = await (await getDb()).query.account.findMany()
   const sessions = await (await getDb()).query.session.findMany()
@@ -39,7 +39,7 @@ export async function listUsers(): Promise<AdminUserView[]> {
   })
 }
 
-export async function createUser(email: string, name: string, password: string, role = 'viewer', emailVerified = true): Promise<void> {
+export async function createUser(email: string, name: string, password: string, role = 'viewer', emailVerified = true) {
   const id = uuidv7()
   const now = new Date()
   const hash = await hashPassword(password)
@@ -62,7 +62,7 @@ export async function createUser(email: string, name: string, password: string, 
   })
 }
 
-export async function updateUser(id: string, patch: { name?: string, email?: string, emailVerified?: boolean, role?: string }): Promise<void> {
+export async function updateUser(id: string, patch: { name?: string, email?: string, emailVerified?: boolean, role?: string }) {
   const sets: Record<string, unknown> = { updatedAt: new Date() }
   if (patch.name !== undefined) sets.name = patch.name
   if (patch.email !== undefined) sets.email = patch.email
@@ -71,13 +71,13 @@ export async function updateUser(id: string, patch: { name?: string, email?: str
   await (await getDb()).update(user).set(sets).where(eqUser(id))
 }
 
-export async function deleteUser(id: string): Promise<void> {
+export async function deleteUser(id: string) {
   await (await getDb()).delete(sessionTable).where(eqSessionUser(id))
   await (await getDb()).delete(account).where(eqAccountUser(id))
   await (await getDb()).delete(user).where(eqUser(id))
 }
 
-export async function setPassword(id: string, password: string): Promise<void> {
+export async function setPassword(id: string, password: string) {
   const hash = await hashPassword(password)
   const rows = await (await getDb()).query.account.findMany()
   const cred = rows.find(a => a.userId === id && a.providerId === 'credential')
