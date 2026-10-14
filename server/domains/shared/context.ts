@@ -30,10 +30,12 @@ export const withUser = base.middleware(async ({ context, next }) => {
   return next({ context: { user } })
 })
 
-export const withPerm = (resource: string, action: string) =>
+import type { Resource, Action } from '../../lib/permissions'
+
+export const withPerm = (resource: Resource, action: Action) =>
   base.use(withUser).middleware(async ({ context, next }) => {
     const { userCan } = await import('../../lib/permissions')
-    if (!userCan(context.user, resource as never, action as never)) {
+    if (!userCan(context.user, resource, action)) {
       throw new ORPCError('FORBIDDEN', { message: `missing permission ${resource}:${action}` })
     }
     return next()

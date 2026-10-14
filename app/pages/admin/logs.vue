@@ -96,7 +96,7 @@ const logColumns: TableColumn<LogRow>[] = [
 // pauses the tail and pages history with a beforeId cursor (browsing history
 // older than the tail window); a reload/clear-filter resumes the live tail.
 const logsSnapshot = useQuery({
-  ...($orpc as any).logs.recent.queryOptions({ input: { limit: pageSize } }),
+  ...$orpc.logs.recent.queryOptions({ input: { limit: pageSize } }),
   enabled: computed(() => can('logs', 'read')),
 })
 // history-paging state — declared BEFORE logsLive: its enabled computed reads
@@ -106,7 +106,7 @@ const paging = ref(false)
 const paged = ref<LogRow[]>([])
 const hasMore = ref(true)
 const logsLive = useQuery({
-  ...($orpc as any).logs.tail.liveOptions({ input: { limit: pageSize } }),
+  ...$orpc.logs.tail.liveOptions({ input: { limit: pageSize } }),
   enabled: computed(() => import.meta.client && can('logs', 'read') && filterRouteId.value === null && !paging.value),
 })
 const liveEntries = computed(() => {

@@ -21,6 +21,8 @@ export interface RouteRow {
   /** Free-form note shown in the UI. */
   note: string | null
   enabled: boolean
+  /** Owner (null = system-owned legacy rows). Present on API output; not a form field. */
+  userId: string | null
   createdAt: string
   updatedAt: string
 }

@@ -43,9 +43,12 @@ function coerce(raw: string | undefined, key: keyof AppSettings): string | numbe
 export async function getSettings(): Promise<AppSettings> {
   const rows = await (await getDb()).query.settings.findMany()
   const out = { ...DEFAULTS }
+  const KEYS = Object.keys(DEFAULTS) as Array<keyof AppSettings>
   for (const row of rows) {
-    const v = coerce(row.value, row.key as keyof AppSettings)
-    if (v !== undefined) out[row.key as keyof AppSettings] = v as never
+    const key = KEYS.find(k => k === row.key)
+    if (!key) continue
+    const v = coerce(row.value, key)
+    if (v !== undefined) out[key] = v
   }
   return out
 }

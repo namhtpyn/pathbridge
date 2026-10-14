@@ -21,7 +21,7 @@ export async function listRoutes(user: ResolvedUser): Promise<RouteRow[]> {
   const rows = scope === 'own'
     ? await (await getDb()).query.routes.findMany({ where: { userId: user.userId }, orderBy: { path: 'asc' } })
     : await (await getDb()).query.routes.findMany({ orderBy: { path: 'asc' } })
-  return rows as unknown as RouteRow[]
+  return rows as RouteRow[]
 }
 
 export async function countRoutes(user: ResolvedUser): Promise<number> {

@@ -210,7 +210,7 @@ const toast = useToast()
 const { $orpc, $client } = useNuxtApp()
 
 // ---------- realtime routes via oRPC live query ----------
-const routesQuery = useQuery(($orpc as any).routes.live.liveOptions())
+const routesQuery = useQuery($orpc.routes.live.liveOptions())
 const routes = computed(() => (unref(routesQuery.data) ?? []) as RouteRow[])
 // live queries need no invalidation — but mutations via REST should also refresh cache
 // (SSE pushes handle it; this is belt-and-braces for offline SSE)

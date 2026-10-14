@@ -78,15 +78,18 @@ export async function useAdminSession() {
   else {
     const authClient = useAuth()
     const { data: ssrSession } = await authClient.useSession(useFetch)
+    // better-auth infers its own session shape (Date expiresAt) — adapt once, here
+    const toPayload = (s: { user: { id: string, name?: string | null, email: string }, session: { expiresAt: Date | string } } | null): SessionPayload | null =>
+      s ? { user: s.user, session: { expiresAt: String(s.session.expiresAt) } } : null
     if (ssrSession.value) {
-      session.value = ssrSession.value as unknown as SessionPayload
+      session.value = toPayload(ssrSession.value)
       if (!booted.value) {
         await loadPerms()
         booted.value = true
       }
     }
-    watch(() => ssrSession.value, (s) => {
-      session.value = (s ?? null) as unknown as SessionPayload | null
+    watch(() => ssrSession.value, s => {
+      session.value = toPayload(s ?? null)
     })
   }
 

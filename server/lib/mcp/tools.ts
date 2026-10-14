@@ -26,7 +26,7 @@ export function eventFor(headers: Headers): H3Event {
 }
 
 async function listRoutes(): Promise<RouteRow[]> {
-  return await db.query.routes.findMany({ orderBy: { path: 'asc' } }) as unknown as RouteRow[]
+  return await db.query.routes.findMany({ orderBy: { path: 'asc' } }) as RouteRow[]
 }
 
 // routeInputSchema carries refinements (stripPrefix/wildcard) so .omit() is
@@ -64,7 +64,7 @@ export async function toolListRoutes(headers: Headers) {
   // read:all sees everything; read:own only their routes
   const grants = user.grants.get('routes') ?? new Set<string>()
   if (grants.has('read:all')) return { routes: all }
-  return { routes: all.filter(p => (p as unknown as { userId?: string }).userId === user.userId) }
+  return { routes: all.filter(p => p.userId === user.userId) }
 }
 
 export async function toolUpsertRoute(headers: Headers, input: unknown) {

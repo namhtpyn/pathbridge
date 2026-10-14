@@ -130,7 +130,7 @@ async function loadVersionSafe() {
 // on mutations and goes stale.
 const { $orpc } = useNuxtApp()
 const routeCountQuery = useQuery({
-  ...($orpc as any).routes.live.liveOptions(),
+  ...$orpc.routes.live.liveOptions(),
   enabled: computed(() => can('routes', 'read')),
 })
 const activeRouteCount = computed(() => ((unref(routeCountQuery.data) as RouteRow[] | undefined) ?? []).length)

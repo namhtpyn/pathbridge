@@ -47,7 +47,7 @@ export async function queryAccessLog(opts: { limit?: number, routeId?: number, b
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(accessLog.id))
     .limit(limit)
-  return rows as unknown as AccessLogRow[]
+  return rows as AccessLogRow[]
 }
 
 export async function purgeOldLogs(): Promise<number> {
