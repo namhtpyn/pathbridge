@@ -6,7 +6,8 @@
   "private": true,
   "scripts": {
     "dev": "bun --bun run nuxt dev",
-    "build": "nuxt build",
+    "prepare": "bunx --bun nuxt prepare",
+    "build": "bunx --bun nuxt build",
     "start": "bun .output/server/index.mjs",
     "typecheck": "bunx vue-tsc --noEmit -p tsconfig.json",
     "test:unit": "bunx --bun vitest run",
