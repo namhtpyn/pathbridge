@@ -1,3 +1,10 @@
+## [6.4.1](https://github.com/namhtpyn/pathbridge/compare/v6.4.0...v6.4.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **docker:** trigger release for bun preset + non-root runtime batch ([67d41d2](https://github.com/namhtpyn/pathbridge/commit/67d41d2f78aea40060305d44e0cf22dbd61b15f3))
+
 # [6.4.0](https://github.com/namhtpyn/pathbridge/compare/v6.3.2...v6.4.0) (2026-10-12)
 
 
