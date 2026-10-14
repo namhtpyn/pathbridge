@@ -5,7 +5,7 @@ const getDb = async () => (await import('../../db')).db
 // lazy: nuxt prepare (jiti/Node) must not statically reach bun:sqlite
 import { accessLog } from '../../db/schema'
 import { getSettings } from '../settings/settings.service'
-import { lt, desc, eq, and, type SQL } from 'drizzle-orm'
+import { lt, desc, eq, and, gt, asc, type SQL } from 'drizzle-orm'
 import { publishChange } from '../../lib/change-bus'
 
 export interface AccessLogRow {
@@ -19,6 +19,16 @@ export interface AccessLogRow {
   durationMs: number
   clientIp: string | null
   userAgent: string | null
+}
+
+/** delta query: entries STRICTLY AFTER a cursor id, ascending (client prepends) */
+export async function queryAccessLogAfter(afterId: number, limit: number, routeId?: number) {
+  const db = await getDb()
+  const rows = await db.select().from(accessLog)
+    .where(routeId === undefined ? gt(accessLog.id, afterId) : gt(accessLog.id, afterId) && eq(accessLog.routeId, routeId))
+    .orderBy(asc(accessLog.id))
+    .limit(limit) as unknown as AccessLogRow[]
+  return rows
 }
 
 export function recordAccess(entry: {

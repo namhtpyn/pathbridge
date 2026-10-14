@@ -6,11 +6,13 @@
         <p class="text-sm text-zinc-500">
           <template v-if="filterPath">Filtered by route <code class="rounded bg-primary/5 px-1 py-0.5 font-mono text-xs text-primary">{{ filterPath }}</code></template>
           <template v-else>All forwarded traffic</template>
-          · <span class="inline-flex items-center gap-1"><span class="relative flex size-1.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" /></span>live tail</span>
+          <span v-if="liveEnabled" class="inline-flex items-center gap-1">· <span class="relative flex size-1.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" /></span>live tail</span>
+          <span v-else class="inline-flex items-center gap-1">· <span class="inline-flex size-1.5 rounded-full bg-zinc-400" /><span class="text-zinc-400">paused</span></span>
         </p>
       </div>
       <div class="flex items-center gap-2 self-end sm:self-auto">
         <UButton v-if="filterPath" variant="outline" color="neutral" icon="i-lucide-x" label="Clear filter" @click="clearFilter" />
+        <USwitch v-model="liveEnabled" size="sm" label="Live" :aria-label="'Live log tail toggle'" />
         <UButton icon="i-lucide-refresh-cw" variant="outline" color="neutral" label="Refresh" :loading="logsSnapshot.isFetching.value" @click="logsSnapshot.refetch()" />
       </div>
     </div>
@@ -58,9 +60,6 @@
       <div v-if="entries.length >= pageSize && hasMore" class="flex justify-center border-t border-zinc-100 py-3 dark:border-zinc-800/60">
         <UButton variant="soft" color="neutral" size="sm" label="Load more" :loading="olderBusy" @click="loadMore" />
       </div>
-      <div v-else-if="paging" class="flex justify-center border-t border-zinc-100 py-3 dark:border-zinc-800/60">
-        <UButton variant="outline" color="neutral" size="sm" icon="i-lucide-radio" label="Resume live tail" @click="resumeLive" />
-      </div>
     </UCard>
   </div>
 </template>
@@ -99,28 +98,53 @@ const logsSnapshot = useQuery({
   ...$orpc.logs.recent.queryOptions({ input: { limit: pageSize } }),
   enabled: computed(() => can('logs', 'read')),
 })
-// history-paging state — declared BEFORE logsLive: its enabled computed reads
-// paging.value and vue-query evaluates options synchronously during SSR
-// (use-before-declare = TDZ 500 on the server)
-const paging = ref(false)
-const paged = ref<LogRow[]>([])
-const hasMore = ref(true)
+// merged live list: deltas from the SSE tail PREPEND and the oldest rows fall off
+// the bottom so the list stays at whatever the user has loaded (50 by default,
+// +50 per Load more). Load more cursor-pages BELOW the visible window with
+// logs.recent — and the live tail KEEPS RUNNING while paging (one list, one rule:
+// newest on top, oldest evicted, no mode switch, no Resume button).
+const liveEnabled = ref(true)
 const logsLive = useQuery({
   ...$orpc.logs.tail.liveOptions({ input: { limit: pageSize } }),
-  enabled: computed(() => import.meta.client && can('logs', 'read') && filterRouteId.value === null && !paging.value),
+  enabled: computed(() => import.meta.client && liveEnabled.value && can('logs', 'read') && filterRouteId.value === null),
 })
+const merged = ref<LogRow[]>([])
+const seen = ref(new Set<number>())
+// how many rows the merged list may hold: window + everything Load more added
+const loaded = ref(1) // in pages: 1 = the initial window
+const maxKeep = computed(() => pageSize * loaded.value)
+
+// single write path — always caps and re-syncs the seen-set (concurrent deltas
+// and Load-more appends must interleave through ONE mutator, never stale spreads)
+function applyRows(rows: LogRow[], mode: 'reset' | 'prepend' | 'append') {
+  const next = mode === 'reset'
+    ? rows.slice()
+    : mode === 'prepend'
+      ? [...rows.filter(e => !seen.value.has(e.id)), ...merged.value]
+      : [...merged.value, ...rows.filter(e => !seen.value.has(e.id))]
+  merged.value = next.slice(0, maxKeep.value)
+  seen.value = new Set(merged.value.map(e => e.id))
+}
+
+watch(() => unref(logsLive.data), (d) => {
+  const payload = d as { entries: LogRow[], reset: boolean } | undefined
+  if (!payload) return
+  if (!liveEnabled.value && merged.value.length) return // paused: freeze — ignore ALL payloads once we have a list
+  applyRows(payload.entries, payload.reset ? 'reset' : 'prepend')
+}, { immediate: true })
+
 const liveEntries = computed(() => {
-  const live = (unref(logsLive.data) as { entries: LogRow[] } | undefined)?.entries
-  if (live) return live
+  if (merged.value.length) return merged.value
   return ((unref(logsSnapshot.data) as { entries: LogRow[] } | undefined)?.entries ?? []) as LogRow[]
 })
 
-// history paging (filter mode pages one route; unfiltered pages below the tail)
+// filter mode stays a paged, non-live list over one route
 const older = ref<LogRow[]>([])
 const olderBusy = ref(false)
+const hasMore = ref(true)
 const entries = computed(() => {
   if (filterRouteId.value) return older.value
-  return paging.value ? paged.value : liveEntries.value
+  return liveEntries.value
 })
 
 watch(filterRouteId, loadFiltered, { immediate: true })
@@ -145,31 +169,23 @@ async function loadMore() {
     const r = await useNuxtApp().$client.logs.recent({ limit: params.limit, routeId: params.routeId, beforeId: params.beforeId })
     older.value = [...older.value, ...r.entries as LogRow[]]
     hasMore.value = r.entries.length === pageSize
+    return
   }
-  else {
-    // pause the live tail and page history below its window
-    if (!paging.value) { paged.value = [...liveEntries.value]; paging.value = true }
-    const list = paged.value
-    const beforeCursor = list.length ? list[list.length - 1]!.id : undefined
-    const params: Record<string, number> = { limit: pageSize }
-    if (beforeCursor !== undefined) params.beforeId = beforeCursor
-    const r = await useNuxtApp().$client.logs.recent({ limit: params.limit, beforeId: params.beforeId })
-    paged.value = [...paged.value, ...r.entries as LogRow[]]
-    hasMore.value = r.entries.length === pageSize
-  }
+  // seed from whatever is visible if the tail hasn't delivered yet
+  if (!merged.value.length) merged.value = [...liveEntries.value]
+  const beforeCursor = merged.value.length ? merged.value[merged.value.length - 1]!.id : undefined
+  const params: Record<string, number> = { limit: pageSize }
+  if (beforeCursor !== undefined) params.beforeId = beforeCursor
+  const r = await useNuxtApp().$client.logs.recent({ limit: params.limit, beforeId: params.beforeId })
+  loaded.value++ // raise the cap BEFORE appending so history is never evicted by the append itself
+  applyRows(r.entries as LogRow[], 'append')
+  hasMore.value = r.entries.length === pageSize
 }
 
 function clearFilter() {
   filterRouteId.value = null
   filterPath.value = null
   navigateTo({ path: '/admin/logs', query: {} })
-}
-
-/** drop history paging and re-attach the live tail */
-function resumeLive() {
-  paging.value = false
-  paged.value = []
-  hasMore.value = true
 }
 
 function statusClass(status: number): string {

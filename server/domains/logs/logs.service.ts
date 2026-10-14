@@ -24,3 +24,20 @@ export async function queryLogsScoped(user: ResolvedUser, input: { limit?: numbe
   entries.sort((a, b) => b.id - a.id)
   return entries.slice(0, limit)
 }
+
+export async function queryLogsAfter(user: ResolvedUser, input: { afterId: number, limit?: number }) {
+  const { queryAccessLogAfter } = await import('./access-log.service')
+  const limit = input.limit ?? 100
+  if ((await readScopeOf(user, 'logs')) === 'all') {
+    return await queryAccessLogAfter(input.afterId, limit)
+  }
+  const own = await (await getDb()).query.routes.findMany({ where: { userId: user.userId }, columns: { id: true } })
+  const ownIds = new Set(own.map(p => p.id))
+  const entries: Array<{ id: number }> = []
+  for (const pid of ownIds) {
+    const batch = await queryAccessLogAfter(input.afterId, limit, pid) as Array<{ id: number }>
+    entries.push(...batch)
+  }
+  entries.sort((a, b) => a.id - b.id)
+  return entries.slice(-limit)
+}

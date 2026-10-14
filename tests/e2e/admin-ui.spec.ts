@@ -126,6 +126,70 @@ test('profile modal does not survive sign-out', async ({ page }) => {
   await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 10_000 })
 })
 
+// logs tail semantics (Nam's model, 2026-10-14): one merged list — deltas prepend,
+// oldest evicted, size stays at what the user loaded; Load more cursor-pages BELOW
+// the window WHILE THE TAIL KEEPS RUNNING (no mode switch, no Resume button)
+test('logs: live window stays at 50 as new traffic arrives (prepend + evict)', async ({ page }) => {
+  await uiLogin(page)
+  // seed history first — a fresh DB has no rows, and the window assert needs 50
+  await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/log-live'), target: 'http://127.0.0.1:4311' } } })
+  for (let i = 0; i < 55; i++) await page.request.get(uniq('/log-live'))
+  await page.goto('/admin/logs')
+  await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('table tbody tr')).toHaveCount(50, { timeout: 10_000 })
+
+  // 5 more arrive: prepend, list stays 50
+  for (let i = 0; i < 5; i++) await page.request.get(uniq('/log-live'))
+  await expect(page.locator('table tbody tr').first()).toContainText(uniq('/log-live'), { timeout: 15_000 })
+  await expect(page.locator('table tbody tr')).toHaveCount(50, { timeout: 15_000 })
+  await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/log-live') } } })
+})
+
+test('logs: Load more grows list to 100 and live keeps appending while paged', async ({ page }) => {
+  await uiLogin(page)
+  // seed 60+ rows of history BEFORE visiting
+  await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/log-page'), target: 'http://127.0.0.1:4311' } } })
+  for (let i = 0; i < 110; i++) await page.request.get(uniq('/log-page'))
+  await page.goto('/admin/logs')
+  await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('table tbody tr')).toHaveCount(50, { timeout: 10_000 })
+  await page.getByRole('button', { name: 'Load more' }).click()
+  await expect(page.locator('table tbody tr')).toHaveCount(100, { timeout: 15_000 })
+
+  // live continues WHILE paged: new traffic prepends and the list stays at 100
+  for (let i = 0; i < 5; i++) await page.request.get(uniq('/log-page'))
+  await expect(page.locator('table tbody tr').first()).toContainText(uniq('/log-page'), { timeout: 15_000 })
+  await expect(page.locator('table tbody tr')).toHaveCount(100, { timeout: 15_000 })
+  // and the Resume button is gone for good
+  await expect(page.getByRole('button', { name: 'Resume live tail' })).toHaveCount(0)
+  await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/log-page') } } })
+})
+
+// live toggle: switching Live OFF freezes the list (new traffic does NOT appear);
+// switching back ON re-subscribes and fresh traffic flows again
+test('logs: Live toggle pauses and resumes the tail', async ({ page }) => {
+  await uiLogin(page)
+  await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/log-tgl'), target: 'http://127.0.0.1:4311' } } })
+  await page.request.get(uniq('/log-tgl'))
+  await page.goto('/admin/logs')
+  await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10_000 })
+
+  // pause — the seed row is already in the list; new traffic must NOT grow it
+  const rowsAtPause = await page.locator('table tbody tr').count()
+  await page.getByRole('switch', { name: /live log tail toggle/i }).click()
+  await expect(page.getByText('paused', { exact: true })).toBeVisible({ timeout: 5_000 })
+  await page.waitForTimeout(1_500)
+  for (let i = 0; i < 3; i++) await page.request.get(uniq('/log-tgl'))
+  await page.waitForTimeout(3_000)
+  await expect(page.locator('table tbody tr')).toHaveCount(rowsAtPause, { timeout: 5_000 })
+
+  // resume — the tail reconnects and new traffic prepends
+  await page.getByRole('switch', { name: /live log tail toggle/i }).click()
+  for (let i = 0; i < 3; i++) await page.request.get(uniq('/log-tgl'))
+  await expect(page.locator('table tbody tr').first()).toContainText(uniq('/log-tgl'), { timeout: 15_000 })
+  await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/log-tgl') } } })
+})
+
 test.describe('admin shell', () => {
   test('login form → shell, session persists, sign-out works', async ({ page }) => {
     await page.goto('/admin')
