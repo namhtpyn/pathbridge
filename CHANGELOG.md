@@ -1,3 +1,10 @@
+# [6.5.0](https://github.com/namhtpyn/pathbridge/compare/v6.4.2...v6.5.0) (2026-10-14)
+
+
+### Features
+
+* **logs:** delta tail + always-live merged list + Live toggle (Nam's model) ([5d44311](https://github.com/namhtpyn/pathbridge/commit/5d443113aa10a5fc1f2d05a2be61aae80cbf3a33))
+
 ## [6.4.2](https://github.com/namhtpyn/pathbridge/compare/v6.4.1...v6.4.2) (2026-10-14)
 
 
