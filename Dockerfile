@@ -6,14 +6,15 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
-FROM oven/bun:latest AS runtime
+FROM oven/bun:1.4.2 AS runtime
 ARG APP_VERSION=dev
 WORKDIR /app
 ENV NODE_ENV=production DATA_DIR=/data APP_VERSION=${APP_VERSION}
 COPY --from=build /app/.output ./.output
 COPY --from=build /app/drizzle ./drizzle
 COPY --from=build /app/package.json ./package.json
-RUN mkdir -p /data
+RUN mkdir -p /data && chown -R bun:bun /data /app
+USER bun
 EXPOSE 3000
 # readiness probe: the runtime image ships no curl/wget — probe with bun's
 # fetch against /health/ready (liveness + DB reachable). ~2s grace at boot.
