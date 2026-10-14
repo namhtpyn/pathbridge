@@ -12,7 +12,9 @@
 developers working on it. It documents what the app does, its endpoints/env/config, and how to
 run it; it never contains internal architecture, refactor history, contributor workflow, or
 developer-only notes (those belong in SPEC.md / AGENTS.md). When touching README: update it
-with correct user-facing info ONLY, and keep it install-and-use shaped.
+with correct user-facing info ONLY, and keep it install-and-use shaped. No implementation
+jargon — users don't care that the app is built on oRPC, better-auth, drizzle, Nitro etc.;
+name the capability, not the library.
 
 If you add/rename/remove an endpoint, procedure, field, env var, permission, or UI convention, update the corresponding doc section in the same commit — then re-read the touched sections and check every claim against the actual code. If a doc names something that no longer exists (`grep` it), that is a bug: fix it or revert the claim. A release with drifted docs is not done.
 

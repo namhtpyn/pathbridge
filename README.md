@@ -10,8 +10,8 @@ or when you want a stable public hostname in front of changing backends.
 
 - **Path forwarding** — map `/prefix` → `https://api.example.com`, longest-prefix match wins
 - **Admin UI** — dashboard with sidebar navigation (`/admin`), manage everything at runtime, no rebuilds or restarts
-- **Realtime** — routes table and access-log tail update live (oRPC live queries over SSE); mutations from any client (UI, oRPC, MCP) push instantly
-- **oRPC** — typed RPC API at `/rpc` for first-party clients and the Admin UI; cookie-session or Bearer-key auth with full RBAC (incl. key narrowing)
+- **Realtime** — routes table and access-log tail update live in the admin UI
+- **API** — programmatic access at `/rpc` with the same permissions as the UI
 - **SSO** — one or more OIDC providers, per-provider login buttons
 - **Users & roles** — RBAC with a permission matrix; custom roles
 - **API keys** — programmatic access for scripts and agents
@@ -85,7 +85,7 @@ every 30s (readiness failures mark the container `unhealthy`).
 
 ### Forwarding
 
-Add a route in the admin UI (or via the `routes.save` procedure at `POST /rpc/routes/save`):
+Add a route in the admin UI (Routes → New route):
 
 ```json
 { "path": "/hook", "target": "https://api.example.com" }
@@ -95,23 +95,26 @@ Requests to `/hook*` are proxied to `https://api.example.com*`. Optional
 per-route settings: strip the prefix before forwarding, restrict HTTP methods,
 override the upstream Host header, add a note, disable.
 
-### oRPC (`/rpc`)
+### API (`/rpc`)
 
-First-party typed RPC (built on [oRPC](https://orpc.dev)). The admin UI uses it
-for all reads, including the live queries. Sessions and API keys authenticate
-exactly like REST:
+Everything the admin UI does is also available to scripts:
 
 ```
-POST /rpc/routes/live        Authorization: Bearer <session token or API key>
-{"json": {}}                 -> SSE stream of route snapshots
+POST /rpc/routes/count      Authorization: Bearer <session token or API key>
+{"json": {}}                -> {"json": {"count": 3}}
 ```
 
-Procedures: `authConfig`, `version`, `session`, `me`, `routes.{live,count,save,remove}`, `users.live`,
-`roles.live`, `settings.get`, `oidc.list`, `keys.list`, `logs.{recent,tail}`.
-Everything — admin UI, scripts, agents — goes through the oRPC procedures at
-`POST /rpc/<path>` (body `{"json": <input>}`, Bearer API key or session): one
-permission model, so a scoped key narrows identically everywhere. There is no
-REST `/api` surface (`/api/*` returns 404; reserved namespace).
+Calls go to `POST /rpc/<procedure>` with body `{"json": <input>}`, authorized
+with a session cookie or an API key (Bearer). A key carries its owner's
+permissions, or a narrower scope you pick when creating it.
+
+Procedures: `authConfig`, `version`, `session`, `me`, `routes.{live,count,save,remove}`,
+`users.live`, `roles.live`, `settings.{get,save}`, `oidc.{list,save}`,
+`keys.{list,create,rename,revoke}`, `logs.{recent,tail}`.
+
+Live procedures (`*.live`, `logs.tail`) stream snapshots over SSE instead of
+answering once — point an HTTP client that understands `text/event-stream` at
+them. There is no other HTTP API (`/api/*` is unused).
 
 ### MCP (AI agents)
 
