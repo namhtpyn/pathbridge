@@ -1,3 +1,10 @@
+## [6.4.2](https://github.com/namhtpyn/pathbridge/compare/v6.4.1...v6.4.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **ui:** profile modal teardown on sign-out + e2e pins for modal-close flows ([bd1d4b7](https://github.com/namhtpyn/pathbridge/commit/bd1d4b7259ff564a73d93fe522addc1461a38e11))
+
 ## [6.4.1](https://github.com/namhtpyn/pathbridge/compare/v6.4.0...v6.4.1) (2026-10-14)
 
 
