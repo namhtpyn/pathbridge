@@ -101,6 +101,15 @@ const apiKeys = ref<ApiKeyRow[]>([])
 const keyEditorOpen = ref(false)
 const createdKeyValue = ref('')
 
+// closing the profile modal tears down its privileged sub-state (key editor,
+// once-shown secret) so nothing survives a sign-out that closes this modal
+watch(() => props.open, (v) => {
+  if (!v) {
+    keyEditorOpen.value = false
+    createdKeyValue.value = ''
+  }
+})
+
 watch(() => props.open, (o) => {
   if (o) {
     profile.name = session.value?.user.name ?? ''

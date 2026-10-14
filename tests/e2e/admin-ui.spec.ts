@@ -47,6 +47,85 @@ test('api key rename through the profile modal', async ({ page }) => {
   await expect(page.getByText(uniq('ui-key-renamed')).first()).toBeVisible({ timeout: 10_000 })
 })
 
+// create-success modals must CLOSE by themselves: a lingering dialog stacks with the
+// next interaction (found in the 2026-10-14 UI review; each flow below submits a real
+// create and asserts the dialog is gone)
+test('route-create modal closes on success', async ({ page }) => {
+  await uiLogin(page)
+  await page.getByRole('button', { name: 'New route' }).first().click()
+  await page.locator('input[name="path"]').fill(uniq('/mclose-route'))
+  await page.locator('input[name="target"]').fill('http://127.0.0.1:4311')
+  await page.getByRole('button', { name: 'Add route' }).click()
+  await expect(page.getByRole('heading', { name: 'Create route' })).toBeHidden({ timeout: 10_000 })
+  await expect(page.getByText(uniq('/mclose-route')).first()).toBeVisible({ timeout: 10_000 })
+  await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/mclose-route') } } })
+})
+
+test('user-create modal closes on success', async ({ page }) => {
+  await uiLogin(page)
+  await page.goto('/admin/users')
+  await expect(page.getByRole('button', { name: 'Add user' })).toBeVisible({ timeout: 10_000 })
+  await page.getByRole('button', { name: 'Add user' }).click()
+  await page.locator('input[type="email"]').fill(uniq('mclose') + '@pathbridge.dev')
+  await page.locator('input[placeholder*="Jane" i], input[name="name"]').first().fill('Modal Close')
+  await page.locator('input[type="password"]').fill('mclose-pass-123')
+  await page.getByRole('button', { name: 'Create user' }).click()
+  await expect(page.getByRole('heading', { name: 'Add user' })).toBeHidden({ timeout: 10_000 })
+  await expect(page.getByText(uniq('mclose') + '@pathbridge.dev').first()).toBeVisible({ timeout: 10_000 })
+})
+
+test('role-create modal closes on success', async ({ page }) => {
+  await uiLogin(page)
+  await page.goto('/admin/roles')
+  await expect(page.getByRole('button', { name: 'New role' })).toBeVisible({ timeout: 10_000 })
+  await page.getByRole('button', { name: 'New role' }).click()
+  await page.locator('input[name="name"], input[placeholder="e.g. auditor"]').first().fill(uniq('mclose-role'))
+  await page.getByRole('button', { name: 'Create role' }).click()
+  await expect(page.getByRole('heading', { name: 'New role' })).toBeHidden({ timeout: 10_000 })
+  await expect(page.getByText(uniq('mclose-role')).first()).toBeVisible({ timeout: 10_000 })
+})
+
+test('key-create editor closes and secret dialog shows once', async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1280) < 768, 'desktop-only: drawer profile open')
+  await uiLogin(page)
+  const openBtn = page.getByRole('button', { name: 'Open sidebar' })
+  if (await openBtn.isVisible().catch(() => false)) await openBtn.click()
+  await page.getByRole('button', { name: /Profile & API keys|chevrons-up-down|Admin/i }).first().click()
+  const profileItem = page.getByRole('menuitem', { name: 'Profile' })
+  if (await profileItem.isVisible().catch(() => false)) await profileItem.click()
+  await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible({ timeout: 10_000 })
+
+  await page.getByRole('button', { name: 'Create key' }).first().click()
+  await page.locator('input[placeholder="ci-deploy"]').fill(uniq('mclose-key'))
+  await page.getByRole('button', { name: 'Create key' }).last().click()
+  // secret dialog appears ONCE
+  await expect(page.getByRole('heading', { name: 'API key created' })).toBeVisible({ timeout: 10_000 })
+  await page.getByRole('button', { name: 'Done' }).click()
+  // secret dialog AND the create editor are both gone
+  await expect(page.getByRole('heading', { name: 'API key created' })).toBeHidden({ timeout: 10_000 })
+  await expect(page.getByRole('heading', { name: 'Create API key' })).toBeHidden({ timeout: 10_000 })
+})
+
+// sign-out must tear down the profile modal: the previous user's key list must not
+// survive the session switch (stale-privileged-data regression pin)
+test('profile modal does not survive sign-out', async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 1280) < 768, 'desktop-only: drawer profile open')
+  await uiLogin(page)
+  const openBtn = page.getByRole('button', { name: 'Open sidebar' })
+  if (await openBtn.isVisible().catch(() => false)) await openBtn.click()
+  await page.getByRole('button', { name: /Profile & API keys|chevrons-up-down|Admin/i }).first().click()
+  const profileItem = page.getByRole('menuitem', { name: 'Profile' })
+  if (await profileItem.isVisible().catch(() => false)) await profileItem.click()
+  await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible({ timeout: 10_000 })
+
+  // sign out from the dropdown WHILE the profile modal is open (worst case)
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: /chevrons-up-down|Admin/i }).first().click()
+  await page.getByRole('menuitem', { name: 'Sign out' }).click()
+  await expect(page.getByRole('heading', { name: 'Profile' })).toBeHidden({ timeout: 10_000 })
+  await expect(page.locator('input[type="email"]')).toBeVisible({ timeout: 10_000 })
+})
+
 test.describe('admin shell', () => {
   test('login form → shell, session persists, sign-out works', async ({ page }) => {
     await page.goto('/admin')

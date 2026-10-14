@@ -154,6 +154,10 @@ const userMenuItems = computed(() => [[
 const profileOpen = ref(false)
 function openProfile() { profileOpen.value = true }
 async function doLogout() {
+  // close the profile modal BEFORE the session clears — otherwise the modal (and the
+  // key list / once-shown secret dialog inside it) keeps rendering the previous
+  // user's privileged data after sign-out until a reload
+  profileOpen.value = false
   await logout()
   toast.add({ title: 'Signed out', color: 'neutral' })
 }
