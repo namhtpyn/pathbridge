@@ -1,7 +1,7 @@
 {
   "name": "pathbridge",
   "version": "0.1.0",
-  "description": "Configurable path-to-URL forwarding proxy with a built-in admin UI. Route selected paths to external upstreams \u2014 useful when an API must be reached from a specific network or region.",
+  "description": "Configurable path-to-URL forwarding proxy with a built-in admin UI. Route selected paths to external upstreams — useful when an API must be reached from a specific network or region.",
   "type": "module",
   "private": true,
   "scripts": {
@@ -37,6 +37,7 @@
   },
   "devDependencies": {
     "@dxup/nuxt": "0.5.10",
+    "@nuxt/test-utils": "4.3.3",
     "@playwright/test": "1.64.0",
     "@semantic-release/changelog": "7.0.0",
     "@semantic-release/commit-analyzer": "13.0.1",
@@ -44,8 +45,10 @@
     "@semantic-release/github": "12.0.10",
     "@semantic-release/release-notes-generator": "14.1.1",
     "@types/node": "26.6.4",
+    "@vue/test-utils": "2.5.1",
     "bun-types": "1.4.2",
     "drizzle-kit": "1.0.0-rc.4",
+    "happy-dom": "21.0.1",
     "semantic-release": "25.0.9",
     "typescript": "npm:typescript-native-bridge@6.0.3-bridge.18.tsgo.7.0.2",
     "typescript-native-bridge": "6.0.3-bridge.18.tsgo.7.0.2",
