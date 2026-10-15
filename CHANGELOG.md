@@ -1,3 +1,10 @@
+## [6.5.1](https://github.com/namhtpyn/pathbridge/compare/v6.5.0...v6.5.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **runtime:** force Bun idle timeout to 255s by default (SSE-safe out of the box) ([41d1277](https://github.com/namhtpyn/pathbridge/commit/41d1277711334e670e21038350a696b0c4d2285a))
+
 # [6.5.0](https://github.com/namhtpyn/pathbridge/compare/v6.4.2...v6.5.0) (2026-10-14)
 
 
