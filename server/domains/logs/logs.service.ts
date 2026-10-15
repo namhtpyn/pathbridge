@@ -25,6 +25,13 @@ export async function queryLogsScoped(user: ResolvedUser, input: { limit?: numbe
   return entries.slice(0, limit)
 }
 
+/** highest own-scope access-log id at subscribe time — the delta tail's cursor,
+ *  so the stream never re-sends rows the client already has. */
+export async function latestLogId(user: ResolvedUser) {
+  const rows = await queryLogsScoped(user, { limit: 1 })
+  return rows.length ? rows[0]!.id : 0
+}
+
 export async function queryLogsAfter(user: ResolvedUser, input: { afterId: number, limit?: number }) {
   const { queryAccessLogAfter } = await import('./access-log.service')
   const limit = input.limit ?? 100

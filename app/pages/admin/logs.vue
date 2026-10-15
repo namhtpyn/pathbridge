@@ -105,7 +105,7 @@ const logsSnapshot = useQuery({
 // newest on top, oldest evicted, no mode switch, no Resume button).
 const liveEnabled = ref(true)
 const logsLive = useQuery({
-  ...$orpc.logs.tail.liveOptions({ input: { limit: pageSize } }),
+  ...$orpc.logs.tail.liveOptions(),
   enabled: computed(() => import.meta.client && liveEnabled.value && can('logs', 'read') && filterRouteId.value === null),
 })
 const merged = ref<LogRow[]>([])
@@ -126,12 +126,25 @@ function applyRows(rows: LogRow[], mode: 'reset' | 'prepend' | 'append') {
   seen.value = new Set(merged.value.map(e => e.id))
 }
 
-watch(() => unref(logsLive.data), (d) => {
-  const payload = d as { entries: LogRow[], reset: boolean } | undefined
-  if (!payload) return
-  if (!liveEnabled.value && merged.value.length) return // paused: freeze — ignore ALL payloads once we have a list
-  applyRows(payload.entries, payload.reset ? 'reset' : 'prepend')
+// the conventional query owns initial data: seed (and Refresh-replace) the merged
+// list when the snapshot lands; the tail then only PREPENDS deltas on top
+watch(() => unref(logsSnapshot.data), (d) => {
+  const entries = (d as { entries: LogRow[] } | undefined)?.entries
+  if (!entries) return
+  applyRows(entries, 'reset')
 }, { immediate: true })
+
+// the tail carries only rows newer than its subscribe-time cursor — every payload
+// is a prepend. If the stream drops, the snapshot refetch reconciles the gap.
+watch(() => unref(logsLive.data), (d) => {
+  const payload = d as { entries: LogRow[] } | undefined
+  if (!payload?.entries) return
+  if (!liveEnabled.value && merged.value.length) return // paused: freeze
+  applyRows(payload.entries, 'prepend')
+})
+watch(() => unref(logsLive.error), (err) => {
+  if (err && liveEnabled.value && can('logs', 'read')) void logsSnapshot.refetch()
+})
 
 const liveEntries = computed(() => {
   if (merged.value.length) return merged.value

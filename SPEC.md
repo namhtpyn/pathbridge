@@ -97,7 +97,11 @@ namespace. Procedures: `authConfig`, `version`, `session`,
 Realtime rule (enforced repo-wide): SSE live queries UPDATE pages after load —
 they never carry initial data. Every view's first paint (incl. SSR) comes from a
 conventional query procedure (`routes.list`, `logs.recent`); `.live`/`.tail`
-subscribe on top. Reconnect/reconciliation frames after load are fine.
+subscribe on top. `logs.tail` therefore needs NO payload: the stream carries
+DELTAS ONLY (rows newer than its subscribe-time own-scope cursor, highest id at
+connect). A dropped/reconnected stream never re-sends a window — the client
+reconciles by refetching `logs.recent`; pages reconcile late changes via their
+own query refetch.
 Row-level rules: own-scope filtering on routes/logs reads,
 `requireRecordPermission` on writes (upsert-by-path requires UPDATE on the
 existing record — create alone cannot repoint someone else's route), API-key

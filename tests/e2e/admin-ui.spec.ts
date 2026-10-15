@@ -242,11 +242,6 @@ test.describe('admin shell', () => {
     await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/ssr-route'), target: 'http://127.0.0.1:4311' } } })
     await page.goto('/admin')
     await expect(page.locator('tr', { hasText: uniq('/ssr-route') }).first()).toBeVisible({ timeout: 10_000 })
-    // sidebar count also paints without the stream (desktop only — mobile collapses
-    // the sidebar into the drawer)
-    if (!/mobile/i.test(test.info().project.name)) {
-      await expect(page.getByText(/active routes/)).toBeVisible()
-    }
   })
 
   const pages = [['Users', 'Users'], ['Roles', 'Roles'], ['Settings', 'Settings'], ['Logs', 'Access log']] as const

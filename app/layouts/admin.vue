@@ -48,7 +48,6 @@
               <span class="truncate text-sm font-semibold leading-tight text-zinc-900 dark:text-white">Pathbridge
                 <span class="font-mono text-[10px] font-normal text-zinc-400">v{{ appVersion }}</span>
               </span>
-              <span class="text-xs leading-tight text-zinc-400">{{ activeRouteCount }} active routes</span>
             </div>
           </NuxtLink>
         </template>
@@ -121,26 +120,6 @@ async function loadVersionSafe() {
   try { appVersion.value = (await $client.version()).version }
   catch { appVersion.value = 'dev' }
 }
-
-// live route count for the sidebar subtitle. `can()` reads plain state, not a
-// ref — wrap it in computed() or the query stays at its initial enabled value
-// (false right after an in-page login, "0 active routes" until a full reload).
-// Subscribes to routes.live (SSE snapshot on every routes change) so the count
-// tracks create/delete from any surface — a plain queryOptions never refetches
-// on mutations and goes stale.
-const { $orpc } = useNuxtApp()
-// initial count from the conventional query; the SSE live query updates it after
-// load (AGENTS.md law — streams never carry initial data)
-const routeCountList = useQuery({
-  ...$orpc.routes.list.queryOptions(),
-  enabled: computed(() => can('routes', 'read')),
-})
-const routeCountLive = useQuery({
-  ...$orpc.routes.live.liveOptions(),
-  enabled: computed(() => import.meta.client && can('routes', 'read')),
-})
-const activeRouteCount = computed(() =>
-  (((unref(routeCountLive.data) ?? unref(routeCountList.data)) as RouteRow[] | undefined) ?? []).length)
 
 // nav
 const route = useRoute()
