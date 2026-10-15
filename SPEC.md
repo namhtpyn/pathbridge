@@ -91,9 +91,13 @@ oRPC procedures at `POST /rpc/<path>` (wire: `{"json": <input>}`; better-auth
 `/auth/*` endpoints excepted). There is NO REST `/api/*` surface: the last
 REST handlers were removed in v5.2.0 and `/api` stays a reserved, non-proxyable
 namespace. Procedures: `authConfig`, `version`, `session`,
-`me`, `routes.{live,count,save,remove}`, `logs.{recent,tail}`,
+`me`, `routes.{list,live,count,save,remove}`, `logs.{recent,tail}`,
 `users.{live,list,save,update,setPassword,remove}`, `roles.{live,list,save,update,remove}`,
 `settings.{get,save}`, `oidc.{list,save}`, `keys.{list,create,rename,revoke}` (rename: own keys only, 1–64 chars).
+Realtime rule (enforced repo-wide): SSE live queries UPDATE pages after load —
+they never carry initial data. Every view's first paint (incl. SSR) comes from a
+conventional query procedure (`routes.list`, `logs.recent`); `.live`/`.tail`
+subscribe on top. Reconnect/reconciliation frames after load are fine.
 Row-level rules: own-scope filtering on routes/logs reads,
 `requireRecordPermission` on writes (upsert-by-path requires UPDATE on the
 existing record — create alone cannot repoint someone else's route), API-key

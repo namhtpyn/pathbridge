@@ -234,6 +234,21 @@ test.describe('admin shell', () => {
     expect(await (await page.request.get('/e2e-ui-route')).status()).toBe(404)
   })
 
+  test('routes: initial table paints with the SSE stream dead (conventional query loads, streams only update)', async ({ page }) => {
+    // AGENTS.md law: streams never carry initial data — block the live endpoint
+    // entirely; the first paint must come from the one-shot routes.list query
+    await page.route('**/rpc/routes/live', route => route.abort())
+    await uiLogin(page)
+    await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/ssr-route'), target: 'http://127.0.0.1:4311' } } })
+    await page.goto('/admin')
+    await expect(page.locator('tr', { hasText: uniq('/ssr-route') }).first()).toBeVisible({ timeout: 10_000 })
+    // sidebar count also paints without the stream (desktop only — mobile collapses
+    // the sidebar into the drawer)
+    if (!/mobile/i.test(test.info().project.name)) {
+      await expect(page.getByText(/active routes/)).toBeVisible()
+    }
+  })
+
   const pages = [['Users', 'Users'], ['Roles', 'Roles'], ['Settings', 'Settings'], ['Logs', 'Access log']] as const
   for (const [nav, heading] of pages) {
     test(`nav: ${nav} page renders`, async ({ page }) => {

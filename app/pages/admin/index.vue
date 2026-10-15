@@ -174,7 +174,7 @@
         </template>
       </UTable>
     </UCard>
-    <div v-else-if="routesQuery.isPending.value" class="rounded-xl border border-zinc-200 p-10 text-center dark:border-zinc-800">
+    <div v-else-if="routesList.isPending.value" class="rounded-xl border border-zinc-200 p-10 text-center dark:border-zinc-800">
       <UIcon name="i-lucide-loader-circle" class="mx-auto size-8 animate-spin text-zinc-300" />
       <p class="mt-3 text-sm text-zinc-500">Loading routes…</p>
     </div>
@@ -209,11 +209,18 @@ const { can } = await useAdminSession()
 const toast = useToast()
 const { $orpc, $client } = useNuxtApp()
 
-// ---------- realtime routes via oRPC live query ----------
-const routesQuery = useQuery($orpc.routes.live.liveOptions())
-const routes = computed(() => (unref(routesQuery.data) ?? []) as RouteRow[])
-// live queries need no invalidation — but mutations via REST should also refresh cache
-// (SSE pushes handle it; this is belt-and-braces for offline SSE)
+// ---------- routes: conventional query loads the list (SSR + first paint);
+// the SSE live query only updates it afterwards (AGENTS.md law: streams never
+// carry initial data) ----------
+const routesList = useQuery($orpc.routes.list.queryOptions())
+const routesLive = useQuery({
+  ...$orpc.routes.live.liveOptions(),
+  enabled: computed(() => import.meta.client),
+})
+// once the stream has delivered (reconciliation frame or a change push), it is
+// strictly fresher than the one-shot list — until then paint the get-query data
+const routes = computed(() =>
+  ((unref(routesLive.data) ?? unref(routesList.data)) ?? []) as RouteRow[])
 
 const routeColumns: TableColumn<RouteRow>[] = [
   { accessorKey: 'path', header: 'Path' },

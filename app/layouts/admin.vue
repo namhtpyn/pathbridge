@@ -129,11 +129,18 @@ async function loadVersionSafe() {
 // tracks create/delete from any surface — a plain queryOptions never refetches
 // on mutations and goes stale.
 const { $orpc } = useNuxtApp()
-const routeCountQuery = useQuery({
-  ...$orpc.routes.live.liveOptions(),
+// initial count from the conventional query; the SSE live query updates it after
+// load (AGENTS.md law — streams never carry initial data)
+const routeCountList = useQuery({
+  ...$orpc.routes.list.queryOptions(),
   enabled: computed(() => can('routes', 'read')),
 })
-const activeRouteCount = computed(() => ((unref(routeCountQuery.data) as RouteRow[] | undefined) ?? []).length)
+const routeCountLive = useQuery({
+  ...$orpc.routes.live.liveOptions(),
+  enabled: computed(() => import.meta.client && can('routes', 'read')),
+})
+const activeRouteCount = computed(() =>
+  (((unref(routeCountLive.data) ?? unref(routeCountList.data)) as RouteRow[] | undefined) ?? []).length)
 
 // nav
 const route = useRoute()
