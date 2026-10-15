@@ -71,6 +71,7 @@ is plain HTTP.
 | `DATA_DIR` | `/data` | database location (mount a volume) |
 | `PORT` | `3000` | listen port |
 | `BETTER_AUTH_SECRET` | random | auth secret (set your own in production) |
+| `NITRO_BUN_IDLE_TIMEOUT` | `255` | server idle timeout in seconds (max 255). Raised from the runtime default so long-lived live connections (admin realtime tables/logs) survive idle periods. Only lower it if you know why. |
 
 Everything else — OIDC providers, roles, retention — is configured in the
 admin UI at runtime.
