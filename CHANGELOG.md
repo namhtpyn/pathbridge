@@ -1,3 +1,10 @@
+## [6.5.2](https://github.com/namhtpyn/pathbridge/compare/v6.5.1...v6.5.2) (2026-10-15)
+
+
+### Bug Fixes
+
+* **admin:** streams update pages after load — initial data always via conventional query ([fb102ae](https://github.com/namhtpyn/pathbridge/commit/fb102ae26b4f9df5bedd2ff5c246d50d63139c52))
+
 ## [6.5.1](https://github.com/namhtpyn/pathbridge/compare/v6.5.0...v6.5.1) (2026-10-15)
 
 
