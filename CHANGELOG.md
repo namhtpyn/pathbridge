@@ -1,3 +1,10 @@
+## [6.5.3](https://github.com/namhtpyn/pathbridge/compare/v6.5.2...v6.5.3) (2026-10-15)
+
+
+### Bug Fixes
+
+* **logs:** tail carries no initial data and no payload; drop sidebar route-count badge ([78de677](https://github.com/namhtpyn/pathbridge/commit/78de677866d92010a1846e482441ca77a8dbcb5b))
+
 ## [6.5.2](https://github.com/namhtpyn/pathbridge/compare/v6.5.1...v6.5.2) (2026-10-15)
 
 
