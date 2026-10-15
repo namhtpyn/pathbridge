@@ -21,6 +21,10 @@ If you add/rename/remove an endpoint, procedure, field, env var, permission, or 
 ## Standing conventions (enforced, docs expand on these)
 
 - Admin Panel uses oRPC procedures at `/rpc` exclusively; better-auth `/auth/*` excepted. Never add `$fetch('/api/...')` to `app/`.
+- SSE/live queries UPDATE pages after load — they never carry the initial data. First page
+  load (including SSR) always uses a conventional query procedure (`.recent`, `.list`, …);
+  the live generator subscribes for changes on top of that. A page whose first paint waits
+  on a stream is a bug. (Reconnect/reconciliation frames after the page is loaded are fine.)
 - Modal action buttons live in the modal's `#footer` slot (submit buttons associate via the `form` attribute when the form stays in `#body`).
 - Backend re-validates everything with strict zod; frontend validation is UX only.
 - Verify before commit: typecheck + build + browser E2E (desktop AND 390px mobile) — probe the artifact, never trust recall.
