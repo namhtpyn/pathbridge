@@ -1,3 +1,10 @@
+# [6.6.0](https://github.com/namhtpyn/pathbridge/compare/v6.5.3...v6.6.0) (2026-10-20)
+
+
+### Features
+
+* **ssr:** vue-query dehydrate/hydrate + server prefetch of the conventional queries ([3cb3279](https://github.com/namhtpyn/pathbridge/commit/3cb32790c1e02f1f8ea0eeafa73ce245c9043bf0))
+
 ## [6.5.3](https://github.com/namhtpyn/pathbridge/compare/v6.5.2...v6.5.3) (2026-10-15)
 
 
