@@ -67,6 +67,7 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import { useQuery } from '@tanstack/vue-query'
+import { onServerPrefetch } from 'vue'
 
 definePageMeta({ layout: 'admin' })
 const { can } = await useAdminSession()
@@ -97,6 +98,12 @@ const logColumns: TableColumn<LogRow>[] = [
 const logsSnapshot = useQuery({
   ...$orpc.logs.recent.queryOptions({ input: { limit: pageSize } }),
   enabled: computed(() => can('logs', 'read')),
+})
+// SSR: await ONLY the conventional snapshot (never the SSE tail — a stream
+// during server render deadlocks behind buffering proxies). The guide's
+// caveat applies: a disabled query never resolves, so guard first.
+onServerPrefetch(async () => {
+  if (can('logs', 'read')) await logsSnapshot.suspense()
 })
 // merged live list: deltas from the SSE tail PREPEND and the oldest rows fall off
 // the bottom so the list stays at whatever the user has loaded (50 by default,

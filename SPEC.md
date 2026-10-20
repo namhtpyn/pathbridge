@@ -94,6 +94,11 @@ namespace. Procedures: `authConfig`, `version`, `session`,
 `me`, `routes.{list,live,count,save,remove}`, `logs.{recent,tail}`,
 `users.{live,list,save,update,setPassword,remove}`, `roles.{live,list,save,update,remove}`,
 `settings.{get,save}`, `oidc.{list,save}`, `keys.{list,create,rename,revoke}` (rename: own keys only, 1–64 chars).
+SSR data flow (vue-query): the plugin dehydrates the server QueryClient into
+the nuxt payload and hydrates on the client (TanStack vue-query SSR guide);
+`/admin` and `/admin/logs` await their conventional query in
+`onServerPrefetch` so the server HTML carries the rows. The SSE tail is never
+prefetched server-side (a stream in server render deadlocks behind nginx).
 Realtime rule (enforced repo-wide): SSE live queries UPDATE pages after load —
 they never carry initial data. Every view's first paint (incl. SSR) comes from a
 conventional query procedure (`routes.list`, `logs.recent`); `.live`/`.tail`

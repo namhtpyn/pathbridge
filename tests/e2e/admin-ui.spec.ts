@@ -240,6 +240,10 @@ test.describe('admin shell', () => {
     await page.route('**/rpc/routes/live', route => route.abort())
     await uiLogin(page)
     await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/ssr-route'), target: 'http://127.0.0.1:4311' } } })
+    // the raw server HTML (no JS executed) must already contain the row: the
+    // conventional query is awaited during SSR and dehydrated into the payload
+    const html = await (await page.request.get('/admin')).text()
+    expect(html).toContain(uniq('/ssr-route'))
     await page.goto('/admin')
     await expect(page.locator('tr', { hasText: uniq('/ssr-route') }).first()).toBeVisible({ timeout: 10_000 })
   })

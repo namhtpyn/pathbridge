@@ -203,6 +203,7 @@ import type { TableColumn } from '@nuxt/ui'
 import type { RouteRow } from '~/../shared/types'
 import { routeSubmitSchema, type HeaderRowInput } from '~/utils/route-form'
 import { useQuery } from '@tanstack/vue-query'
+import { onServerPrefetch } from 'vue'
 
 definePageMeta({ layout: 'admin' })
 const { can } = await useAdminSession()
@@ -213,6 +214,11 @@ const { $orpc, $client } = useNuxtApp()
 // the SSE live query only updates it afterwards (AGENTS.md law: streams never
 // carry initial data) ----------
 const routesList = useQuery($orpc.routes.list.queryOptions())
+// SSR: await the conventional query so the server HTML carries the rows
+// (hydration transfers them; the client does not refetch while fresh)
+onServerPrefetch(async () => {
+  if (can('routes', 'read')) await routesList.suspense()
+})
 const routesLive = useQuery({
   ...$orpc.routes.live.liveOptions(),
   enabled: computed(() => import.meta.client),
