@@ -1,3 +1,10 @@
+## [6.6.1](https://github.com/namhtpyn/pathbridge/compare/v6.6.0...v6.6.1) (2026-10-22)
+
+
+### Bug Fixes
+
+* **admin:** hydration-safe log timestamps + Nuxt a11y best practices ([4a3b5c1](https://github.com/namhtpyn/pathbridge/commit/4a3b5c13a626895e4548f1999a97cff789f07b3f))
+
 # [6.6.0](https://github.com/namhtpyn/pathbridge/compare/v6.5.3...v6.6.0) (2026-10-20)
 
 
