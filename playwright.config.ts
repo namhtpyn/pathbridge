@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
-  testDir: 'tests/e2e',
+  testDir: 'test/e2e',
   timeout: 60_000,
   retries: 0,
   fullyParallel: false,
@@ -24,7 +24,7 @@ export default defineConfig({
   webServer: process.env.E2E_NO_SERVER
     ? undefined
     : {
-        command: 'bun run build >/dev/null 2>&1 && (bun tests/e2e/upstream.mjs >/dev/null 2>&1 &) && DATA_DIR=$E2E_DATA_DIR PORT=4310 BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:4310,http://127.0.0.1:4310 BETTER_AUTH_SECRET=e2e-secret-0123456789abcdefghijklmnop ADMIN_EMAIL=e2e@pathbridge.dev ADMIN_PASSWORD=e2e-admin-pw bun .output/server/index.mjs',
+        command: 'bun run build >/dev/null 2>&1 && (bun test/e2e/upstream.mjs >/dev/null 2>&1 &) && DATA_DIR=$E2E_DATA_DIR PORT=4310 BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:4310,http://127.0.0.1:4310 BETTER_AUTH_SECRET=e2e-secret-0123456789abcdefghijklmnop ADMIN_EMAIL=e2e@pathbridge.dev ADMIN_PASSWORD=e2e-admin-pw bun .output/server/index.mjs',
         url: 'http://127.0.0.1:4310/health',
         reuseExistingServer: true,
         timeout: 240_000,

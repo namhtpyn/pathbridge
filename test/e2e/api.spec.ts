@@ -224,7 +224,7 @@ test('scoped API key narrows permissions over /rpc', async ({ request }) => {
 })
 
 test('proxy pipeline: route forwards traffic + access log records it', async ({ request }) => {
-  // deterministic local upstream (tests/e2e/upstream.mjs :4311) — the app's own
+  // deterministic local upstream (test/e2e/upstream.mjs :4311) — the app's own
   // origin would loop (target + rest includes the route path itself)
   await signIn(request)
   await rpc(request, 'routes/save', { path: uniq('/e2e-probe'), target: 'http://127.0.0.1:4311' })

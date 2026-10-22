@@ -94,6 +94,9 @@ namespace. Procedures: `authConfig`, `version`, `session`,
 `me`, `routes.{list,live,count,save,remove}`, `logs.{recent,tail}`,
 `users.{live,list,save,update,setPassword,remove}`, `roles.{live,list,save,update,remove}`,
 `settings.{get,save}`, `oidc.{list,save}`, `keys.{list,create,rename,revoke}` (rename: own keys only, 1–64 chars).
+Test layout: `test/{unit,nuxt,e2e}` per the Nuxt 4 `test/` directory
+convention (unit = fast vitest-on-bun, nuxt = @nuxt/test-utils env,
+e2e = Playwright against the built artifact).
 SSR data flow (vue-query): the plugin dehydrates the server QueryClient into
 the nuxt payload and hydrates on the client (TanStack vue-query SSR guide);
 `/admin` and `/admin/logs` await their conventional query in
