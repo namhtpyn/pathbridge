@@ -17,7 +17,8 @@ export default defineNuxtConfig({
   typescript: {
     typeCheck: true,
   },
-  modules: ['@nuxt/ui', '@nuxt/fonts', '@nuxt/icon', '@dxup/nuxt'],
+  // @nuxt/test-utils/module: DevTools vitest integration (testing guide setup step 1)
+  modules: ['@nuxt/ui', '@nuxt/fonts', '@nuxt/icon', '@dxup/nuxt', '@nuxt/test-utils/module'],
   css: ['~/assets/css/main.css'],
   compatibilityDate: '2026-01-01',
   nitro: {
