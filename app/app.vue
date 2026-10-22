@@ -1,4 +1,10 @@
 <script setup lang="ts">
+// a11y (Nuxt best practices): announce client-side navigations to screen
+// readers; every route supplies its own title via useHead
+useHead({
+  titleTemplate: (t?: string) => (t ? `${t} · Pathbridge` : 'Pathbridge'),
+})
+
 // Detects a newer deployed build (Nuxt's built-in check-outdated-build plugin
 // polls builds/latest.json and fires app:manifest:update) and offers a reload.
 const newVersion = ref(false)
@@ -20,6 +26,7 @@ function reload() {
 
 <template>
   <UApp>
+    <NuxtRouteAnnouncer />
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>

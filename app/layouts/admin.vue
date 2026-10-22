@@ -1,5 +1,10 @@
 <template>
   <div class="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <!-- a11y: first tab stop — jumps keyboard/screen-reader users past the sidebar -->
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[10000] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-inverted"
+    >Skip to main content</a>
     <!-- ===================== LOGIN ===================== -->
     <div v-if="!session" class="flex min-h-screen items-center justify-center p-6">
       <div class="w-full max-w-sm">
@@ -83,9 +88,9 @@
         </template>
         <template #body>
           <!-- sole padding layer: the panel body's default p-4 sm:p-6 is zeroed above — never add a second wrapper -->
-          <div class="p-4 sm:p-6 lg:p-8">
+          <main id="main" tabindex="-1" class="p-4 outline-none sm:p-6 lg:p-8">
             <slot />
-          </div>
+          </main>
         </template>
       </UDashboardPanel>
     </UDashboardGroup>

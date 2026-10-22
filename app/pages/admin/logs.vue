@@ -65,6 +65,8 @@
 </template>
 
 <script setup lang="ts">
+
+useHead({ title: 'Access log' })
 import type { TableColumn } from '@nuxt/ui'
 import { useQuery } from '@tanstack/vue-query'
 import { onServerPrefetch } from 'vue'
@@ -215,8 +217,9 @@ function statusClass(status: number): string {
 }
 
 function fmtTime(iso: string): string {
-  const d = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  // deterministic UTC from the stored ISO string — no Date getters, so SSR and
+  // hydration render byte-identical output in every timezone (a local-time
+  // format here re-renders the whole table on hydration when TZs differ)
+  return `${iso.slice(0, 10)} ${iso.slice(11, 19)}`
 }
 </script>

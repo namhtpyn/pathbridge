@@ -199,6 +199,8 @@
 </template>
 
 <script setup lang="ts">
+
+useHead({ title: 'Routes' })
 import type { TableColumn } from '@nuxt/ui'
 import type { RouteRow } from '~/../shared/types'
 import { routeSubmitSchema, type HeaderRowInput } from '~/utils/route-form'

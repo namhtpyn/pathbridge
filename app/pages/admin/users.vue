@@ -166,6 +166,8 @@
 </template>
 
 <script setup lang="ts">
+
+useHead({ title: 'Users' })
 import type { TableColumn } from '@nuxt/ui'
 
 definePageMeta({ layout: 'admin' })

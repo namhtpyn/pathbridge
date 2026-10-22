@@ -197,6 +197,8 @@
 </template>
 
 <script setup lang="ts">
+
+useHead({ title: 'Roles' })
 import type { TableColumn } from '@nuxt/ui'
 import { getGroupedRowModel } from '@tanstack/vue-table'
 
