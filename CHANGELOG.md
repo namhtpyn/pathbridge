@@ -1,3 +1,10 @@
+# [6.8.0](https://github.com/namhtpyn/pathbridge/compare/v6.7.0...v6.8.0) (2026-10-26)
+
+
+### Features
+
+* **proxy:** drop stripPrefix — wildcards always forward the remainder after their base ([5877872](https://github.com/namhtpyn/pathbridge/commit/5877872e5341aa4eed6b90d7d764afe0093a5743))
+
 # [6.7.0](https://github.com/namhtpyn/pathbridge/compare/v6.6.1...v6.7.0) (2026-10-26)
 
 
