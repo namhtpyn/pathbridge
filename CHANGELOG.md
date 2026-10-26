@@ -1,3 +1,10 @@
+## [6.8.1](https://github.com/namhtpyn/pathbridge/compare/v6.8.0...v6.8.1) (2026-10-26)
+
+
+### Bug Fixes
+
+* **admin:** shared modal components land + PermissionMatrix extraction + sanitize ([c6b0107](https://github.com/namhtpyn/pathbridge/commit/c6b010718f70f83c380c6a9317d8af12a2aeed90))
+
 # [6.8.0](https://github.com/namhtpyn/pathbridge/compare/v6.7.0...v6.8.0) (2026-10-26)
 
 
