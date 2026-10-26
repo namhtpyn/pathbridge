@@ -1,4 +1,4 @@
-FROM oven/bun:1.4.2 AS build
+FROM oven/bun:1.4.4 AS build
 ARG APP_VERSION=dev
 WORKDIR /app
 COPY package.json bun.lock ./
@@ -6,7 +6,7 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
-FROM oven/bun:1.4.2 AS runtime
+FROM oven/bun:1.4.4 AS runtime
 ARG APP_VERSION=dev
 WORKDIR /app
 ENV NODE_ENV=production DATA_DIR=/data APP_VERSION=${APP_VERSION}
