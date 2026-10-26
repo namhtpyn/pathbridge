@@ -8,8 +8,10 @@
 // stripPrefix is only valid on wildcard paths (what would it strip otherwise?)
 import { z } from 'zod'
 
-// target: http(s) URL; a path is allowed and becomes the path prefix for
-// forwarded requests. No query/hash (query strings belong to the request).
+// target: http(s) URL. EXACT routes forward to this URL verbatim (a path on
+// the target is the destination; nothing is appended). WILDCARD routes treat
+// the target path as a prefix for the forwarded remainder. No query/hash
+// (query strings belong to the request).
 const httpTarget = z.string().min(1, 'target is required').max(2048).refine((t) => {
   try {
     const u = new URL(t)

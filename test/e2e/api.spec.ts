@@ -223,6 +223,31 @@ test('scoped API key narrows permissions over /rpc', async ({ request }) => {
   expect(after.status()).toBe(401)
 })
 
+test('proxy: exact route forwards to the target URL verbatim; wildcard appends the remainder', async ({ request }) => {
+  await signIn(request)
+  // exact route whose TARGET carries its own path: the upstream must receive
+  // exactly that path — the original request path is NOT appended
+  const exact = await rpc<{ route: { id: number, path: string } }>(request, 'routes/save', {
+    path: uniq('/e2e-exact/hook'),
+    target: 'http://127.0.0.1:4311/upstream-hook',
+  })
+  const viaExact = await request.get(uniq('/e2e-exact/hook'))
+  expect(viaExact.status()).toBe(200)
+  expect((await viaExact.json()).path).toBe('/upstream-hook')
+  await rpc(request, 'routes/remove', { path: uniq('/e2e-exact/hook') })
+
+  // wildcard with stripPrefix keeps appending the remainder (unchanged semantics)
+  await rpc(request, 'routes/save', {
+    path: uniq('/e2e-wild') + '/*',
+    target: 'http://127.0.0.1:4311/base',
+    stripPrefix: true,
+  })
+  const viaWild = await request.get(uniq('/e2e-wild') + '/rest/of')
+  expect(viaWild.status()).toBe(200)
+  expect((await viaWild.json()).path).toBe('/base/rest/of')
+  await rpc(request, 'routes/remove', { path: uniq('/e2e-wild') + '/*' })
+})
+
 test('proxy pipeline: route forwards traffic + access log records it', async ({ request }) => {
   // deterministic local upstream (test/e2e/upstream.mjs :4311) — the app's own
   // origin would loop (target + rest includes the route path itself)

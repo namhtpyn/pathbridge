@@ -11,7 +11,7 @@ A mapping from a public path on this host to an upstream target origin.
 |---|---|---|
 | `id` | int autoincrement | stable identity for update/delete |
 | `path` | string, unique, indexed | grammar below |
-| `target` | http(s) URL | origin [+ port] with OPTIONAL base path (forwarded as path prefix); no query, no fragment |
+| `target` | http(s) URL | the destination URL — forwarded to VERBATIM for exact routes (a target path is the upstream path); for wildcard routes it is a prefix for the forwarded remainder; no query, no fragment |
 | `upstreamHost` | string \| null | overrides `Host` header sent upstream |
 | `stripPrefix` | bool | wildcard routes only |
 | `methods` | string[] \| null | allowlist of HTTP verbs; null = all verbs |

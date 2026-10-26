@@ -67,15 +67,21 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 405, statusMessage: `Method ${event.method} not allowed for this route` })
   }
 
-  // target may carry its own path prefix: https://upstream/base + request rest
+  // EXACT routes forward to the target VERBATIM — the configured target URL
+  // (path included) IS the destination; the route path only selects the route.
+  // WILDCARD routes append the request remainder: the full path, or the
+  // remainder after the base when stripPrefix is on. Query strings ride along.
   const target = best.target.replace(/\/+$/, '')
-  let rest = path
-  if (best.stripPrefix && best.path.endsWith('/*')) {
-    rest = strip(best.path, path)
-  }
   const qIndex = event.path.indexOf('?')
   const q = qIndex >= 0 ? event.path.slice(qIndex) : ''
-  const url = `${target}${rest}${q}`
+  let url: string
+  if (best.path.endsWith('/*')) {
+    let rest = path
+    if (best.stripPrefix) rest = strip(best.path, path)
+    url = `${target}${rest}${q}`
+  } else {
+    url = `${target}${q}`
+  }
 
   const upstream = new URL(best.target)
 
