@@ -1,3 +1,10 @@
+# [6.7.0](https://github.com/namhtpyn/pathbridge/compare/v6.6.1...v6.7.0) (2026-10-26)
+
+
+### Features
+
+* **proxy:** exact-path routes forward to the target URL verbatim ([b3eccc6](https://github.com/namhtpyn/pathbridge/commit/b3eccc65d336f24e4e1bd678e819525cc24007e2))
+
 ## [6.6.1](https://github.com/namhtpyn/pathbridge/compare/v6.6.0...v6.6.1) (2026-10-22)
 
 
