@@ -1,3 +1,10 @@
+## [6.8.2](https://github.com/namhtpyn/pathbridge/compare/v6.8.1...v6.8.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **docker:** bump base image to bun 1.4.4 (CVE-2026-111497 brotli OOB write) ([4d77186](https://github.com/namhtpyn/pathbridge/commit/4d77186d857c3334be372d89e12f510b272469cf))
+
 ## [6.8.1](https://github.com/namhtpyn/pathbridge/compare/v6.8.0...v6.8.1) (2026-10-26)
 
 
