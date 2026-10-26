@@ -38,7 +38,7 @@ export async function saveRoute(
     id?: number, path: string, target: string,
     requestHeaders?: Array<{ name: string, op: 'set' | 'remove', value?: string }>,
     responseHeaders?: Array<{ name: string, op: 'set' | 'remove', value?: string }>,
-    stripPrefix: boolean, methods?: string[], note?: string, enabled: boolean,
+    methods?: string[], note?: string, enabled: boolean,
   },
 ) {
   const { routeInputSchema } = await import('./routes.schema')
@@ -58,7 +58,6 @@ export async function saveRoute(
     target: normalizeTarget(data.target),
     requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
     responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-    stripPrefix: data.stripPrefix,
     methods: data.methods ?? null,
     note: data.note !== undefined ? data.note.slice(0, 200) : null,
     enabled: data.enabled,

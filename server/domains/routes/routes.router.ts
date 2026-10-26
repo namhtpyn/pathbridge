@@ -17,7 +17,6 @@ const routeSaveInput = z.strictObject({
   target: z.string().min(1).max(2048),
   requestHeaders: z.array(headerOverrideInput).max(20).optional(),
   responseHeaders: z.array(headerOverrideInput).max(20).optional(),
-  stripPrefix: z.boolean().optional().default(false),
   methods: z.array(z.enum(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])).optional(),
   note: z.string().max(200).optional(),
   enabled: z.boolean().optional().default(true),

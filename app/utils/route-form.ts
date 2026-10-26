@@ -26,7 +26,6 @@ export const routeFormSchema = z.object({
     value: z.string().default(''),
   })).default([]),
   note: z.string().nullish().transform(v => v?.trim() ?? ''),
-  stripPrefix: z.boolean().default(false),
   enabled: z.boolean().default(true),
 })
 
@@ -76,12 +75,8 @@ export const routeSubmitSchema = z.object({
   note: z.string().nullish()
     .transform(v => (v ?? '').trim())
     .transform(v => v === '' ? undefined : v),
-  stripPrefix: z.boolean().default(false),
   enabled: z.boolean().default(true),
 }).refine(
-  d => !d.stripPrefix || d.path.endsWith('/*'),
-  { message: 'Strip prefix needs a wildcard path — add "/*"', path: ['stripPrefix'] },
-).refine(
   d => new Set(d.requestHeaders.map(o => o.name)).size === d.requestHeaders.length,
   { message: 'duplicate request header name', path: ['requestHeaders'] },
 ).refine(

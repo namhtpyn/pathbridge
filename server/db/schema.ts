@@ -26,7 +26,6 @@ export const routes = sqliteTable('routes', {
   requestHeaders: text('request_headers', { mode: 'json' }).$type<Array<{ name: string, op: 'set' | 'remove', value?: string }>>(),
   /** [{name, op: 'set'|'remove', value?}] applied to the proxied response. */
   responseHeaders: text('response_headers', { mode: 'json' }).$type<Array<{ name: string, op: 'set' | 'remove', value?: string }>>(),
-  stripPrefix: integer('strip_prefix', { mode: 'boolean' }).notNull().default(false),
   methods: text('methods', { mode: 'json' }).$type<string[]>(), // allowed HTTP verbs; null = all
   note: text('note'),
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),

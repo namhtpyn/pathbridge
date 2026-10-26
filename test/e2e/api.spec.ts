@@ -236,11 +236,10 @@ test('proxy: exact route forwards to the target URL verbatim; wildcard appends t
   expect((await viaExact.json()).path).toBe('/upstream-hook')
   await rpc(request, 'routes/remove', { path: uniq('/e2e-exact/hook') })
 
-  // wildcard with stripPrefix keeps appending the remainder (unchanged semantics)
+  // wildcard always appends the remainder after its base
   await rpc(request, 'routes/save', {
     path: uniq('/e2e-wild') + '/*',
     target: 'http://127.0.0.1:4311/base',
-    stripPrefix: true,
   })
   const viaWild = await request.get(uniq('/e2e-wild') + '/rest/of')
   expect(viaWild.status()).toBe(200)

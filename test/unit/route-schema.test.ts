@@ -10,7 +10,6 @@ describe('routeInputSchema (strict security boundary)', () => {
     expect(r.success).toBe(true)
     if (r.success) {
       expect(r.data.enabled).toBe(true) // default
-      expect(r.data.stripPrefix).toBe(false) // default
     }
   })
 
@@ -51,11 +50,6 @@ describe('routeInputSchema (strict security boundary)', () => {
 
   it('rejects bare /* — wildcards need a non-empty base (SPEC: "/" is reserved for the redirect)', () => {
     expect(routeInputSchema.safeParse({ ...valid, path: '/*' }).success).toBe(false)
-  })
-
-  it('stripPrefix requires a wildcard path', () => {
-    expect(routeInputSchema.safeParse({ ...valid, stripPrefix: true }).success).toBe(false)
-    expect(routeInputSchema.safeParse({ ...valid, path: '/hook/*', stripPrefix: true }).success).toBe(true)
   })
 
   it('methods: rejects duplicates, empty list, unknown verbs', () => {

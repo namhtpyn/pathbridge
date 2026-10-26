@@ -15,7 +15,6 @@ interface MatchedRoute {
   target: string
   requestHeaders: HeaderOverride[] | null
   responseHeaders: HeaderOverride[] | null
-  stripPrefix: boolean
   methods: string[] | null
 }
 
@@ -45,7 +44,7 @@ export default defineEventHandler(async (event) => {
 
   const all: MatchedRoute[] = await db.query.routes.findMany({
     where: { enabled: true },
-    columns: { id: true, path: true, target: true, requestHeaders: true, responseHeaders: true, stripPrefix: true, methods: true },
+    columns: { id: true, path: true, target: true, requestHeaders: true, responseHeaders: true, methods: true },
   })
 
   let best: MatchedRoute | null = null
@@ -69,16 +68,14 @@ export default defineEventHandler(async (event) => {
 
   // EXACT routes forward to the target VERBATIM — the configured target URL
   // (path included) IS the destination; the route path only selects the route.
-  // WILDCARD routes append the request remainder: the full path, or the
-  // remainder after the base when stripPrefix is on. Query strings ride along.
+  // WILDCARD routes append the remainder after their base. Query strings ride
+  // along in both modes.
   const target = best.target.replace(/\/+$/, '')
   const qIndex = event.path.indexOf('?')
   const q = qIndex >= 0 ? event.path.slice(qIndex) : ''
   let url: string
   if (best.path.endsWith('/*')) {
-    let rest = path
-    if (best.stripPrefix) rest = strip(best.path, path)
-    url = `${target}${rest}${q}`
+    url = `${target}${strip(best.path, path)}${q}`
   } else {
     url = `${target}${q}`
   }

@@ -15,7 +15,6 @@ export interface RouteRow {
   /** Headers set/removed on the proxied response before it reaches the client. */
   responseHeaders: Array<{ name: string, op: 'set' | 'remove', value?: string }> | null
   /** Strip the route's path prefix before forwarding. */
-  stripPrefix: boolean
   /** Allowed HTTP verbs; null = all. Serialized JSON array in the row. */
   methods: string[] | null
   /** Free-form note shown in the UI. */

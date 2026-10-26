@@ -125,7 +125,6 @@
           </UFormField>
           <div class="flex flex-wrap items-center gap-x-6 gap-y-3 sm:col-span-2">
             <div class="flex items-center gap-1.5">
-              <USwitch v-model="form.stripPrefix" :disabled="!isWildcard" label="Strip prefix" />
               <UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
                 <template #default>
                   <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
@@ -154,7 +153,6 @@
         <template #path-cell="{ row }">
           <div class="flex items-center gap-2">
             <code class="rounded-md bg-primary/5 px-1.5 py-0.5 text-sm font-semibold text-primary">{{ row.original.path }}</code>
-            <UBadge v-if="row.original.stripPrefix" label="strip" variant="subtle" color="warning" size="sm" />
             <UBadge v-if="!row.original.enabled" label="disabled" variant="subtle" color="error" size="sm" />
           </div>
         </template>
@@ -238,7 +236,7 @@ const routeColumns: TableColumn<RouteRow>[] = [
 
 // ---------- route form ----------
 const allVerbs = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const
-const emptyForm = () => ({ id: undefined as number | undefined, path: '', target: '', requestHeaders: [] as HeaderRowInput[], responseHeaders: [] as HeaderRowInput[], note: undefined as string | undefined, stripPrefix: false, methodsAll: true, methods: [] as string[], enabled: true })
+const emptyForm = () => ({ id: undefined as number | undefined, path: '', target: '', requestHeaders: [] as HeaderRowInput[], responseHeaders: [] as HeaderRowInput[], note: undefined as string | undefined, methodsAll: true, methods: [] as string[], enabled: true })
 const form = reactive(emptyForm())
 const busy = ref(false)
 const editing = ref('')
@@ -280,7 +278,6 @@ function reset() {
 }
 
 watch(isWildcard, (w) => {
-  if (!w && form.stripPrefix) form.stripPrefix = false
 })
 
 async function save() {

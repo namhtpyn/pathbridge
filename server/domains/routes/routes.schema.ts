@@ -5,7 +5,6 @@
 //   /hook     exact match only
 //   /hook/*   subtree: /hook and everything under it
 //   /         root catch-all
-// stripPrefix is only valid on wildcard paths (what would it strip otherwise?)
 import { z } from 'zod'
 
 // target: http(s) URL. EXACT routes forward to this URL verbatim (a path on
@@ -80,14 +79,10 @@ export const routeInputSchema = z.strictObject({
   requestHeaders: headerOverridesSchema.optional(),
   /** Headers set/removed on the proxied response before it reaches the client. */
   responseHeaders: headerOverridesSchema.optional(),
-  stripPrefix: z.boolean().optional().default(false),
   methods: methodsSchema.optional(),
   note: z.string().max(200).optional(),
   enabled: z.boolean().optional().default(true),
-}).refine(
-  d => !d.stripPrefix || d.path.endsWith('/*'),
-  { message: 'stripPrefix requires a wildcard path (ending in "/*")', path: ['stripPrefix'] },
-)
+})
 
 export type StrictRouteInput = z.infer<typeof routeInputSchema>
 

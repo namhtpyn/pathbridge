@@ -29,7 +29,7 @@ async function listRoutes() {
   return await db.query.routes.findMany({ orderBy: { path: 'asc' } }) as RouteRow[]
 }
 
-// routeInputSchema carries refinements (stripPrefix/wildcard) so .omit() is
+// routeInputSchema carries refinements (wildcard shape) so .omit() is
 // illegal on it (zod v4) — declare the create shape explicitly instead.
 const routeBase = {
   path: z.string().min(1).max(512).describe('URL path prefix to claim, e.g. /hook or /hook/* (trailing wildcard)'),
@@ -44,7 +44,6 @@ const routeBase = {
     op: z.enum(['set', 'remove']).describe('set replaces/adds the header; remove strips it'),
     value: z.string().max(8192).optional().describe('Header value (required for op=set)'),
   })).max(20).optional().describe('Overrides applied to the proxied RESPONSE before it reaches the client (e.g. cache-control, x-frame-options)'),
-  stripPrefix: z.boolean().optional().describe('Strip the route prefix before forwarding (wildcard paths only)'),
   methods: z.array(z.enum(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])).optional().describe('Allowed HTTP methods; all when omitted'),
   note: z.string().max(200).optional().describe('Free-form label'),
   enabled: z.boolean().optional().describe('false parks the route'),
@@ -85,7 +84,6 @@ export async function toolUpsertRoute(headers: Headers, input: unknown) {
       target: targetUrl,
       requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
       responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-      stripPrefix: data.stripPrefix,
       methods: data.methods ?? null,
       note: data.note !== undefined ? data.note.slice(0, 200) : null,
       enabled: data.enabled,
@@ -107,7 +105,6 @@ export async function toolUpsertRoute(headers: Headers, input: unknown) {
       target: targetUrl,
       requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
       responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-      stripPrefix: data.stripPrefix,
       methods: data.methods ?? null,
       note: data.note !== undefined ? data.note.slice(0, 200) : null,
       enabled: data.enabled,
@@ -129,7 +126,6 @@ export async function toolUpsertRoute(headers: Headers, input: unknown) {
       target: targetUrl,
       requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
       responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-      stripPrefix: data.stripPrefix,
       methods: data.methods ?? null,
       note: data.note !== undefined ? data.note.slice(0, 200) : null,
       enabled: data.enabled,
@@ -161,7 +157,6 @@ export async function toolUpdateRouteById(headers: Headers, input: unknown) {
     target: targetUrl,
     requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
       responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-    stripPrefix: data.stripPrefix,
     methods: data.methods ?? null,
     note: data.note !== undefined ? data.note.slice(0, 200) : null,
     enabled: data.enabled,

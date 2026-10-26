@@ -13,7 +13,6 @@ A mapping from a public path on this host to an upstream target origin.
 | `path` | string, unique, indexed | grammar below |
 | `target` | http(s) URL | the destination URL — forwarded to VERBATIM for exact routes (a target path is the upstream path); for wildcard routes it is a prefix for the forwarded remainder; no query, no fragment |
 | `upstreamHost` | string \| null | overrides `Host` header sent upstream |
-| `stripPrefix` | bool | wildcard routes only |
 | `methods` | string[] \| null | allowlist of HTTP verbs; null = all verbs |
 | `note` | string \| null | ≤ 200 chars, free text |
 | `enabled` | bool | disabled routes do not match |
@@ -26,7 +25,7 @@ A mapping from a public path on this host to an upstream target origin.
 - Any path starting with `/_` is rejected outright (defensive namespace; the historical `/_api /_auth /_health` routes died in the admin rename).
 - `/api`, `/mcp` and `/rpc` are in the middleware RESERVED list AND blocked by the schema (no silent shadowing).
 
-**stripPrefix** (wildcard-only): off = forward the full original path; on = remove the route's base (`/zalo/oa/x` → upstream `/oa/x`). Query string is NEVER touched.
+**Forwarding**: EXACT routes forward to the target URL verbatim (the target's own path is the upstream path; the route path only selects). WILDCARD routes append the remainder after their base (`/zalo/*` + request `/zalo/oa/x` → upstream `/oa/x` relative to the target). Query string is NEVER touched.
 
 **Method allowlist**: request verb not in `methods` → `405` with an `Allow` header. `null` = allow all.
 
