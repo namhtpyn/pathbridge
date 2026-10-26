@@ -1,21 +1,18 @@
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <div>
-        <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Access log</h2>
-        <p class="text-sm text-zinc-500">
-          <template v-if="filterPath">Filtered by route <code class="rounded bg-primary/5 px-1 py-0.5 font-mono text-xs text-primary">{{ filterPath }}</code></template>
-          <template v-else>All forwarded traffic</template>
-          <span v-if="liveEnabled" class="inline-flex items-center gap-1">· <span class="relative flex size-1.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" /></span>live tail</span>
-          <span v-else class="inline-flex items-center gap-1">· <span class="inline-flex size-1.5 rounded-full bg-zinc-400" /><span class="text-zinc-400">paused</span></span>
-        </p>
-      </div>
-      <div class="flex items-center gap-2 self-end sm:self-auto">
+    <PageHeader title="Access log">
+      <template #subtitle>
+        <template v-if="filterPath">Filtered by route <code class="rounded bg-primary/5 px-1 py-0.5 font-mono text-xs text-primary">{{ filterPath }}</code></template>
+        <template v-else>All forwarded traffic</template>
+        <span v-if="liveEnabled" class="inline-flex items-center gap-1">· <span class="relative flex size-1.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" /></span>live tail</span>
+        <span v-else class="inline-flex items-center gap-1">· <span class="inline-flex size-1.5 rounded-full bg-zinc-400" /><span class="text-zinc-400">paused</span></span>
+      </template>
+      <template #actions>
         <UButton v-if="filterPath" variant="outline" color="neutral" icon="i-lucide-x" label="Clear filter" @click="clearFilter" />
         <USwitch v-model="liveEnabled" size="sm" label="Live" :aria-label="'Live log tail toggle'" />
         <UButton icon="i-lucide-refresh-cw" variant="outline" color="neutral" label="Refresh" :loading="logsSnapshot.isFetching.value" @click="logsSnapshot.refetch()" />
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
       <div v-if="entries.length" class="overflow-x-auto" style="-webkit-overflow-scrolling: touch">
@@ -73,7 +70,7 @@ import { onServerPrefetch } from 'vue'
 
 definePageMeta({ layout: 'admin' })
 const { can } = await useAdminSession()
-const { $orpc } = useNuxtApp()
+const { $orpc, $client } = useNuxtApp()
 const route = useRoute()
 
 const pageSize = 50
@@ -175,7 +172,7 @@ async function loadFiltered() {
   if (!filterRouteId.value) { older.value = []; return }
   olderBusy.value = true
   try {
-    const r = await useNuxtApp().$client.logs.recent({ limit: pageSize, routeId: filterRouteId.value ?? undefined })
+    const r = await $client.logs.recent({ limit: pageSize, routeId: filterRouteId.value ?? undefined })
     older.value = r.entries as LogRow[]
   }
   catch { older.value = [] }
@@ -188,7 +185,7 @@ async function loadMore() {
     const beforeCursor = list.length ? list[list.length - 1]!.id : undefined
     const params: Record<string, number> = { limit: pageSize, routeId: filterRouteId.value }
     if (beforeCursor !== undefined) params.beforeId = beforeCursor
-    const r = await useNuxtApp().$client.logs.recent({ limit: params.limit, routeId: params.routeId, beforeId: params.beforeId })
+    const r = await $client.logs.recent({ limit: params.limit, routeId: params.routeId, beforeId: params.beforeId })
     older.value = [...older.value, ...r.entries as LogRow[]]
     hasMore.value = r.entries.length === pageSize
     return
@@ -198,7 +195,7 @@ async function loadMore() {
   const beforeCursor = merged.value.length ? merged.value[merged.value.length - 1]!.id : undefined
   const params: Record<string, number> = { limit: pageSize }
   if (beforeCursor !== undefined) params.beforeId = beforeCursor
-  const r = await useNuxtApp().$client.logs.recent({ limit: params.limit, beforeId: params.beforeId })
+  const r = await $client.logs.recent({ limit: params.limit, beforeId: params.beforeId })
   loaded.value++ // raise the cap BEFORE appending so history is never evicted by the append itself
   applyRows(r.entries as LogRow[], 'append')
   hasMore.value = r.entries.length === pageSize

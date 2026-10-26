@@ -10,7 +10,6 @@
           <UFormField label="Email" size="sm">
             <UInput v-model="profile.email" type="email" icon="i-lucide-mail" placeholder="you@example.com" class="w-full" />
           </UFormField>
-          <UButton :loading="busy" label="Save changes" icon="i-lucide-check" size="sm" class="mt-1" @click="saveProfile" />
         </div>
         <USeparator />
         <div class="space-y-3">
@@ -24,7 +23,6 @@
           <UFormField label="Confirm new password" size="sm">
             <UInput v-model="pwForm.confirm" type="password" icon="i-lucide-lock" class="w-full" />
           </UFormField>
-          <UButton :loading="pwBusy" color="neutral" label="Change password" icon="i-lucide-key-round" size="sm" class="mt-1" @click="changePassword" />
         </div>
         <USeparator />
         <div class="space-y-3">
@@ -66,6 +64,13 @@
         </div>
       </div>
     </template>
+    <template #footer>
+      <!-- section actions live in the modal footer (DESIGN_SYSTEM law), not inline in the body -->
+      <div class="flex w-full items-center justify-between gap-2 sm:justify-end">
+        <UButton :loading="pwBusy" color="neutral" variant="outline" label="Change password" icon="i-lucide-key-round" @click="changePassword" />
+        <UButton :loading="busy" label="Save changes" icon="i-lucide-check" @click="saveProfile" />
+      </div>
+    </template>
   </UModal>
 
   <!-- API key editor modal -->
@@ -73,15 +78,18 @@
   <!-- key created: show once -->
   <UModal :open="!!createdKeyValue" title="API key created" description="Copy it now — it will not be shown again" @update:open="v => !v && (createdKeyValue = '')">
     <template #body>
-      <div class="space-y-3">
-        <UInput :model-value="createdKeyValue" readonly class="w-full font-mono" />
-        <div class="flex justify-end gap-2">
-          <UButton icon="i-lucide-copy" color="neutral" label="Copy" @click="copyCreatedKey" />
-          <UButton label="Done" @click="createdKeyValue = ''" />
-        </div>
+      <UInput :model-value="createdKeyValue" readonly class="w-full font-mono" />
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton icon="i-lucide-copy" color="neutral" label="Copy" @click="copyCreatedKey" />
+        <UButton label="Done" @click="createdKeyValue = ''" />
       </div>
     </template>
   </UModal>
+
+  <!-- key revoke confirm -->
+  <ConfirmModal v-model:open="revokeOpen" title="Revoke API key" :description="revoke.what" confirm-label="Revoke" confirm-icon="i-lucide-key-round" :busy="revokeBusy" @confirm="confirmRevoke" />
 </template>
 
 <script setup lang="ts">
@@ -90,6 +98,7 @@ const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
 const { session, perms } = await useAdminSession()
 const toast = useToast()
+const { $client } = useNuxtApp()
 const busy = ref(false)
 
 const profile = reactive({ name: '', email: '' })
@@ -107,6 +116,7 @@ watch(() => props.open, (v) => {
   if (!v) {
     keyEditorOpen.value = false
     createdKeyValue.value = ''
+    revokeOpen.value = false
   }
 })
 
@@ -123,7 +133,7 @@ watch(() => props.open, (o) => {
 
 async function loadApiKeys() {
   try {
-    const r = await useNuxtApp().$client.keys.list()
+    const r = await $client.keys.list()
     apiKeys.value = r.keys as ApiKeyRow[]
   }
   catch { apiKeys.value = [] }
@@ -147,12 +157,12 @@ async function saveProfile() {
       return
     }
     await $fetch('/auth/update-user', { method: 'POST', body })
-    session.value = { ...session.value!, user: { ...session.value!.user, ...body } }
+    if (!session.value) return
+    session.value = { ...session.value, user: { ...session.value.user, ...body } }
     toast.add({ title: 'Profile updated', color: 'success' })
   }
   catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string, message?: string }, message?: string }
-    toast.add({ title: 'Update failed', description: err.data?.statusMessage || err.data?.message || err.message, color: 'error' })
+    toast.add({ title: 'Update failed', description: errorMessage(e), color: 'error' })
   }
   busy.value = false
 }
@@ -175,8 +185,7 @@ async function changePassword() {
     toast.add({ title: 'Password changed', description: 'Other sessions were signed out', color: 'success' })
   }
   catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string, message?: string }, message?: string }
-    toast.add({ title: 'Change failed', description: err.data?.statusMessage || err.data?.message || err.message, color: 'error' })
+    toast.add({ title: 'Change failed', description: errorMessage(e), color: 'error' })
   }
   pwBusy.value = false
 }
@@ -197,28 +206,40 @@ async function confirmRename() {
   }
   renameBusy.value = true
   try {
-    await useNuxtApp().$client.keys.rename({ id, name: name.trim() })
+    await $client.keys.rename({ id, name: name.trim() })
     toast.add({ title: 'Key renamed', color: 'success' })
     renaming.value = null
     await loadApiKeys()
   }
   catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Rename failed', description: err.data?.statusMessage || err.message, color: 'error' })
+    toast.add({ title: 'Rename failed', description: errorMessage(e), color: 'error' })
   }
   renameBusy.value = false
 }
 
-async function revokeKey(k: ApiKeyRow) {
+// ---------- revoke (confirm-first: revocation is instant and permanent) ----------
+const revokeOpen = ref(false)
+const revokeBusy = ref(false)
+const revoke = reactive({ what: '', id: '' })
+
+function revokeKey(k: ApiKeyRow) {
+  revoke.what = `key ${k.name || k.start}`
+  revoke.id = k.id
+  revokeOpen.value = true
+}
+
+async function confirmRevoke() {
+  revokeBusy.value = true
   try {
-    await useNuxtApp().$client.keys.revoke({ id: k.id })
+    await $client.keys.revoke({ id: revoke.id })
     toast.add({ title: 'Key revoked', color: 'success' })
     await loadApiKeys()
   }
   catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Revoke failed', description: err.data?.statusMessage || err.message, color: 'error' })
+    toast.add({ title: 'Revoke failed', description: errorMessage(e), color: 'error' })
   }
+  revokeBusy.value = false
+  revokeOpen.value = false
 }
 
 function copyCreatedKey() {

@@ -58,13 +58,13 @@ Every form — route editor, user create, role create, profile — follows the s
 - **Every record list is a `UTable`** (v1.22.0 unified: routes, users, roles, logs — no mixed card lists, no hand-rolled HTML tables). Wrap in `UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }"`.
 - Column defs are typed `TableColumn<T>[]` with `meta: { class: { td: 'w-full' } }` on the flexible column and a trailing empty-header `id: 'actions'` column for right-aligned row actions.
 - Custom cells via `#<accessor>-cell` slots (`#path-cell`, `#user-cell`, `#actions-cell`…) keeping badges, monospace chips and stacked text inside cells.
-- **Permission matrices (role editor, API-key scope) use UTable grouped rows**: `:grouping="['resource']"` + `getGroupedRowModel()` with `groupedColumnMode: false` (NOT 'remove' — remove deletes the grouping column and its cell slot never renders). Group row = expand toggle + resource name; member rows = `action` + None/Own/All `URadioGroup` columns (one radio per column, `variant="list"`, `:ui="{ fieldset: 'justify-center' }"`). Scope cells hide entirely when the vocabulary (roles) or the caller's own grants (key scoping) don't allow them.
+- **Permission matrices use the shared `PermissionMatrix` component** (role editor + API-key scope): grouped `UTable` (`:grouping="['resource']"` + `getGroupedRowModel()`, `groupedColumnMode: false` — NOT 'remove', which deletes the grouping column's cell slot) with None/Own/All radio columns, a master radio per resource group and `v-model` on the `Record<string, string[]>` statements. Exactly one scope per action; empty resources are omitted. Availability comes from the `scopeAvailable` prop — vocabulary for roles, vocabulary ∩ the caller's own grants for key scoping (narrow-only law). Never hand-roll this table again.
 - Every action button gets an `aria-label` (agents + screen readers): `aria-label="Edit route"`, `"Delete route"`.
 - Empty state: centered `i-lucide-*` icon, short heading, one-line hint; CTA button only if the user has the create permission; neutral copy for read-only users ("No routes yet" — not "Create your first route").
 
 ## Modals
 
-- `UModal` with `title` (+ `description` when a subtitle helps). Content in `#body` template slot.
+- `UModal` with `title` (+ `description` when a subtitle helps). Content in `#body` template slot. **Action buttons ALWAYS live in the `#footer` slot** — never inline in the body (law: use `FormModal` for cancel/submit forms, `ConfirmModal` for destructive confirms, and put any custom modal's buttons in its own `#footer`).
 - One purpose per modal. Destructive confirms show the target name in the description and use a `color="error"` confirm button.
 - Modals that edit must PRE-POPULATE from state before opening (populate-then-open, e.g. `openProfile()`), never rely on `@update:open` side effects.
 - A no-op save must give feedback ("No changes to save"), never silently return.

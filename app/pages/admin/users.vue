@@ -1,135 +1,92 @@
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <div>
-        <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">Users</h2>
-        <p class="text-sm text-zinc-500">Who can manage this bridge</p>
-      </div>
-      <UButton icon="i-lucide-user-plus" label="Add user" class="self-end sm:self-auto" @click="showAddUser = true" />
-    </div>
+    <PageHeader title="Users" subtitle="Who can manage this bridge">
+      <template #actions>
+        <UButton icon="i-lucide-user-plus" label="Add user" @click="showAddUser = true" />
+      </template>
+    </PageHeader>
 
     <!-- add user modal -->
-    <UModal :open="showAddUser" title="Add user" description="Create a new account and assign its role" @update:open="v => showAddUser = v">
-      <template #body>
-        <UForm :state="newUser" :validate="validateNewUser" class="grid gap-5 sm:grid-cols-2" @submit="addUser">
-          <UFormField label="Email" name="email">
-            <UInput v-model="newUser.email" type="email" icon="i-lucide-mail" class="w-full" />
-          </UFormField>
-          <UFormField label="Name" name="name">
-            <UInput v-model="newUser.name" icon="i-lucide-user" class="w-full" />
-          </UFormField>
-          <UFormField name="password">
-            <template #label>Password</template>
-            <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                <template #default>
-                  <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                </template>
-                <template #content>
-                  <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                    <p class="text-xs font-semibold text-white">Password</p>
-                    <p class="text-xs text-zinc-200">Initial password for the new user — they (or you) can change it later via Reset password.</p>
-                    <p class="rounded bg-white/10 px-1.5 py-1 font-mono text-[11px] text-white break-all">e.g. min 8 characters</p>
-                  </div>
-                </template>
-              </UPopover></template>
-            <UInput v-model="newUser.password" type="password" icon="i-lucide-lock" class="w-full" />
-          </UFormField>
-          <UFormField v-if="can('roles', 'update')" name="role">
-            <template #label>Role</template>
-            <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                <template #default>
-                  <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                </template>
-                <template #content>
-                  <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                    <p class="text-xs font-semibold text-white">Role</p>
-                    <p class="text-xs text-zinc-200">Role assigned to the new user. Defaults to viewer. Requires roles:update permission.</p>
-                  </div>
-                </template>
-              </UPopover></template>
-            <USelect v-model="newUser.role" :items="roleOptions" class="w-full" />
-          </UFormField>
-          <div class="flex items-end justify-end gap-2">
-            <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="showAddUser = false" />
-            <UButton type="submit" icon="i-lucide-user-plus" :loading="busy" label="Create user" />
-          </div>
-        </UForm>
-      </template>
-    </UModal>
+    <FormModal
+      :open="showAddUser" title="Add user" description="Create a new account and assign its role"
+      :form-id="addUserFormId" submit-label="Create user" submit-icon="i-lucide-user-plus" :busy="busy"
+      @update:open="v => showAddUser = v"
+    >
+      <UForm :id="addUserFormId" :state="newUser" :validate="validateNewUser" class="grid gap-5 sm:grid-cols-2" @submit="addUser">
+        <UFormField label="Email" name="email">
+          <UInput v-model="newUser.email" type="email" icon="i-lucide-mail" class="w-full" />
+        </UFormField>
+        <UFormField label="Name" name="name">
+          <UInput v-model="newUser.name" icon="i-lucide-user" class="w-full" />
+        </UFormField>
+        <UFormField name="password">
+          <template #label>Password</template>
+          <template #hint>
+            <FieldHint title="Password" example="e.g. min 8 characters">
+              Initial password for the new user — they (or you) can change it later via Reset password.
+            </FieldHint>
+          </template>
+          <UInput v-model="newUser.password" type="password" icon="i-lucide-lock" class="w-full" />
+        </UFormField>
+        <UFormField v-if="can('roles', 'update')" name="role">
+          <template #label>Role</template>
+          <template #hint>
+            <FieldHint title="Role">
+              Role assigned to the new user. Defaults to viewer. Requires roles:update permission.
+            </FieldHint>
+          </template>
+          <USelect v-model="newUser.role" :items="roleOptions" class="w-full" />
+        </UFormField>
+      </UForm>
+    </FormModal>
 
     <!-- edit user modal -->
-    <UModal v-model:open="userEditOpen" :title="`Edit ${userEditForm.name || userEditForm.email}`" description="Update name, email or role">
-      <template #body>
-        <UForm :state="userEditForm" class="grid gap-5" @submit="saveUserEdit">
-          <UFormField label="Name" name="name">
-            <UInput v-model="userEditForm.name" icon="i-lucide-user" class="w-full" />
-          </UFormField>
-          <UFormField label="Email" name="email">
-            <UInput v-model="userEditForm.email" type="email" icon="i-lucide-mail" class="w-full" />
-          </UFormField>
-          <UFormField v-if="can('roles', 'update')" name="role">
-            <template #label>Role</template>
-            <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                <template #default>
-                  <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                </template>
-                <template #content>
-                  <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 text-left shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                    <p class="text-xs font-semibold text-white">Role</p>
-                    <p class="text-xs text-zinc-200">Changing role takes effect on the user's next request.</p>
-                  </div>
-                </template>
-              </UPopover></template>
-            <USelect v-model="userEditForm.role" :items="roleOptions" class="w-full" />
-          </UFormField>
-          <UFormField name="emailVerifiedEdit">
-            <template #label>Email verified</template>
-            <template #hint><UPopover mode="hover" :content="{ side: 'top', align: 'center' }">
-                <template #default>
-                  <UIcon name="i-lucide-info" class="mb-0.5 size-3.5 shrink-0 cursor-help text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300" />
-                </template>
-                <template #content>
-                  <div class="max-w-64 space-y-1.5 rounded-md bg-zinc-800 p-3 shadow-lg ring-1 ring-zinc-700 dark:bg-zinc-900 dark:ring-zinc-700">
-                    <p class="text-xs font-semibold text-white">Email verified</p>
-                    <p class="text-xs text-zinc-200">OIDC accounts auto-link to existing users only when the local account is verified.</p>
-                  </div>
-                </template>
-              </UPopover></template>
-            <USwitch v-model="userEditForm.emailVerified" label="Email is verified" />
-          </UFormField>
-          <div class="flex items-end justify-end gap-2">
-            <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="userEditOpen = false" />
-            <UButton type="submit" icon="i-lucide-check" :loading="busy" label="Save changes" />
-          </div>
-        </UForm>
-      </template>
-    </UModal>
+    <FormModal
+      v-model:open="userEditOpen" :title="`Edit ${userEditForm.name || userEditForm.email}`" description="Update name, email or role"
+      :form-id="editUserFormId" submit-label="Save changes" submit-icon="i-lucide-check" :busy="busy"
+    >
+      <UForm :id="editUserFormId" :state="userEditForm" class="grid gap-5" @submit="saveUserEdit">
+        <UFormField label="Name" name="name">
+          <UInput v-model="userEditForm.name" icon="i-lucide-user" class="w-full" />
+        </UFormField>
+        <UFormField label="Email" name="email">
+          <UInput v-model="userEditForm.email" type="email" icon="i-lucide-mail" class="w-full" />
+        </UFormField>
+        <UFormField v-if="can('roles', 'update')" name="role">
+          <template #label>Role</template>
+          <template #hint>
+            <FieldHint title="Role">
+              Changing role takes effect on the user's next request.
+            </FieldHint>
+          </template>
+          <USelect v-model="userEditForm.role" :items="roleOptions" class="w-full" />
+        </UFormField>
+        <UFormField name="emailVerifiedEdit">
+          <template #label>Email verified</template>
+          <template #hint>
+            <FieldHint title="Email verified">
+              OIDC accounts auto-link to existing users only when the local account is verified.
+            </FieldHint>
+          </template>
+          <USwitch v-model="userEditForm.emailVerified" label="Email is verified" />
+        </UFormField>
+      </UForm>
+    </FormModal>
 
     <!-- password reset modal -->
-    <UModal v-model:open="pwModalOpen" title="Reset password" description="Set a new password for this user">
-      <template #body>
-        <UForm :state="pwModal" class="space-y-4" @submit="submitPasswordReset">
-          <UFormField label="New password" name="password" help="Minimum 8 characters">
-            <UInput v-model="pwModal.password" type="password" icon="i-lucide-lock" class="w-full" required />
-          </UFormField>
-          <div class="flex justify-end gap-2">
-            <UButton variant="ghost" color="neutral" label="Cancel" @click="pwModalOpen = false" />
-            <UButton type="submit" :loading="busy" label="Set password" />
-          </div>
-        </UForm>
-      </template>
-    </UModal>
+    <FormModal
+      v-model:open="pwModalOpen" title="Reset password" description="Set a new password for this user"
+      :form-id="pwFormId" submit-label="Set password" submit-icon="i-lucide-key-round" :busy="busy"
+    >
+      <UForm :id="pwFormId" :state="pwModal" class="space-y-4" @submit="submitPasswordReset">
+        <UFormField label="New password" name="password" help="Minimum 8 characters">
+          <UInput v-model="pwModal.password" type="password" icon="i-lucide-lock" class="w-full" required />
+        </UFormField>
+      </UForm>
+    </FormModal>
 
     <!-- delete confirm modal -->
-    <UModal v-model:open="deleteModalOpen" title="Delete user" :description="deleteModal.what">
-      <template #body>
-        <p class="text-sm text-zinc-500">This action cannot be undone.</p>
-        <div class="mt-4 flex justify-end gap-2">
-          <UButton variant="ghost" color="neutral" label="Cancel" @click="deleteModalOpen = false" />
-          <UButton color="error" icon="i-lucide-trash-2" label="Delete" @click="confirmDelete" />
-        </div>
-      </template>
-    </UModal>
+    <ConfirmModal v-model:open="deleteModalOpen" title="Delete user" :description="deleteModal.what" :busy="deleteBusy" @confirm="confirmDelete" />
 
     <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
       <UTable :data="users" :columns="userColumns">
@@ -155,9 +112,9 @@
         </template>
         <template #actions-cell="{ row }">
           <div class="flex justify-end gap-2">
-            <UButton icon="i-lucide-pencil" variant="ghost" color="neutral" size="sm" aria-label="Edit user" :disabled="!can('users', 'update')" @click="openUserEditor(row.original)" />
-            <UButton icon="i-lucide-key-round" variant="ghost" color="neutral" size="sm" aria-label="Reset password" @click="resetPassword(row.original)" />
-            <UButton icon="i-lucide-trash-2" variant="ghost" color="error" size="sm" aria-label="Delete user" :disabled="Boolean(session?.user?.id && row.original.id === session.user.id)" @click="removeUser(row.original)" />
+            <IconButton text="Edit user" icon="i-lucide-pencil" :disabled="!can('users', 'update')" @click="openUserEditor(row.original)" />
+            <IconButton text="Reset password" icon="i-lucide-key-round" @click="resetPassword(row.original)" />
+            <IconButton text="Delete user" icon="i-lucide-trash-2" color="error" :disabled="Boolean(session?.user?.id && row.original.id === session.user.id)" @click="removeUser(row.original)" />
           </div>
         </template>
       </UTable>
@@ -173,7 +130,11 @@ import type { TableColumn } from '@nuxt/ui'
 definePageMeta({ layout: 'admin' })
 const { session, can } = await useAdminSession()
 const toast = useToast()
+const { $client } = useNuxtApp()
 const busy = ref(false)
+const addUserFormId = useId()
+const editUserFormId = useId()
+const pwFormId = useId()
 
 interface AdminUser { id: string, name: string, email: string, emailVerified: boolean, role: string, createdAt: string, sessionCount: number, hasPassword: boolean, oidcLinked: boolean }
 
@@ -202,7 +163,7 @@ onMounted(async () => {
 
 async function refresh() {
   try {
-    const client = useNuxtApp().$client
+    const client = $client
     const [u, r] = await Promise.all([
       client.users.list(),
       can('roles', 'read') ? client.roles.list().then(r => ({ roles: r.roles as { id: string, name: string }[] })).catch(() => ({ roles: [] as { id: string, name: string }[] })) : Promise.resolve({ roles: [] as { id: string, name: string }[] }),
@@ -243,14 +204,13 @@ async function saveUserEdit() {
     if (userEditForm.email.trim()) body.email = userEditForm.email.trim()
     if (can('roles', 'update')) body.role = userEditForm.role
     body.emailVerified = userEditForm.emailVerified
-    await useNuxtApp().$client.users.update({ id: userEditForm.id, ...body })
+    await $client.users.update({ id: userEditForm.id, ...body })
     await refresh()
     userEditOpen.value = false
     toast.add({ title: 'User updated', color: 'success' })
   }
   catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Update failed', description: err.data?.statusMessage || err.message, color: 'error' })
+    toast.add({ title: 'Update failed', description: errorMessage(e), color: 'error' })
   }
   busy.value = false
 }
@@ -258,9 +218,9 @@ async function saveUserEdit() {
 async function addUser() {
   busy.value = true
   try {
-    const body: Record<string, string | boolean> = { email: newUser.email.trim(), name: newUser.name.trim(), password: newUser.password, emailVerified: newUser.emailVerified }
+    const body: { email: string, name: string, password: string, emailVerified: boolean, role?: string } = { email: newUser.email.trim(), name: newUser.name.trim(), password: newUser.password, emailVerified: newUser.emailVerified }
     if (can('roles', 'update')) body.role = newUser.role
-    await useNuxtApp().$client.users.save(body as { email: string, name: string, password: string, emailVerified: boolean, role?: string })
+    await $client.users.save(body)
     newUser.email = ''
     newUser.name = ''
     newUser.password = ''
@@ -270,8 +230,7 @@ async function addUser() {
     toast.add({ title: 'User created', color: 'success' })
   }
   catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Create failed', description: err.data?.statusMessage || err.message, color: 'error' })
+    toast.add({ title: 'Create failed', description: errorMessage(e), color: 'error' })
   }
   busy.value = false
 }
@@ -293,18 +252,18 @@ async function submitPasswordReset() {
   }
   busy.value = true
   try {
-    await useNuxtApp().$client.users.setPassword({ id: pwModal.userId, password: pwModal.password })
+    await $client.users.setPassword({ id: pwModal.userId, password: pwModal.password })
     pwModalOpen.value = false
     toast.add({ title: `Password updated for ${pwModal.email}`, color: 'success' })
   }
   catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Reset failed', description: err.data?.statusMessage || err.message, color: 'error' })
+    toast.add({ title: 'Reset failed', description: errorMessage(e), color: 'error' })
   }
   busy.value = false
 }
 
 const deleteModalOpen = ref(false)
+const deleteBusy = ref(false)
 const deleteModal = reactive({ what: '', id: '' })
 
 function removeUser(u: AdminUser) {
@@ -314,15 +273,16 @@ function removeUser(u: AdminUser) {
 }
 
 async function confirmDelete() {
+  deleteBusy.value = true
   try {
-    await useNuxtApp().$client.users.remove({ id: deleteModal.id })
+    await $client.users.remove({ id: deleteModal.id })
     await refresh()
     toast.add({ title: 'User deleted', color: 'success' })
   }
   catch (e: unknown) {
-    const err = e as { data?: { statusMessage?: string }, message?: string }
-    toast.add({ title: 'Delete failed', description: err.data?.statusMessage || err.message, color: 'error' })
+    toast.add({ title: 'Delete failed', description: errorMessage(e), color: 'error' })
   }
+  deleteBusy.value = false
   deleteModalOpen.value = false
 }
 </script>
