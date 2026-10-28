@@ -136,8 +136,10 @@ async function buildAuth() {
       // Authorization: Bearer <session-token> -> session (agent/MCP-friendly)
       bearer(),
       // long-lived revocable API keys (@better-auth/api-key).
-      // default rate limit (10/day -> silent 401) is a footgun for script/agent
-      // use; disabled per key, keys are revocable instead
+      // the default rate limit (10/day -> silent 401) is a footgun for
+      // script/agent use. This config switch disables the limiter for ALL keys,
+      // so the plugin's per-key rateLimitEnabled toggle is inert — keys are
+      // revocable instead
       apiKey({ rateLimit: { enabled: false } }),
       ...(p.oidcProviders.length > 0
         ? [

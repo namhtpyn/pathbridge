@@ -8,7 +8,7 @@ import { ORPCError } from '@orpc/server'
 import { user, account, session as sessionTable, apikey, verification } from '../../db/schema.auth'
 import { routes as routesTable } from '../../db/schema'
 import { hashPassword } from 'better-auth/crypto'
-import { and, count, eq, gt, inArray, sql } from 'drizzle-orm'
+import { and, count, eq, gt, inArray, like, sql } from 'drizzle-orm'
 import { badRequest } from '../shared/context'
 
 export type AdminUserView = {
@@ -24,6 +24,20 @@ export type AdminUserView = {
 }
 
 /** SQLite unique-constraint failure — bun's driver code or the raw message. */
+type Tx = Parameters<Parameters<Awaited<ReturnType<typeof getDb>>['transaction']>[0]>[0]
+
+/** Does a comma-separated role list contain the builtin admin role?
+ *  Exact split-test: a custom role merely NAMED like "co-admin" is not admin. */
+export function hasAdminRole(role: string | null | undefined) {
+  return (role ?? '').split(',').map(r => r.trim()).includes('admin')
+}
+
+/** Role string of one user (null when the row is gone). */
+export async function userRole(id: string): Promise<string | null> {
+  const row = await (await getDb()).query.user.findFirst({ where: { id }, columns: { role: true } })
+  return row?.role ?? null
+}
+
 export function isUniqueViolation(e: unknown) {
   if (!(e instanceof Error)) return false
   const code = (e as { code?: unknown }).code
@@ -81,18 +95,15 @@ async function assertRolesExist(role: string) {
   }
 }
 
-/** Refuse a change that would leave the instance without an admin. Counts the
- *  OTHER users whose comma-separated role list still contains 'admin' (LIKE
- *  narrows, the split-test is exact — same pattern as removeRole). */
-async function assertNotLastAdmin(db: Awaited<ReturnType<typeof getDb>>, id: string, nextRole?: string) {
-  const rows = await db.query.user.findMany({
-    where: { role: { like: '%admin%' } },
-    columns: { id: true, role: true },
-    orderBy: { id: 'asc' },
-  })
-  const admins = rows.filter(u => (u.role ?? '').split(',').map(r => r.trim()).includes('admin'))
+/** Refuse a change that would leave the instance without an admin. Runs on the
+ *  caller's transaction so the re-check and the write are one atomic step: two
+ *  concurrent demotions must not both observe "the other is still admin".
+ *  LIKE narrows, the split-test is exact — same pattern as removeRole. */
+function assertNotLastAdmin(tx: Tx, id: string, nextRole?: string) {
+  const rows = tx.select({ id: user.id, role: user.role }).from(user).where(like(user.role, '%admin%')).all()
+  const admins = rows.filter(u => hasAdminRole(u.role))
   if (!admins.some(u => u.id === id)) return // not an admin today — nothing to protect
-  if (nextRole?.split(',').map(r => r.trim()).includes('admin')) return // stays an admin
+  if (hasAdminRole(nextRole)) return // stays an admin
   if (admins.some(u => u.id !== id)) return
   throw new ORPCError('CONFLICT', { message: 'cannot remove the last admin' })
 }
@@ -127,7 +138,6 @@ export async function updateUser(id: string, patch: { name?: string, email?: str
   if (!exists) return false
   if (patch.role !== undefined) {
     await assertRolesExist(patch.role)
-    await assertNotLastAdmin(db, id, patch.role)
   }
   if (patch.email !== undefined) {
     const taken = await db.query.user.findFirst({ where: { email: patch.email }, columns: { id: true } })
@@ -138,7 +148,16 @@ export async function updateUser(id: string, patch: { name?: string, email?: str
   if (patch.email !== undefined) sets.email = patch.email
   if (patch.emailVerified !== undefined) sets.emailVerified = patch.emailVerified
   if (patch.role !== undefined) sets.role = patch.role
-  await db.update(user).set(sets).where(eqUser(id))
+  if (patch.role !== undefined) {
+    // re-check + write atomically: two concurrent demotions must not both pass
+    db.transaction((tx) => {
+      assertNotLastAdmin(tx, id, patch.role)
+      tx.update(user).set(sets).where(eqUser(id)).run()
+    })
+  }
+  else {
+    await db.update(user).set(sets).where(eqUser(id))
+  }
   return true
 }
 
@@ -146,10 +165,11 @@ export async function deleteUser(id: string) {
   const db = await getDb()
   const target = await db.query.user.findFirst({ where: { id }, columns: { email: true } })
   if (!target) return false
-  await assertNotLastAdmin(db, id)
   // one transaction: sessions, credentials, pending tokens, API keys (no FK on
   // apikey.referenceId), owned routes and the user row must disappear together.
+  // The last-admin re-check lives inside it so it sees the same snapshot as the delete.
   db.transaction((tx) => {
+    assertNotLastAdmin(tx, id)
     tx.delete(sessionTable).where(eqSessionUser(id)).run()
     tx.delete(account).where(eqAccountUser(id)).run()
     // verification rows are keyed by identifier (= email), not user_id

@@ -37,7 +37,9 @@ export function recordAccess(entry: {
   void getDb().then(db => db.insert(accessLog).values(entry)
     .then(() => { logWriteFailed = false; return publishChange('logs', 'create') })
     .catch((e) => { if (!logWriteFailed) { logWriteFailed = true; console.error('[access-log] write failed:', e instanceof Error ? e.message : e) } }))
-    .catch(() => {})
+    // the DB client itself can fail to load (import/migration trouble): without
+    // a line here the only signal that access logging stopped is missing rows
+    .catch((e) => { console.error('[access-log] disabled:', e instanceof Error ? e.message : e) })
 }
 
 export async function queryAccessLog(opts: { limit?: number, routeId?: number, routeIds?: number[], beforeId?: number }) {

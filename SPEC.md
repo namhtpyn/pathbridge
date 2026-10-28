@@ -32,7 +32,7 @@ A mapping from a public path on this host to an upstream target origin.
 ### Role
 Runtime-editable bundle of permissions. Row: `name` (2–32 chars, `[a-z0-9-]`, immutable), `description`, `statements` (JSON), `builtin` (bool).
 
-Builtins: `admin` (everything `:all`) and `viewer` (`routes: read:own` only), canonicalized at boot (tamper-resistant; drifted rows reset to compiled-in definitions). Builtin rows cannot be edited or deleted; custom roles are fully editable.
+Builtins: `admin` (everything `:all`) and `viewer` (`routes: read:own` plus `profile: read:own` / `update:own`), canonicalized at boot (tamper-resistant; drifted rows reset to compiled-in definitions). Builtin rows cannot be edited or deleted; custom roles are fully editable.
 
 **Statement grammar**: `"action:scope"` where action ∈ `create|read|update|delete` and scope ∈ `all|own`.
 - `all` = act on anyone's records; implies the matching `own`.
@@ -57,11 +57,11 @@ Long-lived bearer credential (`@better-auth/api-key`), stored hashed, shown once
 
 - **Default: inherits the owner's effective permissions** (unscoped key = acts as its owner).
 - **Optional narrowing**: a key may carry `permissions` (same `resource -> [action:scope]` grammar as roles). The effective grants are the INTERSECTION of key statements and owner grants — a key can never expand beyond its owner, and can only shrink. Enforced centrally in `requireUser`.
-- Rate limit disabled per key (the plugin's 10/day default silently 401'd at request #11); revocable; optional expiry.
-- Managed via the `keys` oRPC procedures (`keys.{list,create,revoke}` — permissions are server-only on the plugin, so creation goes through our route, never the raw better-auth endpoint). UI: Profile modal → API keys (scope editor = same grouped permission matrix as roles, filtered to statements the owner holds).
+- Rate limiting is disabled at the plugin config level (the 10/day default silently 401'd at request #11), which makes the plugin's per-key `rateLimitEnabled` toggle inert; revocable; optional expiry.
+- Managed via the `keys` oRPC procedures (`keys.{list,create,rename,revoke}` — permissions are server-only on the plugin, so creation goes through our route, never the raw better-auth endpoint). UI: Profile modal → API keys (scope editor = same grouped permission matrix as roles, filtered to statements the owner holds).
 
 ### Access log
-Fire-and-forget insert per proxied request: ts, method, path, routeId, status, durationMs, clientIp, userAgent. Logging can NEVER break proxying (failures swallowed). Retention sweeper every 6h deletes entries older than `logRetentionDays`; `0` = keep forever.
+Fire-and-forget insert per proxied request: ts, method, path, routeId, routePath, status, durationMs, clientIp, userAgent. Logging can NEVER break proxying (failures swallowed). Retention sweeper every 6h deletes entries older than `logRetentionDays`; `0` = keep forever.
 
 ## 2. Auth surface
 
@@ -71,7 +71,7 @@ Fire-and-forget insert per proxied request: ts, method, path, routeId, status, d
 | Bearer session-token | `Authorization: Bearer <token from sign-in response body>` |
 | Bearer API key | `Authorization: Bearer pb…` (no dot in token → API-key path) |
 
-Every authed `/rpc` procedure (except the public `authConfig` and `version`) enforces session → resolve permissions → 403 with the missing permission named in the message.
+Every authed `/rpc` procedure (except the public `authConfig`, `version` and `session` — the last returns null when signed out) enforces session → resolve permissions → 403 with the missing permission named in the message.
 
 IDs: uuidv7 everywhere (`advanced.database.generateId` + our own insert paths) — time-ordered, b-tree-friendly. The relations-v2 drizzle adapter runs with `advanced.database.joins: true` (single-query session fetches).
 
@@ -138,13 +138,13 @@ namespace is reserved (non-proxyable) to keep old links from silently becoming
 proxy targets.
 - `GET /health` — liveness (always 200, no dependencies)
 - `GET /health/ready` — readiness: liveness + `select 1` against the database (the bridge re-queries routes per request, so a dead DB = broken forwarding). Container HEALTHCHECK probes this every 30s (bun fetch — the runtime image ships no curl)
-- **Bun idle timeout is forced in code (default 255s).** Bun's server idleTimeout defaults to 10s and is NOT reset by stream writes, so SSE live queries (15s keepalive) abort mid-stream on a default deployment. The bun preset entry reads `NITRO_BUN_IDLE_TIMEOUT` at boot; a `compiled` hook in `nuxt.config.ts` patches the built entry to `|| 255` so the app is safe out of the box — an explicit env value still overrides. If the hook ever warns that its needle vanished, the nitro preset template changed and the patch must be re-derived.
+- **Bun idle timeout is forced in code (default 255s).** Bun's server idleTimeout defaults to 10s and is NOT reset by stream writes, so an idle SSE live query (the streams send no keepalive frames) is cut mid-stream on a default deployment; clients reconnect and resnapshot. The bun preset entry reads `NITRO_BUN_IDLE_TIMEOUT` at boot; a `compiled` hook in `nuxt.config.ts` patches the built entry to `|| 255` so the app is safe out of the box — an explicit env value still overrides. If the hook ever warns that its needle vanished, the nitro preset template changed and the patch must be re-derived.
 - `POST|GET|DELETE /mcp` — MCP server (streamable HTTP, stateless; Bearer API key or session). Tools: `list_routes`, `create_route`, `update_route`, `delete_route`, `get_logs` — same zod schemas and permission enforcement as the oRPC procedures (key narrowing applies per tool call).
 - `POST /rpc/*` — oRPC router (Fetch adapter at `server/routes/rpc/[...].ts`). Procedures: `authConfig`, `version`, `session`, `me`, `routes.{list,live,count,save,remove}`, `users.{list,live,save,update,setPassword,remove}`, `roles.{list,live,save,update,remove}`, `settings.{get,save}`, `oidc.{list,save}`, `keys.{list,create,rename,revoke}`, `logs.{recent,tail}`. Bodies are wrapped (`{"json": <input>}`); live procedures stream as SSE (AsyncIteratorObject handlers backed by the in-process change bus — `.live` sends snapshots, `logs.tail` sends deltas only). Auth = identical requireUser path (cookie session or Bearer API key, narrowing included) — no oRPC-specific privilege logic.
 
 ### Realtime (change bus + live queries)
 
-Every write path (all REST mutation handlers, the three MCP route tools, access-log insert) publishes `publishChange(resource, action)` to an in-process MemoryPublisher (`server/lib/change-bus.ts`; buffer 100). `routes.live`, `users.live` and `roles.live` yield an initial snapshot, then re-emit a fresh snapshot when a relevant event fires — delivered as SSE by the RPCHandler. `logs.tail` is the exception: it carries DELTAS ONLY (no initial payload — see the realtime rule in §2). Streams are CONNECTION-SCOPED: the /rpc handler aborts an AbortController on `res.close` and every generator pulls through it, so a disconnected client's bus listener and keepalive die immediately (a leak here re-queries per proxied request). `liveGenerator` subscribes BEFORE its snapshot and coalesces the subscribe-window backlog into one extra frame (no lost changes). `logs.recent` returns `{ entries, latestId }`; the client refetches it on every (re)connect so rows committed between snapshot and subscribe are reconciled even though the payload-free tail can never re-send them. The admin UI subscribes via `@orpc/tanstack-query` `liveOptions()`; mutations from ANY surface (UI, REST, MCP, proxied traffic for logs) push within ~2s without reload.
+Every write path (all oRPC mutation procedures, the three MCP route tools, access-log insert) publishes `publishChange(resource, action)` to an in-process MemoryPublisher (`server/lib/change-bus.ts`; buffer 100). `routes.live`, `users.live` and `roles.live` yield an initial snapshot, then re-emit a fresh snapshot when a relevant event fires — delivered as SSE by the RPCHandler. `logs.tail` is the exception: it carries DELTAS ONLY (no initial payload — see the realtime rule in §2). Streams are CONNECTION-SCOPED: the /rpc handler aborts an AbortController on `res.close` and every generator pulls through it, so a disconnected client's bus listener and keepalive die immediately (a leak here re-queries per proxied request). `liveGenerator` subscribes BEFORE its snapshot and coalesces the subscribe-window backlog into one extra frame (no lost changes). `logs.recent` returns `{ entries, latestId }`; the client refetches it on every (re)connect so rows committed between snapshot and subscribe are reconciled even though the payload-free tail can never re-send them. The admin UI subscribes via `@orpc/tanstack-query` `liveOptions()`; mutations from ANY surface (UI, REST, MCP, proxied traffic for logs) push within ~2s without reload.
 
 Errors: zod strict validation → 400 with `field: message`; permission → 403 `Forbidden: missing permission resource:action`; auth → 401.
 
@@ -171,8 +171,6 @@ Migrations auto-apply at boot from `./drizzle` (tracked in `__migrations`).
 7b. oRPC procedures use the same requireUser path too; a live query is permission-checked per subscription exactly like its REST read.
 7c. Live-query correctness = every mutation publishes; a write path that forgets publishChange breaks realtime (the logs insert once did).
 8. Builtin roles are canonicalized at boot; drift heals.
-
-## Auth schema provenance
 
 ## Backend feature-module structure (NestJS-style)
 

@@ -27,6 +27,7 @@ docker run -d \
   --name pathbridge \
   -p 3000:3000 \
   -v pb-data:/data \
+  -e BETTER_AUTH_SECRET=$(openssl rand -hex 32) \
   ghcr.io/namhtpyn/pathbridge
 ```
 
@@ -73,7 +74,7 @@ is plain HTTP.
 | `DATA_DIR` | `/data` | database location (mount a volume) |
 | `PORT` | `3000` | listen port |
 | `DRIZZLE_DIR` | `./drizzle` (cwd) | migration folder; the boot runner applies every folder here into `__migrations` |
-| `BETTER_AUTH_SECRET` | random per boot | auth/session signing secret. Generated fresh on every boot when unset, which invalidates sessions on restart — **set it in production**. |
+| `BETTER_AUTH_SECRET` | unset → better-auth's fixed dev constant | auth/session signing secret. When unset, better-auth uses a well-known constant and **refuses to start auth in production** (`NODE_ENV=production`, which the image sets) — sign-in returns 500 until you set it. **Required in production;** rotating it invalidates every session. |
 | `BETTER_AUTH_URL` | unset (request host) | public base URL better-auth uses for generated links/callbacks (e.g. `https://pathbridge.example.com`). Set it behind a reverse proxy. |
 | `BETTER_AUTH_TRUSTED_ORIGINS` | empty | comma-separated EXTRA origins accepted by better-auth (on top of the request's own origin). Empty by default — values are trimmed, blanks dropped. |
 | `NITRO_BUN_IDLE_TIMEOUT` | `255` | server idle timeout in seconds (max 255). Raised from the runtime default so long-lived live connections (admin realtime tables/logs) survive idle periods. Only lower it if you know why. |

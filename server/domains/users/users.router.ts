@@ -62,6 +62,12 @@ export const usersRouter = {
     const { id, ...patch } = input
     if (Object.keys(patch).length === 0) badRequest('nothing to update')
     const svc = await import('./users.service')
+    // identity-sensitive writes against an admin are an escalation path
+    // (email/emailVerified -> password reset or account takeover of an admin)
+    if ((patch.email !== undefined || patch.emailVerified !== undefined)
+      && svc.hasAdminRole(await svc.userRole(id)) && !userCan(context.user, 'roles', 'update')) {
+      throw new ORPCError('FORBIDDEN', { message: 'missing permission roles:update (needed to modify an admin user)' })
+    }
     try {
       const updated = await svc.updateUser(id, patch)
       if (!updated) notFound('user not found')
@@ -79,8 +85,16 @@ export const usersRouter = {
   setPassword: base.use(withPerm('users', 'update')).input(z.strictObject({
     id: z.string().min(1),
     password: z.string().min(8).max(128),
-  })).handler(async ({ input }) => {
-    const done = await (await import('./users.service')).setPassword(input.id, input.password)
+  })).handler(async ({ context, input }) => {
+    const svc = await import('./users.service')
+    // a users:update holder must not reset an admin's password and sign in as them
+    if (svc.hasAdminRole(await svc.userRole(input.id))) {
+      const { userCan } = await import('../../lib/permissions')
+      if (!userCan(context.user, 'roles', 'update')) {
+        throw new ORPCError('FORBIDDEN', { message: 'missing permission roles:update (needed to modify an admin user)' })
+      }
+    }
+    const done = await svc.setPassword(input.id, input.password)
     if (!done) notFound('user not found')
     const { publishChange } = await import('../../lib/change-bus')
     await publishChange('users', 'update')

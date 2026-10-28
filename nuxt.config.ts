@@ -33,8 +33,10 @@ export default defineNuxtConfig({
     preset: 'bun',
     experimental: { openAPI: false },
     hooks: {
-      // Bun's server idleTimeout defaults to 10s and is NOT reset by stream writes,
-      // so SSE live queries (15s keepalive) abort mid-stream. The preset entry reads
+      // Bun's server idleTimeout defaults to 10s and is NOT reset by stream writes
+      // (the SSE streams send no keepalive frames — they are idle between events),
+      // so an idle live query is cut mid-stream and the client reconnects+resnapshots.
+      // The preset entry reads
       // NITRO_BUN_IDLE_TIMEOUT at boot; patch the built entry so the DEFAULT is 255
       // (Bun's hard cap) even when the deploy env forgets the variable. An explicit
       // env value still wins.

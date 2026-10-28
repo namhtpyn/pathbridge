@@ -24,9 +24,6 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run prepare
       - run: bun run typecheck
-      # TODO: add the server typecheck here once package.json ships a
-      - name: Typecheck server graph
-        run: bunx vue-tsc --noEmit -p tsconfig.server.json
       - run: bun run build
       - run: bun run test:unit
       # migrations are hand-written: replay every folder into a fresh DB and

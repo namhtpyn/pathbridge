@@ -46,7 +46,8 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
-      # never release untested code: same suite CI runs, gating Semantic Release
+      # unit tests must pass before Semantic Release; the full suite (e2e included)
+      # runs in the CI workflow on the same push, independently of this job
       - name: Unit tests
         run: bun run test:unit
 

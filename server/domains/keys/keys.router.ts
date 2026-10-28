@@ -6,7 +6,7 @@ import type { Resource } from '../../lib/permissions'
 import * as svc from './keys.service'
 
 const keyCreateInput = z.strictObject({
-  name: z.string().trim().min(1).max(64),
+  name: z.string().trim().min(1).max(32), // plugin maximumNameLength is 32
   expiresIn: z.number().int().positive().max(365 * 24 * 3600).optional(), // seconds; omit = no expiry
   // {} is not "no scope": requireUser skips narrowing only when the map is
   // absent, so an empty object must never reach storage
@@ -85,7 +85,7 @@ export const keysRouter = {
   /** rename an own key (auth.api.updateApiKey enforces the plugin's rules) */
   rename: base.use(withUser).input(z.strictObject({
     id: z.string().min(1),
-    name: z.string().trim().min(1).max(64),
+    name: z.string().trim().min(1).max(32), // plugin maximumNameLength is 32
   })).handler(async ({ context, input }) => {
     const { publishChange } = await import('../../lib/change-bus')
     // ownership first: same rule as revoke — no renaming other people's keys

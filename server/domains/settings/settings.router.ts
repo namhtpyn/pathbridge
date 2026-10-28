@@ -16,7 +16,7 @@ export const settingsRouter = {
   }),
 
   save: base.use(withPerm('settings', 'update')).input(settingsSaveInput).handler(async ({ input }) => {
-    const { setSettings } = await import('./settings.service')
+    const { getSettings, setSettings } = await import('./settings.service')
     const { rebuildAuth } = await import('../../lib/auth')
     const { publishChange } = await import('../../lib/change-bus')
     // disabling password login requires at least one fully-configured provider
@@ -25,9 +25,20 @@ export const settingsRouter = {
       const providers = await getOidcProviders()
       if (providers.length === 0) badRequest('configure an OIDC provider before disabling password login')
     }
+    const prev = await getSettings()
     // one transaction: a mid-patch failure must not half-apply the policy
     await setSettings(input)
-    await rebuildAuth()
+    try {
+      await rebuildAuth()
+    }
+    catch (e) {
+      // a patch the runtime cannot serve (e.g. password login off + broken
+      // discovery) must not persist: restore the previous values, rebuild back
+      // onto them, then surface the failure — otherwise the panel locks out
+      await setSettings({ disablePasswordLogin: prev.disablePasswordLogin, logRetentionDays: prev.logRetentionDays })
+      await rebuildAuth()
+      throw e
+    }
     await publishChange('settings', 'update')
     return { ok: true }
   }),
