@@ -1,3 +1,10 @@
+## [6.8.6](https://github.com/namhtpyn/pathbridge/compare/v6.8.5...v6.8.6) (2026-10-28)
+
+
+### Bug Fixes
+
+* audit round 4 — admin-target escalation guard, settings rollback, exact admin-token test ([294e3ee](https://github.com/namhtpyn/pathbridge/commit/294e3eeeecf8f5bf0d0240d9962de80a4575f53f))
+
 ## [6.8.5](https://github.com/namhtpyn/pathbridge/compare/v6.8.4...v6.8.5) (2026-10-28)
 
 
