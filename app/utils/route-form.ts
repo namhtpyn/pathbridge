@@ -3,7 +3,7 @@
 // API wants. The backend strict schema still re-validates everything — this
 // layer is UX + normalization only, never security.
 import { z } from 'zod'
-import { HOP_BY_HOP as SHARED_HOP_BY_HOP } from '#shared/constants'
+import { isHopByHop } from '#shared/constants'
 
 /** One header override row as the UI edits it (loose strings). */
 export interface HeaderRowInput {
@@ -32,13 +32,11 @@ export const routeFormSchema = z.object({
 
 export type RouteFormState = z.input<typeof routeFormSchema>
 
-const HOP_BY_HOP_UI = [...SHARED_HOP_BY_HOP]
-
 const headerRow = z.object({
   name: z.string()
     .transform(v => v.trim().toLowerCase())
     .refine(v => /^[a-z0-9!#$%&'*+.^_`|~-]+$/.test(v), 'invalid header name')
-    .refine(v => !HOP_BY_HOP_UI.includes(v), 'hop-by-hop headers cannot be overridden'),
+    .refine(v => !isHopByHop(v), 'hop-by-hop headers cannot be overridden'),
   op: z.enum(['set', 'remove']),
   value: z.string().transform(v => v.trim()),
 })

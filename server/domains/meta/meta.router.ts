@@ -1,4 +1,5 @@
 // meta module: public capabilities, version, session payload, me
+import { ORPCError } from '@orpc/server'
 import { base, withUser, eventFromContext, vocabularyOut } from '../shared/context'
 
 export const metaRouter = {
@@ -18,19 +19,23 @@ export const metaRouter = {
 
   /** session payload for the admin shell; null when signed out (SSR-safe) */
   session: base.handler(async ({ context }) => {
-    const { requireSession } = await import('../../lib/session')
+    const { requireUser, userCan } = await import('../../lib/permissions')
     try {
-      const session = await requireSession(eventFromContext(context))
+      const { session, user } = await requireUser(eventFromContext(context))
+      // signed in but not allowed to read their own profile: no session surface
+      if (!userCan(user, 'profile', 'read', 'own')) return null
       return {
         user: { id: session.user.id, name: session.user.name, email: session.user.email },
         session: { expiresAt: session.session.expiresAt.toISOString() },
       }
     }
     catch (e: unknown) {
-      // signed-out is the normal case (null); anything else is a real failure
-      const status = (e as { statusCode?: number }).statusCode
-      if (status !== 401) console.error('[meta] session lookup failed:', e instanceof Error ? e.message : e)
-      return null
+      // only an auth failure is the normal signed-out case; an infra failure must
+      // never be reported as a logout (the shell would silently drop the session)
+      const err = e as { statusCode?: number, status?: number }
+      if ((err.statusCode ?? err.status) === 401) return null
+      console.error('[meta] session lookup failed:', e instanceof Error ? e.message : e)
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'session lookup failed' })
     }
   }),
 

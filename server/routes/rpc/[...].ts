@@ -12,6 +12,9 @@ export default defineEventHandler(async (event) => {
   // never-aborted signal left each disconnected tail subscribed to the change
   // bus (re-querying on every event) for the lifetime of the process.
   const ac = new AbortController()
+  // Belt for node presets. It CANNOT be the only path: on the Bun preset the
+  // response is unenv's mock ServerResponse — socket is null and destroy()
+  // drops the listeners without ever emitting 'close'.
   event.node.res.on('close', () => ac.abort())
   const request = new Request(toWebRequest(event), { signal: ac.signal })
   const headers = new Headers()
@@ -20,7 +23,21 @@ export default defineEventHandler(async (event) => {
     prefix: '/rpc',
     context: buildCtx(headers, ac.signal),
   })
-  if (response) return response
-  setResponseStatus(event, 404, 'Not found')
-  return 'Not found'
+  if (!response) {
+    setResponseStatus(event, 404, 'Not found')
+    return 'Not found'
+  }
+  if (!response.body) return response
+  // Load-bearing abort wiring: the adapter CANCELS the body when the client
+  // disconnects (and the transform flushes when the generator completes), so
+  // the abort fires on every preset. Without it `ac.abort()` never ran on Bun
+  // and every SSE subscriber leaked for the process lifetime.
+  // NB: `cancel` is in the Streams spec's Transformer but not in lib.dom's
+  // type, hence the cast.
+  const body = response.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    cancel: () => ac.abort(),
+    flush: () => ac.abort(),
+  } as Transformer<Uint8Array, Uint8Array>))
+  // status/statusText/headers ride along from the original Response
+  return new Response(body, response)
 })

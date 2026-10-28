@@ -31,9 +31,9 @@ export const mcpSchemas = {
   }),
   deleteRoute: z.strictObject({
     id: z.number().int().positive().optional().describe('Numeric route id (preferred)'),
-    // lenient on the leading slash: clients pass paths copy-pasted from URLs;
-    // routes.service resolves the exact path before normalizing
-    path: z.string().min(1).max(512).optional().describe('Route path, with or without the leading "/"'),
+    // derived from the strict edge schema: a path that could never have been
+    // stored must not be accepted for deletion either
+    path: routeInputSchema.shape.path.optional().describe('Route path, with the leading "/"'),
   }).refine(i => (i.id !== undefined) !== (i.path !== undefined), { message: 'provide id or path' }),
   getLogs: z.strictObject({
     limit: z.number().int().min(1).max(1000).optional().describe('Max entries (default 100)'),
@@ -85,5 +85,8 @@ export async function toolGetLogs(headers: Headers, input: unknown) {
   if (!userCan(user, 'logs', 'read')) throw new Error('Forbidden: missing permission logs:read')
   // scoping (own = only the caller's routes) and beforeId paging live in the
   // logs service — one query, identical to the oRPC logs.recent procedure
-  return { entries: await logsSvc.queryLogsScoped(user, parsed.data) }
+  const entries = await logsSvc.queryLogsScoped(user, parsed.data)
+  // same payload shape as REST: latestId is the newest id IN THE PAGE, which the
+  // client uses to reconcile its tail cursor
+  return { entries, latestId: entries.reduce((max, e) => Math.max(max, e.id), 0) }
 }

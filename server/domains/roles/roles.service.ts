@@ -42,8 +42,10 @@ export async function updateRole(input: {
   const { publishChange } = await import('../../lib/change-bus')
   const row = await (await getDb()).query.roles.findFirst({ where: { id: input.id } })
   if (!row) notFound('role not found')
-  if (row.builtin && input.statements !== undefined) badRequest('builtin roles cannot be modified')
-  const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() }
+  // every update is refused, not just statements: seed-roles rewrites builtin
+  // descriptions at boot, so a description edit would silently revert
+  if (row.builtin) badRequest('builtin roles cannot be modified')
+  const patch: Partial<Pick<typeof rolesTable.$inferInsert, 'description' | 'statements' | 'updatedAt'>> = { updatedAt: new Date().toISOString() }
   if (input.description !== undefined) patch.description = input.description ?? null
   if (input.statements !== undefined) {
     const stmtErr = (await import('../../lib/permissions')).validateStatements(input.statements)
@@ -52,7 +54,10 @@ export async function updateRole(input: {
   }
   await (await getDb()).update(rolesTable).set(patch).where(eq(rolesTable.id, input.id))
   await publishChange('roles', 'update')
-  return { role: await (await getDb()).query.roles.findFirst({ where: { id: input.id } }) }
+  // re-read: the row may have been deleted between the write and the read
+  const saved = await (await getDb()).query.roles.findFirst({ where: { id: input.id } })
+  if (!saved) notFound('role not found')
+  return { role: saved }
 }
 
 export async function removeRole(input: { id: string }) {

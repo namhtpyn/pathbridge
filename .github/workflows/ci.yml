@@ -24,6 +24,9 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run prepare
       - run: bun run typecheck
+      # TODO: add the server typecheck here once package.json ships a
+      - name: Typecheck server graph
+        run: bunx vue-tsc --noEmit -p tsconfig.server.json
       - run: bun run build
       - run: bun run test:unit
       # migrations are hand-written: replay every folder into a fresh DB and
@@ -33,6 +36,26 @@ jobs:
           DATA_DIR=/tmp/ci-db bun .output/server/index.mjs &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000/health/ready >/dev/null && break; sleep 1; done
           curl -sf http://127.0.0.1:3000/health/ready || { echo 'fresh-DB boot failed'; exit 1; }
+          # /health/ready is a bare `select 1` and passes on an EMPTY schema, so
+          # it proves nothing about migrations. Assert positively: the app tables
+          # exist and the journal recorded every folder (>= 12).
+          bun -e '
+            import { Database } from "bun:sqlite";
+            const db = new Database("/tmp/ci-db/pathbridge.db");
+            const tables = db.query("SELECT name FROM sqlite_master WHERE type = ?").all("table").map(r => r.name);
+            for (const t of ["routes", "user"]) {
+              if (!tables.includes(t)) {
+                console.error(`fresh-DB check FAILED: table ${t} missing — migrations never applied`);
+                process.exit(1);
+              }
+            }
+            const n = db.query("SELECT count(*) AS n FROM __migrations").get().n;
+            if (n < 12) {
+              console.error(`fresh-DB check FAILED: only ${n} migrations applied (expected >= 12)`);
+              process.exit(1);
+            }
+            console.log(`fresh-DB check OK: ${n} migrations, routes + user present`);
+          '
           kill %1
       - run: bunx playwright install --with-deps chromium
       - run: bun run test:e2e

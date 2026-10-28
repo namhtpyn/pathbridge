@@ -33,10 +33,20 @@ export const logsRouter = {
   tail: base
     .use(withPerm('logs', 'read'))
     .handler(async ({ context }) => {
-      let lastId = await svc.latestLogId(context.user)
+      const { changeBus } = await import('../../lib/change-bus')
+      // Subscribe BEFORE reading the cursor: a row committed between the
+      // cursor read and the first pull would otherwise never produce a frame
+      // (no later event refers back to it), so it would be skipped forever.
+      const bus = pullIterator(changeBus.subscribe('change'), context.signal)
+      let lastId: number
+      try {
+        lastId = await svc.latestLogId(context.user)
+      }
+      catch (e) {
+        await bus.close()
+        throw e
+      }
       async function* deltas() {
-        const { changeBus } = await import('../../lib/change-bus')
-        const bus = pullIterator(changeBus.subscribe('change'), context.signal)
         try {
           for (;;) {
             const evt = await bus.next()
@@ -45,7 +55,17 @@ export const logsRouter = {
             // drain: one event can announce a burst of more than one page, so
             // keep paging from the last id instead of jumping to the newest
             for (;;) {
-              const page = await svc.queryLogsAfter(context.user, { afterId: lastId, limit: TAIL_PAGE })
+              if (context.signal?.aborted) return
+              let page: Awaited<ReturnType<typeof svc.queryLogsAfter>>
+              try {
+                page = await svc.queryLogsAfter(context.user, { afterId: lastId, limit: TAIL_PAGE })
+              }
+              catch (e) {
+                // one SQLITE_BUSY must not kill the tail: log once and wait for
+                // the next event instead of hot-looping on a failing query
+                console.error('[logs.tail] delta query failed:', e)
+                break
+              }
               if (!page.length) break
               lastId = page.at(-1)!.id
               yield { entries: page }

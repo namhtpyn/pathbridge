@@ -10,12 +10,12 @@ const uniq = (base: string) => `${base}-${SFX}`
 test('icon-only buttons carry hover popovers', async ({ page }) => {
   await uiLogin(page)
   // ensure a route row exists, then hover its edit pencil — the IconButton popover shows
-  await page.request.post('/rpc/routes/save', { data: { json: { path: '/e2e-popover', target: 'http://127.0.0.1:4311' } } })
+  await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/e2e-popover'), target: 'http://127.0.0.1:4311' } } })
   await expect(page.getByRole('button', { name: 'Edit route' }).first()).toBeVisible({ timeout: 10_000 })
   await page.getByRole('button', { name: 'Edit route' }).first().hover()
   // popover content renders the text outside the button's aria-label
   await expect(page.locator('[data-slot="content"]').getByText('Edit route').first()).toBeVisible({ timeout: 5_000 })
-  await page.request.post('/rpc/routes/remove', { data: { json: { path: '/e2e-popover' } } })
+  await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/e2e-popover') } } })
 })
 
 // desktop-only: the mobile drawer interaction for opening Profile is flaky in
@@ -230,28 +230,36 @@ test.describe('admin shell', () => {
 
   test('routes CRUD through the UI, realtime without reload', async ({ page }) => {
     await uiLogin(page)
+    const routePath = uniq('/e2e-ui-route')
     // create via modal
     await page.getByRole('button', { name: 'New route' }).click()
-    await page.locator('[name="path"] input, input[name="path"]').first().fill('/e2e-ui-route')
+    await page.locator('[name="path"] input, input[name="path"]').first().fill(routePath)
     await page.locator('[name="target"] input, input[name="target"]').first().fill('http://127.0.0.1:4311')
     await page.getByRole('button', { name: 'Add route' }).click()
     // row appears in the table (live query — no reload)
-    const row = page.locator('tr', { hasText: '/e2e-ui-route' }).first()
+    const row = page.locator('tr', { hasText: routePath }).first()
     await expect(row).toBeVisible({ timeout: 15_000 })
 
     // it forwards for real
-    expect(await (await page.request.get('/e2e-ui-route')).status()).toBe(200)
+    expect(await (await page.request.get(routePath)).status()).toBe(200)
 
     // delete via row action — confirmation is the app's ConfirmModal (native
-    // window.confirm is a product-law violation, so fail loudly if it appears)
-    const nativeDialog = new Promise<string>(resolve => page.once('dialog', d => resolve(d.message())))
+    // window.confirm is a product-law violation, so fail loudly if it appears).
+    // The dialog listener is registered BEFORE the click and auto-dismisses: a
+    // native dialog blocks the page until handled, so an unhandled one would
+    // hang the run instead of failing it. The message is asserted after the row
+    // is gone — absent dialog = the 3s timeout resolves to 'none'.
+    page.on('dialog', d => d.dismiss())
+    const dialogMessage = page.waitForEvent('dialog', { timeout: 3000 })
+      .then(d => d.message())
+      .catch(() => 'none')
     await row.getByRole('button', { name: 'Delete route' }).click()
     const confirmBtn = page.locator('[role=dialog]').getByRole('button', { name: /^delete$/i })
     await expect(confirmBtn).toBeVisible({ timeout: 10_000 })
     await confirmBtn.click()
     await expect(row).toBeHidden({ timeout: 15_000 })
-    expect(await Promise.race([nativeDialog, Promise.resolve('none')])).toBe('none')
-    expect(await (await page.request.get('/e2e-ui-route')).status()).toBe(404)
+    expect(await dialogMessage).toBe('none')
+    expect(await (await page.request.get(routePath)).status()).toBe(404)
   })
 
   test('routes: initial table paints with the SSE stream dead (conventional query loads, streams only update)', async ({ page }) => {

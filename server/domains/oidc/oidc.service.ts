@@ -2,6 +2,7 @@
 // Providers live in the settings table as one JSON blob (key `oidcProviders`);
 // the legacy single-provider keys (oidcIssuer/oidcClientId/oidcClientSecret)
 // migrate lazily into provider id `oidc` so existing linked accounts keep working.
+import { v7 as uuidv7 } from 'uuid'
 import { getSettings, setSetting } from '../settings/settings.service'
 
 export interface OidcProvider {
@@ -29,7 +30,7 @@ export function validProviderId(id: string) {
 
 /** opaque provider id for new providers; the callback path is not user-facing */
 export function newProviderId() {
-  return crypto.randomUUID()
+  return uuidv7()
 }
 
 let migrated = false
@@ -58,6 +59,11 @@ export async function getOidcProviders() {
   if (!migrated && s.oidcIssuer && s.oidcClientId && s.oidcClientSecret) {
     const legacy: OidcProvider[] = [{ id: 'oidc', label: 'SSO', issuer: s.oidcIssuer, clientId: s.oidcClientId, clientSecret: s.oidcClientSecret }]
     await setOidcProviders(legacy)
+    // the provider blob now owns the credential — clearing the legacy rows keeps
+    // the secret from persisting in three places
+    await setSetting('oidcIssuer', '')
+    await setSetting('oidcClientId', '')
+    await setSetting('oidcClientSecret', '')
     migrated = true // only after the write landed — a failure retries next call
     return legacy
   }

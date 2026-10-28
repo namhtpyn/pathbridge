@@ -12,7 +12,7 @@ A mapping from a public path on this host to an upstream target origin.
 | `id` | int autoincrement | stable identity for update/delete |
 | `path` | string, unique, indexed | grammar below |
 | `target` | http(s) URL | the destination URL — forwarded to VERBATIM for exact routes (a target path is the upstream path); for wildcard routes it is a prefix for the forwarded remainder; no query, no fragment |
-| `upstreamHost` | string \| null | overrides `Host` header sent upstream |
+| `requestHeaders` / `responseHeaders` | {name, op: set\|remove, value?}[] \| null | per-route header overrides; a `requestHeaders` entry `host: set` is how the upstream `Host` is overridden (there is no `upstreamHost` field) |
 | `methods` | string[] \| null | allowlist of HTTP verbs; null = all verbs |
 | `note` | string \| null | ≤ 200 chars, free text |
 | `enabled` | bool | disabled routes do not match |
@@ -38,7 +38,7 @@ Builtins: `admin` (everything `:all`) and `viewer` (`routes: read:own` only), ca
 - `all` = act on anyone's records; implies the matching `own`.
 - `own` = only records where `routes.userId` is the caller.
 - Resources without ownership (`settings`, `users`, `roles`) only ever carry `:all`.
-- Vocabulary is COMPILE-TIME (`STATEMENTS` in `server/lib/permissions.ts`; resources: routes, logs, settings, users, roles, keys, profile); a statement exists only if a route checks it. Runtime roles may only pick from it. Adding a statement = adding its enforcement in the same release.
+- Vocabulary is COMPILE-TIME (`STATEMENTS` in `server/lib/permissions.ts`; resources: routes, logs, settings, users, roles, profile); a statement exists only if a route checks it. The `keys` API is self-scoped (a key only ever manages its own bearer keys) and is deliberately NOT a resource — there are no `keys:*` statements. Runtime roles may only pick from the vocabulary. Adding a statement = adding its enforcement in the same release.
 
 **Resolution**: `user.role` is a comma-joined list of role names; effective grants = union of all role statements. Unknown role names are ignored. Changing a role takes effect on the next request (no cache, no restart).
 
@@ -113,7 +113,7 @@ Row-level rules: own-scope filtering on routes/logs reads,
 `requireRecordPermission` on writes (upsert-by-path requires UPDATE on the
 existing record — create alone cannot repoint someone else's route), API-key
 permission narrowing applies on every procedure. `routes.save` validates
-through the strict zod schema in route-schema.ts. Scripts/agents auth with a
+through the strict zod schema in `server/domains/routes/routes.schema.ts`. Scripts/agents auth with a
 Bearer API key (same narrowing) — the e2e suite exercises this wire
 end-to-end.
 
@@ -124,7 +124,7 @@ end-to-end.
 3. Find matching route: exact match wins; else longest wildcard base; else 404.
 4. `enabled=false` → treated as absent.
 5. Method allowlist → 405 + `Allow`.
-6. strip prefix if configured; forward method/headers/body; set upstream Host if configured; NEVER follow the client's `Host`.
+6. Forward: exact routes to the target URL verbatim (no path appended); wildcard routes to the target + the remainder after the base. Forward method/headers/body; `Host` is always the target's hostname:port (the client's `Host` is NEVER followed) unless a `requestHeaders` `host: set` override is configured.
 7. Log fire-and-forget.
 
 ## 4. API contract (all JSON over `/rpc`)
@@ -140,11 +140,11 @@ proxy targets.
 - `GET /health/ready` — readiness: liveness + `select 1` against the database (the bridge re-queries routes per request, so a dead DB = broken forwarding). Container HEALTHCHECK probes this every 30s (bun fetch — the runtime image ships no curl)
 - **Bun idle timeout is forced in code (default 255s).** Bun's server idleTimeout defaults to 10s and is NOT reset by stream writes, so SSE live queries (15s keepalive) abort mid-stream on a default deployment. The bun preset entry reads `NITRO_BUN_IDLE_TIMEOUT` at boot; a `compiled` hook in `nuxt.config.ts` patches the built entry to `|| 255` so the app is safe out of the box — an explicit env value still overrides. If the hook ever warns that its needle vanished, the nitro preset template changed and the patch must be re-derived.
 - `POST|GET|DELETE /mcp` — MCP server (streamable HTTP, stateless; Bearer API key or session). Tools: `list_routes`, `create_route`, `update_route`, `delete_route`, `get_logs` — same zod schemas and permission enforcement as the oRPC procedures (key narrowing applies per tool call).
-- `POST /rpc/*` — oRPC router (Fetch adapter at `server/routes/rpc/[...].ts`). Procedures: `authConfig`, `version`, `session`, `me`, `routes.{list,live,count,save,remove}`, `users.{list,live,save,update,setPassword,remove}`, `roles.{list,live,save,update,remove}`, `settings.{get,save}`, `oidc.{list,save}`, `keys.{list,create,rename,revoke}`, `logs.{recent,tail}`. Bodies are wrapped (`{"json": <input>}`); live procedures stream snapshots as SSE (AsyncIteratorObject handlers backed by the in-process change bus). Auth = identical requireUser path (cookie session or Bearer API key, narrowing included) — no oRPC-specific privilege logic.
+- `POST /rpc/*` — oRPC router (Fetch adapter at `server/routes/rpc/[...].ts`). Procedures: `authConfig`, `version`, `session`, `me`, `routes.{list,live,count,save,remove}`, `users.{list,live,save,update,setPassword,remove}`, `roles.{list,live,save,update,remove}`, `settings.{get,save}`, `oidc.{list,save}`, `keys.{list,create,rename,revoke}`, `logs.{recent,tail}`. Bodies are wrapped (`{"json": <input>}`); live procedures stream as SSE (AsyncIteratorObject handlers backed by the in-process change bus — `.live` sends snapshots, `logs.tail` sends deltas only). Auth = identical requireUser path (cookie session or Bearer API key, narrowing included) — no oRPC-specific privilege logic.
 
 ### Realtime (change bus + live queries)
 
-Every write path (all REST mutation handlers, the three MCP route tools, access-log insert) publishes `publishChange(resource, action)` to an in-process MemoryPublisher (`server/lib/change-bus.ts`; buffer 100). Live procedures (`routes.live`, `logs.tail`, `users.live`, `roles.live`) yield an initial snapshot, then re-emit a fresh snapshot when a relevant event fires — delivered as SSE by the RPCHandler. Streams are CONNECTION-SCOPED: the /rpc handler aborts an AbortController on `res.close` and every generator pulls through it, so a disconnected client's bus listener and keepalive die immediately (a leak here re-queries per proxied request). `liveGenerator` subscribes BEFORE its snapshot and coalesces the subscribe-window backlog into one extra frame (no lost changes). `logs.recent` returns `{ entries, latestId }`; the client refetches it on every (re)connect so rows committed between snapshot and subscribe are reconciled even though the payload-free tail can never re-send them. The admin UI subscribes via `@orpc/tanstack-query` `liveOptions()`; mutations from ANY surface (UI, REST, MCP, proxied traffic for logs) push within ~2s without reload.
+Every write path (all REST mutation handlers, the three MCP route tools, access-log insert) publishes `publishChange(resource, action)` to an in-process MemoryPublisher (`server/lib/change-bus.ts`; buffer 100). `routes.live`, `users.live` and `roles.live` yield an initial snapshot, then re-emit a fresh snapshot when a relevant event fires — delivered as SSE by the RPCHandler. `logs.tail` is the exception: it carries DELTAS ONLY (no initial payload — see the realtime rule in §2). Streams are CONNECTION-SCOPED: the /rpc handler aborts an AbortController on `res.close` and every generator pulls through it, so a disconnected client's bus listener and keepalive die immediately (a leak here re-queries per proxied request). `liveGenerator` subscribes BEFORE its snapshot and coalesces the subscribe-window backlog into one extra frame (no lost changes). `logs.recent` returns `{ entries, latestId }`; the client refetches it on every (re)connect so rows committed between snapshot and subscribe are reconciled even though the payload-free tail can never re-send them. The admin UI subscribes via `@orpc/tanstack-query` `liveOptions()`; mutations from ANY surface (UI, REST, MCP, proxied traffic for logs) push within ~2s without reload.
 
 Errors: zod strict validation → 400 with `field: message`; permission → 403 `Forbidden: missing permission resource:action`; auth → 401.
 
@@ -157,7 +157,7 @@ Keys: `keys.create` trims the name and returns the new key's `id`; a scoped key'
 ## 5. Upgrade semantics
 
 Migrations auto-apply at boot from `./drizzle` (tracked in `__migrations`).
-**They are HAND-WRITTEN — never run `drizzle-kit generate/push/pull` against this repo.** The migration folders are the DDL source of truth (`schema.ts` declares the runtime shape); the runner applies each folder atomically (BEGIN → statements → journal row → COMMIT), runs `PRAGMA` chunks outside the transaction, and CI replays every folder into a fresh DB and boots against it. Snapshot files were removed because a stale chain makes `generate` emit destructive table re-creates. Pre-RBAC databases: existing user is promoted to `admin` and unowned routes backfilled to them (the implicit-admin invariant).
+**They are HAND-WRITTEN — never run `drizzle-kit generate/push/pull` against this repo.** The migration folders are the DDL source of truth (`schema.ts` declares the runtime shape); the runner applies each folder atomically (BEGIN → statements → journal row → COMMIT), runs `PRAGMA` chunks outside the transaction, and CI replays every folder into a fresh DB and boots against it. Snapshot files were removed because a stale chain makes `generate` emit destructive table re-creates. Pre-RBAC databases: the upgrade promise stands — an EXISTING user is promoted to `admin` and unowned routes are backfilled to them (the implicit-admin invariant). It runs as an idempotent boot step: when NO user holds `admin` the oldest user is promoted, then NULL-`userId` routes are assigned to that admin; once an admin exists both halves are no-ops, so a restart never re-promotes or re-backfills.
 
 ## 6. Invariants (never break)
 
@@ -204,7 +204,7 @@ Conventions:
 - Wire contract is pinned by the e2e suite; a module refactor must keep
   paths, error codes, and the {"json":{...}} envelope byte-identical.
 - Lazy imports: routers/services must not statically import `server/db`
-  (bun:sqlite) or anything that pulls it (lib/permissions, modules/users/users.service) —
+  (bun:sqlite) or anything that pulls it (lib/permissions, server/domains/users/users.service.ts) —
   `nuxt prepare` runs jiti over Node and would fail to resolve bun:sqlite.
   Use `await import('...')` inside handlers/services.
 
@@ -221,15 +221,17 @@ SAME plugins and the same `@better-auth/drizzle-adapter/relations-v2` adapter
 as the runtime. Never pass `--adapter drizzle` on the CLI — it overrides the
 config adapter with the mock v1 generator (v1 `relations()` output).
 
-Column modes are `timestamp_ms` (CLI canonical). Existing rows stored epoch
-seconds; migration `20261011120000_auth_timestamp_ms` converts them (guarded:
-values < 10^12 are treated as seconds) and drops the legacy `apikey.user_id`
-column. Regenerating that adds columns needs a matching data migration. Regenerate after any better-auth/plugin
-upgrade and diff against `server/db/schema.ts`; adopt new columns/indexes via
-a drizzle migration. Deliberate divergences (documented in the schema header):
-`timestamp` seconds mode (existing data), `emailVerified` defaults true,
-legacy `apikey.user_id`, no `$onUpdate` hooks. Adopted from the CLI reference
-in 20261011090000_auth_indexes: 6 lookup indexes + FK delete cascades
+Column mode is `timestamp_ms` (CLI canonical). The one historical exception is
+already converted: rows written before `20261011120000_auth_timestamp_ms` stored
+epoch seconds, and that migration rewrites them (guarded: values < 10^12 are
+treated as seconds). Regenerate after any better-auth/plugin upgrade and diff
+against `server/db/schema.ts`; adopt new columns/indexes via a drizzle migration.
+
+`server/db/schema.auth.ts` is UNMODIFIED CLI output — never hand-edit it. That
+means `timestamp_ms` columns, `email_verified` default `false`, `$onUpdate`
+hooks on every `updated_at`, and NO `apikey.user_id` column (the current plugin
+keys on `referenceId` instead). Adopted from the CLI reference in
+`20261011090000_auth_indexes`: 6 lookup indexes + FK delete cascades
 (declared in schema; user deletion already cascades in `users.remove`).
 
 ## Testing

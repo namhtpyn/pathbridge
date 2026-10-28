@@ -38,8 +38,9 @@ export async function listKeys(userId: string) {
     expiresAt: k.expiresAt ? k.expiresAt.toISOString() : null,
     lastRequest: k.lastRequest ? k.lastRequest.toISOString() : null,
     requestCount: k.requestCount,
-    // text column: drizzle types it unknown after select
-    permissions: parseKeyPermissions(typeof k.permissions === 'string' ? k.permissions : null),
+    // text column: drizzle types it unknown after select — the parser narrows
+    // both raw JSON text and an already-parsed object
+    permissions: parseKeyPermissions(k.permissions),
   })) }
 }
 
@@ -54,8 +55,11 @@ export async function requireOwnedKey(id: string, userId: string) {
   return owned
 }
 
-export async function deleteKey(id: string) {
-  const { eq } = await import('drizzle-orm')
-  const { db } = await import('../../db')
-  await db.delete(apiKeyTable).where(eq(apiKeyTable.id, id))
+/** delete an own key — ownership is part of the DELETE predicate, so a missing
+ *  row and someone else's row both answer notFound without a separate read */
+export async function deleteKey(id: string, userId: string) {
+  const { and, eq } = await import('drizzle-orm')
+  const res = await (await getDb()).delete(apiKeyTable)
+    .where(and(eq(apiKeyTable.id, id), eq(apiKeyTable.referenceId, userId)))
+  if (res.changes !== 1) notFound('key not found')
 }

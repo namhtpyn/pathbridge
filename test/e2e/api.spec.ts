@@ -1,6 +1,6 @@
 // E2E: public surface + auth gates + the oRPC wire (no UI).
 import { expect, test as base } from '@playwright/test'
-import { ADMIN, rpc, signIn } from './helpers'
+import { ensureOperator, rpc, signIn } from './helpers'
 
 // desktop + mobile projects run against ONE server/db: namespace fixture paths
 // by project so cross-project upsert-by-path can't collide (the takeover guard
@@ -20,8 +20,6 @@ export const test = base.extend({
   },
 })
 const uniq = (base: string) => `${base}-${SFX}`
-// better-auth validates Origin: derive it from the actual baseURL, never hardcode
-const ORIGIN = new URL(process.env.E2E_BASE_URL ?? 'http://127.0.0.1:4310').origin
 
 test('public: version + health', async ({ request }) => {
   expect((await rpc<{ version: string }>(request, 'version')).version).toBeTruthy()
@@ -105,28 +103,9 @@ test('route takeover guard: create-permission cannot repoint another user\'s rou
     target: 'http://127.0.0.1:4311',
   })
 
-  // operator role: routes create+read all, NO update (ensure-fresh: update if exists)
-  // idempotent ensure-fresh: fetch ids, update-or-create (roles/users take id on update)
-  const roles = await rpc<{ roles: Array<{ id: string, name: string }> }>(request, 'roles/list')
-  const existingRole = roles.roles.find(r => r.name === 'e2e-op')
-  const statements = { routes: ['create:all', 'read:all'] }
-  if (existingRole) await rpc(request, 'roles/update', { id: existingRole.id, statements })
-  else await rpc(request, 'roles/save', { name: 'e2e-op', statements })
-
-  const users = await rpc<{ users: Array<{ id: string, email: string }> }>(request, 'users/list')
-  const existingUser = users.users.find(u => u.email === 'op@pathbridge.dev')
-  if (existingUser) {
-    await rpc(request, 'users/update', { id: existingUser.id, role: 'e2e-op' })
-    await rpc(request, 'users/setPassword', { id: existingUser.id, password: 'op-password-123' }).catch(() => {})
-  }
-  else await rpc(request, 'users/save', { email: 'op@pathbridge.dev', name: 'Op', password: 'op-password-123', role: 'e2e-op' })
-  // explicit same-origin header: PW's request fixture omits Origin and better-auth
-  // rejects origin-less POSTs once a session cookie rides along
-  const opLogin = await request.post('/auth/sign-in/email', {
-    data: { email: 'op@pathbridge.dev', password: 'op-password-123' },
-    headers: { origin: ORIGIN },
-  })
-  expect(opLogin.status(), `op login: ${await opLogin.text()}`).toBe(200)
+  // operator role: routes create+read all, NO update (shared ensure-fresh
+  // helper — updates the role/user when a previous run created them)
+  await ensureOperator(request)
 
   // upsert-by-path at /e2e-victim must be FORBIDDEN (H1)
   const attack = await request.post('/rpc/routes/save', {
@@ -153,8 +132,8 @@ test('route takeover guard: create-permission cannot repoint another user\'s rou
   expect(row?.target).toBe('http://127.0.0.1:4311')
 })
 
-// PB-03 regression pin: the MCP create_route tool must never repoint a foreign
-// route either — the old onConflictDoUpdate did exactly that under a race.
+// partial-update merge: a routes.save that omits `enabled` must preserve the
+// stored false — never fall back to the create-time default (`enabled ?? true`)
 test('routes.save partial update keeps a disabled route disabled', async ({ request }) => {
   await signIn(request)
   const path = uniq('/e2e-disabled')
@@ -166,22 +145,16 @@ test('routes.save partial update keeps a disabled route disabled', async ({ requ
   await rpc(request, 'routes/remove', { id: created.route.id })
 })
 
+// PB-03 regression pin: the MCP create_route tool must never repoint a foreign
+// route either — the old onConflictDoUpdate did exactly that under a race.
 test('MCP create_route cannot take over an existing foreign route (PB-03)', async ({ request }) => {
-  const adminLogin = await request.post('/auth/sign-in/email', {
-    data: ADMIN,
-    headers: { origin: ORIGIN },
-  })
-  expect(adminLogin.status(), `admin login: ${await adminLogin.text()}`).toBe(200)
-  // victim route owned by admin
+  // self-contained under --grep: admin creates the victim, ensureOperator()
+  // builds the role+user (idempotently) and leaves the context signed in as op
+  await signIn(request)
   const victim = uniq('/e2e-pb03-victim')
   await rpc(request, 'routes/save', { path: victim, target: 'http://127.0.0.1:4311' })
+  await ensureOperator(request)
 
-  // op (routes:create only, no update) calls the MCP tool surface
-  const opLogin = await request.post('/auth/sign-in/email', {
-    data: { email: 'op@pathbridge.dev', password: 'op-password-123' },
-    headers: { origin: ORIGIN },
-  })
-  expect(opLogin.status(), `op login: ${await opLogin.text()}`).toBe(200)
   const mcpBody = JSON.stringify({
     jsonrpc: '2.0', id: 1, method: 'tools/call',
     params: { name: 'create_route', arguments: { path: victim, target: 'http://127.0.0.1:4311/evil' } },
@@ -195,17 +168,68 @@ test('MCP create_route cannot take over an existing foreign route (PB-03)', asyn
   expect(payload.result?.content?.[0]?.text ?? '').toContain('routes:update')
 
   // the victim route is unchanged: read it back through MCP list_routes as admin
-  const relogin = await request.post('/auth/sign-in/email', {
-    data: ADMIN,
-    headers: { origin: ORIGIN },
-  })
-  expect(relogin.status()).toBe(200)
+  await signIn(request)
   const listBody = JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'list_routes', arguments: {} } })
   const lr = await request.post('/mcp', { headers: { 'mcp-session-id': 'e2e-pb03', accept: 'application/json, text/event-stream', 'content-type': 'application/json' }, data: listBody })
   const ltext = await lr.text()
   expect(ltext).toContain(victim)
   expect(ltext).not.toContain('4311/evil')
-  await rpc(request, 'routes/remove', { path: victim }).catch(() => {})
+
+  // cleanup runs as ADMIN (the operator has no delete grant); no swallowed 403
+  await rpc(request, 'routes/remove', { path: victim })
+})
+
+test('MCP requires auth: anonymous tools/list is 401 and leaks no tool surface', async ({ request }) => {
+  const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })
+  const r = await request.post('/mcp', {
+    headers: { 'mcp-session-id': 'e2e-mcp-anon', accept: 'application/json, text/event-stream', 'content-type': 'application/json' },
+    data: body,
+  })
+  expect(r.status()).toBe(401)
+  const text = await r.text()
+  // a 401 must not come back as a JSON-RPC result carrying the catalog
+  let parsed: { result?: { tools?: unknown } } = {}
+  try { parsed = JSON.parse(text) } catch { /* plain/empty 401 body is fine */ }
+  expect(parsed.result?.tools).toBeUndefined()
+  expect(text).not.toContain('list_routes')
+})
+
+test('MCP honors key narrowing: a routes:read:all key cannot create_route', async ({ request }) => {
+  await signIn(request)
+  const keyName = uniq('e2e-mcp-scoped')
+  // clean slate (both e2e projects share the admin user): revoke stale twins first
+  const stale = await rpc<{ keys: Array<{ id: string, name: string }> }>(request, 'keys/list')
+  for (const k of stale.keys.filter(k => k.name === keyName)) {
+    await rpc(request, 'keys/revoke', { id: k.id }).catch(() => {})
+  }
+  const created = await rpc<{ id: string, key: string }>(request, 'keys/create', {
+    name: keyName,
+    permissions: { routes: ['read:all'] },
+  })
+  const deniedPath = uniq('/e2e-mcp-denied')
+  const body = JSON.stringify({
+    jsonrpc: '2.0', id: 1, method: 'tools/call',
+    params: { name: 'create_route', arguments: { path: deniedPath, target: 'http://127.0.0.1:4311' } },
+  })
+  const r = await request.post('/mcp', {
+    headers: {
+      authorization: `Bearer ${created.key}`,
+      'mcp-session-id': 'e2e-mcp-scoped',
+      accept: 'application/json, text/event-stream',
+      'content-type': 'application/json',
+    },
+    data: body,
+  })
+  const text = await r.text()
+  // same contract as the takeover pin: tool result, isError, exact permission named
+  const payload = JSON.parse(text) as { result?: { isError?: boolean, content?: Array<{ text?: string }> } }
+  expect(payload.result?.isError, `create_route not denied: ${text.slice(0, 200)}`).toBe(true)
+  expect(payload.result?.content?.[0]?.text ?? '').toContain('routes:create')
+
+  await signIn(request)
+  const listed = await rpc<Array<{ path: string }>>(request, 'routes/list')
+  expect(listed.some(x => x.path === deniedPath), 'denied create must not write').toBe(false)
+  await rpc(request, 'keys/revoke', { id: created.id })
 })
 
 test('scoped API key narrows permissions over /rpc', async ({ request }) => {

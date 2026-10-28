@@ -8,6 +8,7 @@
 // wraps it).
 import { betterAuth } from 'better-auth'
 import { testUtils } from 'better-auth/plugins'
+import { bearer } from 'better-auth/plugins/bearer'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
 import { apiKey } from '@better-auth/api-key'
 import { db } from '../../../server/db'
@@ -21,7 +22,9 @@ export const testAuth = betterAuth({
     schema: authSchema,
   }),
   emailAndPassword: { enabled: true },
-  plugins: [apiKey(), testUtils()],
+  // same plugins the app wires (server/lib/auth.ts): bearer() is what turns
+  // `Authorization: Bearer <session token>` into a session on getSession
+  plugins: [bearer(), apiKey(), testUtils()],
 })
 
 /** Persist a user + return an authenticated session bundle (cookie headers included). */

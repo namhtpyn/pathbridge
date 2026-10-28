@@ -15,10 +15,15 @@ describe('better-auth testUtils (test-only auth instance)', () => {
     expect(rows[0]?.email).toBe(user.email)
   })
 
-  it('login() returns a session row + bearer-usable token', async () => {
-    const { session, token } = await createTestUser()
+  it('login() returns a session row + a token the bearer path accepts', async () => {
+    const { user, session, token } = await createTestUser()
     expect(session.userId).toBeTruthy()
-    expect(token).toBe(session.token)
+    // not a tautology: send the token back over the wire-shaped bearer path and
+    // assert it resolves to the same user
+    const res = await testAuth.api.getSession({
+      headers: new Headers({ authorization: `Bearer ${token}` }),
+    })
+    expect(res?.user?.id).toBe(user.id)
   })
 
   it('the session authenticates against the app-style getSession call', async () => {

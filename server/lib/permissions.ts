@@ -8,9 +8,11 @@
 // users, roles) only ever list ":all". Vocabulary law: a statement exists
 // only if some route checks it.
 
-import { db } from '../db'
 import type { H3Event } from 'h3'
 import { requireSession } from './session'
+// lazy db access: nuxt prepare (jiti/Node) must never statically reach
+// bun:sqlite through this module
+const getDb = async () => (await import('../db')).db
 
 export const ACTIONS = ['create', 'read', 'update', 'delete'] as const
 export const SCOPES = ['all', 'own'] as const
@@ -49,7 +51,7 @@ export type RoleRow = {
 
 /** All role rows from the DB (source of truth). */
 export async function listRoles() {
-  const rows = await db.query.roles.findMany({
+  const rows = await (await getDb()).query.roles.findMany({
     columns: { id: true, name: true, description: true, statements: true, builtin: true },
     orderBy: { name: 'asc' },
   })
@@ -92,11 +94,14 @@ export type ResolvedUser = {
   roles: string[]
   /** union of all role statements: resource -> Set("action:scope") */
   grants: Map<Resource, Set<string>>
+  /** authentication method — an API key may never escalate its own scope
+   *  (absent means a cookie session: resolveUser always sets it) */
+  via?: 'session' | 'apikey'
 }
 
 /** Resolve a user's effective permissions from their roles. */
-export async function resolveUser(user: { id: string, email: string, role: string }) {
-  const names = user.role.split(',').map(s => s.trim()).filter(Boolean)
+export async function resolveUser(user: { id: string, email: string, role: string | null, via?: 'session' | 'apikey' }) {
+  const names = (user.role ?? 'viewer').split(',').map(s => s.trim()).filter(Boolean)
   const all = await listRoles()
   const grants = new Map<Resource, Set<string>>()
   for (const name of names) {
@@ -111,7 +116,7 @@ export async function resolveUser(user: { id: string, email: string, role: strin
       for (const a of actions) if (allowed.includes(a)) set.add(a)
     }
   }
-  return { userId: user.id, email: user.email, roles: names, grants }
+  return { userId: user.id, email: user.email, roles: names, grants, via: user.via ?? 'session' }
 }
 
 /** Pure check against resolved grants. Scope omitted = any scope.
@@ -143,7 +148,9 @@ export type AppSessionLike = Awaited<ReturnType<typeof requireSession>>
 export async function requireUser(event: H3Event) {
   const session = await requireSession(event)
   const role = (session.user as unknown as { role?: string | null }).role ?? 'viewer'
-  let user = await resolveUser({ id: session.user.id, email: session.user.email, role })
+  // requireSession tags API-key sessions; cookie sessions default to 'session'
+  const via = (session as unknown as { via?: 'session' | 'apikey' }).via ?? 'session'
+  let user = await resolveUser({ id: session.user.id, email: session.user.email, role, via })
 
   // API-key scoping: a key's permissions can only NARROW the owner's grants,
   // never expand them (a key is a credential of its owner, not a new principal).

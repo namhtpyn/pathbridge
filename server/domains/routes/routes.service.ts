@@ -8,6 +8,7 @@ import type { ResolvedUser } from '../../lib/permissions'
 // bun:sqlite through this module — services load the client on first call
 const getDb = async () => (await import('../../db')).db
 import { routes as routesTable } from '../../db/schema'
+import { isUniqueViolation } from '../users/users.service'
 import type { StrictRouteInput } from './routes.schema'
 
 /** Normalize a target URL: keep origin+path, strip trailing slashes. */
@@ -56,6 +57,30 @@ export async function countRoutes(user: ResolvedUser) {
   return rows[0]?.n ?? 0
 }
 
+/** Overlay a partial save onto the stored row. Create-only defaults must never
+ *  leak in here: an omitted optional keeps its stored value (a partial save may
+ *  not re-enable a parked route or wipe headers/methods/note), while an
+ *  explicitly empty header/method list clears the column. */
+function mergedRoute(existing: typeof routesTable.$inferSelect, data: StrictRouteInput) {
+  return {
+    path: data.path,
+    target: normalizeTarget(data.target),
+    requestHeaders: data.requestHeaders !== undefined ? (data.requestHeaders.length ? data.requestHeaders : null) : existing.requestHeaders,
+    responseHeaders: data.responseHeaders !== undefined ? (data.responseHeaders.length ? data.responseHeaders : null) : existing.responseHeaders,
+    methods: data.methods !== undefined ? (data.methods.length ? data.methods : null) : existing.methods,
+    note: data.note ?? existing.note,
+    enabled: data.enabled ?? existing.enabled,
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+/** The unique path index is the real gate: a lost race must read as CONFLICT,
+ *  never as a 500. */
+function routeConflict(e: unknown, path: string): never {
+  if (isUniqueViolation(e)) throw new ORPCError('CONFLICT', { message: `a route already exists at ${path}` })
+  throw e
+}
+
 export async function saveRoute(
   context: Parameters<typeof guardRecord>[0] & { user: ResolvedUser },
   input: StrictRouteInput,
@@ -66,27 +91,24 @@ export async function saveRoute(
 
   if (data.id !== undefined) {
     // update by id — path rename allowed unless another route claims it.
-    // Omitted optionals MERGE with the stored row: a partial update must not
-    // silently wipe headers/methods/note or re-enable a disabled route.
     const existing = await db.query.routes.findFirst({ where: { id: data.id } })
     if (!existing) notFound('route not found')
     await guardRecord(context, 'routes', 'update', existing)
     const clash = await db.query.routes.findFirst({ where: { AND: [{ path: data.path }, { id: { ne: data.id } }] }, columns: { id: true } })
     if (clash) throw new ORPCError('CONFLICT', { message: `a route already exists at ${data.path}` })
-    const [updated] = await db.update(routesTable).set({
-      path: data.path,
-      target: normalizeTarget(data.target),
-      requestHeaders: data.requestHeaders !== undefined ? (data.requestHeaders.length ? data.requestHeaders : null) : existing.requestHeaders,
-      responseHeaders: data.responseHeaders !== undefined ? (data.responseHeaders.length ? data.responseHeaders : null) : existing.responseHeaders,
-      methods: data.methods !== undefined ? (data.methods.length ? data.methods : null) : existing.methods,
-      note: data.note ?? existing.note,
-      enabled: data.enabled ?? existing.enabled,
-      updatedAt: new Date().toISOString(),
-    }).where(eq(routesTable.id, data.id)).returning()
+    let updated: typeof routesTable.$inferSelect | undefined
+    try {
+      const rows = await db.update(routesTable).set(mergedRoute(existing, data)).where(eq(routesTable.id, data.id)).returning()
+      updated = rows[0]
+    }
+    catch (e) {
+      routeConflict(e, data.path)
+    }
     await publishChange('routes', 'update')
     return { route: savedRow(updated), created: false }
   }
 
+  // create-only defaults: a brand-new route starts enabled with empty overrides
   const row = {
     path: data.path,
     target: normalizeTarget(data.target),
@@ -94,7 +116,7 @@ export async function saveRoute(
     responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
     methods: data.methods?.length ? data.methods : null,
     note: data.note ?? null,
-    enabled: data.enabled ?? true, // create default; the schema deliberately has none
+    enabled: data.enabled ?? true,
     updatedAt: new Date().toISOString(),
   }
 
@@ -104,7 +126,14 @@ export async function saveRoute(
   const existing = await db.query.routes.findFirst({ where: { path: data.path } })
   if (existing) {
     await guardRecord(context, 'routes', 'update', existing)
-    const [updated] = await db.update(routesTable).set(row).where(eq(routesTable.id, existing.id)).returning()
+    let updated: typeof routesTable.$inferSelect | undefined
+    try {
+      const rows = await db.update(routesTable).set(mergedRoute(existing, data)).where(eq(routesTable.id, existing.id)).returning()
+      updated = rows[0]
+    }
+    catch (e) {
+      routeConflict(e, data.path)
+    }
     await publishChange('routes', 'update')
     return { route: savedRow(updated), created: false }
   }
@@ -112,7 +141,14 @@ export async function saveRoute(
   if (!userCan(context.user, 'routes', 'create')) {
     throw new ORPCError('FORBIDDEN', { message: 'missing permission routes:create' })
   }
-  const [created] = await db.insert(routesTable).values({ ...row, userId: context.user.userId }).returning()
+  let created: typeof routesTable.$inferSelect | undefined
+  try {
+    const rows = await db.insert(routesTable).values({ ...row, userId: context.user.userId }).returning()
+    created = rows[0]
+  }
+  catch (e) {
+    routeConflict(e, data.path)
+  }
   await publishChange('routes', 'create')
   return { route: savedRow(created), created: true }
 }

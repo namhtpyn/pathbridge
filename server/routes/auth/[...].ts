@@ -32,14 +32,18 @@ export default defineEventHandler(async (event) => {
   //  - password sign-in rejected when password login is disabled
   //  - OIDC endpoints 404 unless OIDC is fully configured
   const full = event.node.req.url ?? ''
+  // normalize ONCE: `/auth/sign-up/./email` reaches better-auth as the sign-up
+  // path, so matching the raw url would skip the gate; query strings would make
+  // a substring match fire on unrelated paths
+  const path = new URL(full, 'http://localhost').pathname
   // public deployments: password sign-up closes after the first user claims the
   // instance. OIDC user creation is NOT gated (admin enabled the provider).
-  if (event.method === 'POST' && full.includes('/auth/sign-up/email')) {
+  if (event.method === 'POST' && path === '/auth/sign-up/email') {
     if (await anyUserExists()) {
       throw createError({ statusCode: 403, statusMessage: 'sign-up is closed' })
     }
   }
-  if (event.method === 'POST' && full.includes('/auth/sign-in/email')) {
+  if (event.method === 'POST' && path === '/auth/sign-in/email') {
     const { passwordEnabled } = await resolveAuthPolicy()
     if (!passwordEnabled) {
       throw createError({ statusCode: 403, statusMessage: 'password login is disabled' })
@@ -49,8 +53,16 @@ export default defineEventHandler(async (event) => {
   // statements read:own / update:own) — enforced here in the wrapper, NOT inside
   // better-auth hooks (a hook re-resolving the user through the session store
   // deadlocks the request pipeline).
-  const isProfileRead = full.includes('/auth/get-session')
-  const isProfileUpdate = (event.method === 'POST' && (full.includes('/auth/update-user') || full.includes('/auth/change-password')))
+  const isProfileRead = path === '/auth/get-session' || path === '/auth/list-sessions'
+  const isProfileUpdate = event.method === 'POST' && (
+    path === '/auth/update-user'
+    || path === '/auth/change-password'
+    || path === '/auth/delete-user'
+    || path === '/auth/revoke-session'
+    || path === '/auth/change-email'
+    || path === '/auth/link-social'
+    || path === '/auth/unlink-account'
+  )
   if (isProfileRead || isProfileUpdate) {
     const { requireUser, userCan } = await import('../../lib/permissions')
     try {

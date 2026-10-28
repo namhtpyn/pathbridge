@@ -9,6 +9,8 @@ import { parseKeyPermissions } from '../domains/keys/keys.service'
 export type AppSession = Session & {
   /** parsed key scopes — the plugin persists them as (sometimes double-encoded) JSON text */
   apiKeyPermissions: Record<string, string[]> | null
+  /** how this request authenticated — API-key callers get stricter scope checks */
+  via: 'session' | 'apikey'
 }
 
 export async function requireSession(event: H3Event) {
@@ -54,6 +56,7 @@ export async function requireSession(event: H3Event) {
               // expands access: permissions.ts intersects these with the owner
               // role's grants.
               apiKeyPermissions: parseKeyPermissions(rawPermissions),
+              via: 'apikey',
             } as AppSession
           }
         }
@@ -65,5 +68,5 @@ export async function requireSession(event: H3Event) {
   if (!session) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
-  return session
+  return { ...session, via: 'session' as const }
 }

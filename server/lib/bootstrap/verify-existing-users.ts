@@ -4,8 +4,8 @@
 // we canonicalize: any user with a credential (password) account is verified.
 // Heals pre-1.24 instances whose users were created before createUser()
 // defaulted emailVerified to true.
-import { db } from '../db'
-import { user, account } from '../db/schema'
+import { db } from '../../db'
+import { user, account } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 
 export async function verifyExistingUsers() {
@@ -22,7 +22,3 @@ export async function verifyExistingUsers() {
   if (fixed > 0) console.log(`[boot] email_verified canonicalized for ${fixed} password user(s)`)
   return true
 }
-
-// Nitro registers every file under server/plugins; seed-admin awaits this
-// directly, so the plugin hook itself stays a no-op.
-export default defineNitroPlugin(() => {})

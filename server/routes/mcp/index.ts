@@ -56,7 +56,8 @@ async function handle(event: H3Event) {
     enableJsonResponse: true,
     sessionIdGenerator: undefined, // stateless: auth on every request
   })
-  server.server.connect(transport)
+  // connect BEFORE the first request: an unconnected transport drops messages
+  await server.connect(transport)
 
   // node-server transport signature: (req, res, parsedBody?) — the body must
   // be pre-parsed JSON (req stream is already consumed by readRawBody)

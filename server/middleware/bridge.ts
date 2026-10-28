@@ -2,7 +2,7 @@
 // to the Nuxt app; everything else is matched against routes and proxied.
 // Route lookup uses RQB (drizzle relations-v2 query API); the match/strip/scoring
 // math lives in lib/route-match.ts (pure, unit-tested directly).
-import { proxyRequest } from 'h3'
+import { getProxyRequestHeaders, getRequestWebStream } from 'h3'
 import { db } from '../db'
 import { recordAccess } from '../domains/logs/access-log.service'
 import { pickRoute, strip, type MatchedRoute } from '../lib/route-match'
@@ -54,67 +54,94 @@ export default defineEventHandler(async (event) => {
   const clientIp = getRequestIP(event, { xForwardedFor: true })?.toString() ?? null
   const userAgent = getRequestHeader(event, 'user-agent') ?? null
 
-  // request header overrides. `set` entries ride opts.headers (merged LAST
-  // by proxyRequest, so they win over the client's own values). `remove`
-  // entries must DELETE the header from the incoming event BEFORE
-  // proxyRequest copies the client headers — setting undefined keeps the
-  // key present and it leaks upstream as the literal string "undefined".
+  // Outgoing request headers: the client's own (h3's proxy view already drops
+  // hop-by-hop names), minus the route's `remove` entries, plus its `set`
+  // entries applied LAST so an override always wins over the client's value.
+  // A deleted header is gone for real — `set(name, undefined)` used to leak
+  // upstream as the literal string "undefined".
+  const headers = new Headers(getProxyRequestHeaders(event))
   for (const o of best.requestHeaders ?? []) {
-    if (o.op === 'remove') delete event.node.req.headers[o.name]
+    if (o.op === 'remove') headers.delete(o.name)
   }
-  const headers: Record<string, string> = {
-    host: upstream.host, // hostname:port — port-less Host breaks vhost upstreams
-  }
+  // hostname:port — port-less Host breaks vhost upstreams
+  headers.set('host', upstream.host)
   for (const o of best.requestHeaders ?? []) {
-    if (o.op === 'set' && o.value !== undefined) headers[o.name] = o.value
+    if (o.op === 'set' && o.value !== undefined) headers.set(o.name, o.value)
   }
 
   const started = Date.now()
   const routeId = best.id
+  const logStatus = (status: number) => recordAccess({
+    routeId,
+    routePath: best.path,
+    method: event.method,
+    path,
+    status,
+    durationMs: Date.now() - started,
+    clientIp,
+    userAgent,
+  })
 
-  // response header overrides: sendProxy copies upstream headers onto
-  // event.node.res BEFORE opts.onResponse runs — mutate there.
-  const onResponse = best.responseHeaders?.length
-    ? (ev: typeof event) => {
-        for (const o of best.responseHeaders!) {
-          if (o.op === 'remove') ev.node.res.removeHeader(o.name)
-          else if (o.value !== undefined) ev.node.res.setHeader(o.name, o.value)
-        }
-      }
-    : undefined
+  // Streaming proxy instead of proxyRequest: that writes the upstream body into
+  // the node response chunk by chunk, which on the Bun preset (unenv mock res)
+  // buffers the WHOLE body in _data before anything reaches the client, so
+  // streaming upstreams never flush and memory scales with body × concurrency.
+  // A plain fetch + web Response hands the platform stream to the adapter.
+  const ac = new AbortController()
+  // belt for node presets: a disconnected client closes the response (the Bun
+  // preset's mock res never emits 'close' — its socket is null)
+  event.node.res.on('close', () => ac.abort())
+  event.node.req.on('aborted', () => ac.abort())
 
-  // wrap the response to capture status; log after headers flush. Upstream
-  // failures (502) must still hit the access log — they're the rows you
-  // debug from.
+  // stream uploads straight through instead of readRawBody() buffering them
+  const reqBody = getRequestWebStream(event)
+
   try {
-    const res = await proxyRequest(event, url, { headers, ...(onResponse ? { onResponse } : {}) })
-    recordAccess({
-      routeId,
-      routePath: best.path,
+    const upstreamRes = await fetch(url, {
       method: event.method,
-      path,
-      status: event.node.res.statusCode,
-      durationMs: Date.now() - started,
-      clientIp,
-      userAgent,
-    })
-    return res
+      headers,
+      body: reqBody,
+      signal: ac.signal,
+      ...(reqBody ? { duplex: 'half' } : {}),
+    } as RequestInit)
+
+    // fetch hands us a DECODED payload, so the upstream's framing headers
+    // would lie to the client (sendProxy drops the same two)
+    const resHeaders = new Headers(upstreamRes.headers)
+    resHeaders.delete('content-length')
+    resHeaders.delete('content-encoding')
+    resHeaders.delete('transfer-encoding')
+    for (const o of best.responseHeaders ?? []) {
+      if (o.op === 'remove') resHeaders.delete(o.name)
+      else if (o.value !== undefined) resHeaders.set(o.name, o.value)
+    }
+
+    const status = upstreamRes.status
+    // headers are in; the body streams after this row (upstream failures 502
+    // and client hangs-ups 499 are logged in the catch below)
+    logStatus(status)
+    const statusText = upstreamRes.statusText
+    if (!upstreamRes.body) return new Response(null, { status, statusText, headers: resHeaders })
+
+    // cancel/flush fire on the CONSUMER side, so a dropped client aborts the
+    // upstream fetch even where a response 'close' event never fires
+    const body = upstreamRes.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+      cancel: () => ac.abort(),
+      flush: () => ac.abort(),
+    } as Transformer<Uint8Array, Uint8Array>))
+    return new Response(body, { status, statusText, headers: resHeaders })
   }
   catch (e) {
     // a client that hung up mid-proxy is not an upstream failure: log nginx's
     // 499 so the two are distinguishable in the access log (the row is kept).
-    const abortErr = e as { name?: string } | null
-    const clientGone = event.node.req.aborted === true || abortErr?.name === 'AbortError'
-    recordAccess({
-      routeId,
-      routePath: best.path,
-      method: event.method,
-      path,
-      status: clientGone ? 499 : 502,
-      durationMs: Date.now() - started,
-      clientIp,
-      userAgent,
-    })
-    throw e
+    const err = e as { name?: string } | null
+    const clientGone = ac.signal.aborted || event.node.req.aborted === true || err?.name === 'AbortError'
+    logStatus(clientGone ? 499 : 502)
+    if (!clientGone) {
+      console.error(`[bridge] upstream failed: ${url}`, e)
+    }
+    throw clientGone
+      ? createError({ statusCode: 499, statusMessage: 'Client Closed Request' })
+      : createError({ statusCode: 502, statusMessage: 'Bad Gateway', cause: e })
   }
 })

@@ -11,6 +11,7 @@
 //
 // Runtime: /admin -> Settings tab -> stored in the `settings` table.
 import { betterAuth } from 'better-auth'
+import { ORPCError } from '@orpc/server'
 import { v7 as uuidv7 } from 'uuid'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
 import { genericOAuth } from 'better-auth/plugins/generic-oauth'
@@ -180,34 +181,50 @@ async function buildAuth() {
 }
 
 let building: Promise<Auth> | null = null
+let lastBuildFailed = false
+
+/** Single-flight build. Read paths keep the previous instance alive; write paths
+ *  (rebuildAuth) inspect lastBuildFailed instead of trusting a resolved await. */
+function startBuild() {
+  return (building ??= buildAuth()
+    .then((built) => {
+      lastBuildFailed = false
+      return built
+    })
+    .catch((e) => {
+      lastBuildFailed = true
+      console.error('[auth] rebuild failed, keeping previous instance:', e instanceof Error ? e.message : e)
+      if (!instance) throw e
+      return instance
+    })
+    .finally(() => { building = null }))
+}
 
 /** Lazily-built auth instance; auto-rebuilds when the policy changed. Single-flight. */
 export async function getAuth() {
   const p = await resolveAuthPolicy()
   const key = policyKey(p)
   if (!instance || key !== builtWith) {
-    building ??= buildAuth()
-      .catch((e) => {
-        console.error('[auth] rebuild failed, keeping previous instance:', e instanceof Error ? e.message : e)
-        if (!instance) throw e
-        return instance
-      })
-      .finally(() => { building = null })
-    await building
+    // read path: keep serving the previous instance when a rebuild fails
+    await startBuild()
   }
   return instance!
 }
 
-/** Force an immediate rebuild after Settings writes (single-flight with getAuth). */
+/** Force an immediate rebuild after Settings/OIDC writes (single-flight with getAuth).
+ *  PROPAGATES failure: a save that leaves the runtime on the old config is a lie,
+ *  so the caller must see it and roll the stored policy back. */
 export async function rebuildAuth() {
-  building ??= buildAuth()
-    .catch((e) => {
-      console.error('[auth] rebuild failed, keeping previous instance:', e instanceof Error ? e.message : e)
-      if (!instance) throw e
-      return instance
-    })
-    .finally(() => { building = null })
-  await building
+  try {
+    await startBuild()
+  }
+  catch (e) {
+    console.error('[auth] rebuild failed:', e instanceof Error ? e.message : e)
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'auth rebuild failed — check the OIDC provider settings' })
+  }
+  if (lastBuildFailed) {
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'auth rebuild failed — check the OIDC provider settings' })
+  }
 }
 
 export type Session = NonNullable<Awaited<ReturnType<Auth['api']['getSession']>>>

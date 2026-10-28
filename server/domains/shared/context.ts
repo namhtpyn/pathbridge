@@ -125,6 +125,7 @@ export async function readScopeOf(user: ResolvedUser, resource: 'routes' | 'logs
 
 const ABORTED = Symbol('aborted')
 const IDLE = Symbol('idle')
+const CLOSED = Symbol('closed')
 
 /**
  * Abort-aware puller over an async iterator, for the SSE generators.
@@ -135,6 +136,12 @@ const IDLE = Symbol('idle')
  * `close()` calls `iterator.return()` — the publisher unsubscribes on return,
  * not on garbage collection.
  *
+ * Teardown cannot rely on `return()` alone: an async generator queues return()
+ * BEHIND a running next(), so a pull parked on the next bus event keeps close()
+ * waiting (and the listener subscribed) forever. `close()` therefore resolves a
+ * `closed` deferred that EVERY `next()` races against, so a parked pull can
+ * never outlive teardown.
+ *
  * `idleMs` gives up waiting after that long and returns undefined instead, so a
  * caller can flush an already-buffered backlog without blocking on the next
  * event. The in-flight pull is kept for the following call, so a late event is
@@ -144,6 +151,14 @@ export function pullIterator<T>(src: AsyncIterable<T>, signal?: AbortSignal) {
   const it: AsyncIterator<T> = src[Symbol.asyncIterator]()
   let inflight: Promise<IteratorResult<T>> | undefined
   let aborting: Promise<typeof ABORTED> | undefined
+  let closedResolve!: () => void
+  const closed = new Promise<typeof CLOSED>((resolve) => { closedResolve = () => resolve(CLOSED) })
+
+  // the iterator knows nothing about the signal, so a pull parked inside it
+  // only ends when the SOURCE is told to finish
+  const onAbort = () => { void it.return?.(undefined) }
+  if (signal?.aborted) onAbort()
+  else signal?.addEventListener('abort', onAbort, { once: true })
 
   const take = () => (inflight ??= it.next())
   const abortWait = () => {
@@ -159,20 +174,31 @@ export function pullIterator<T>(src: AsyncIterable<T>, signal?: AbortSignal) {
     /** next item; `{done}` when closed or aborted; undefined when `idleMs` elapses */
     async next(idleMs?: number): Promise<IteratorResult<T> | undefined> {
       if (signal?.aborted) return { done: true, value: undefined }
-      const races: Promise<IteratorResult<T> | typeof ABORTED | typeof IDLE>[] = [take()]
+      const races: Promise<IteratorResult<T> | typeof ABORTED | typeof IDLE | typeof CLOSED>[] = [take(), closed]
+      let idleTimer: ReturnType<typeof setTimeout> | undefined
       if (idleMs !== undefined) {
-        races.push(new Promise<typeof IDLE>((resolve) => { setTimeout(() => resolve(IDLE), idleMs) }))
+        races.push(new Promise<typeof IDLE>((resolve) => { idleTimer = setTimeout(() => resolve(IDLE), idleMs) }))
       }
       const abort = abortWait()
       if (abort) races.push(abort)
-      const r = await Promise.race(races)
-      if (r === IDLE) return undefined
-      if (r === ABORTED) return { done: true, value: undefined }
-      inflight = undefined
-      return r
+      try {
+        const r = await Promise.race(races)
+        if (r === IDLE) return undefined
+        if (r === CLOSED) return { done: true, value: undefined }
+        if (r === ABORTED) return { done: true, value: undefined }
+        inflight = undefined
+        return r
+      }
+      finally {
+        if (idleTimer) clearTimeout(idleTimer)
+      }
     },
     async close() {
-      await it.return?.(undefined)
+      closedResolve()
+      signal?.removeEventListener('abort', onAbort)
+      // deliberately NOT awaited: return() queues behind a running next(), so
+      // awaiting it here is exactly the hang `closed` exists to prevent
+      void it.return?.(undefined)?.catch(() => {})
     },
   }
 }

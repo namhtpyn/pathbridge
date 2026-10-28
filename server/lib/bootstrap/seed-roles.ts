@@ -1,9 +1,9 @@
 import { v7 as uuidv7 } from 'uuid'
 // Seed builtin roles at boot (idempotent).
-import { db } from '../db'
+import { db } from '../../db'
 import { eq } from 'drizzle-orm'
-import { roles as rolesTable } from '../db/schema'
-import { STATEMENTS } from '../lib/permissions'
+import { roles as rolesTable } from '../../db/schema'
+import { STATEMENTS } from '../permissions'
 
 const BUILTIN: Array<{ name: string, description: string, statements: Record<string, string[]> }> = [
   {
@@ -66,7 +66,3 @@ export async function seedRoles() {
     .where(eq(rolesTable.name, 'viewer'))
   return true
 }
-
-// Nitro registers every file under server/plugins; seed-admin awaits this
-// directly, so the plugin hook itself stays a no-op.
-export default defineNitroPlugin(() => {})

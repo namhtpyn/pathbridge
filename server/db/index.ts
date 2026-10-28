@@ -2,7 +2,7 @@
 // migration files in ./drizzle; DATA_DIR holds pathbridge.db.
 import { Database } from 'bun:sqlite'
 import { drizzle } from 'drizzle-orm/bun-sqlite'
-import { mkdirSync, readdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { routes, relations, user, session, account, verification } from './schema'
 
@@ -21,17 +21,43 @@ sqlite.exec(`CREATE TABLE IF NOT EXISTS __migrations (
 // concurrent writers (access-log inserts vs admin writes) can raise
 // SQLITE_BUSY on the spot — wait instead of failing
 sqlite.exec('PRAGMA busy_timeout = 5000')
+const drizzleDir = process.env.DRIZZLE_DIR || join(process.cwd(), 'drizzle')
+let dirs: string[]
 try {
-  const drizzleDir = process.env.DRIZZLE_DIR || join(process.cwd(), 'drizzle')
-  const dirs = readdirSync(drizzleDir, { withFileTypes: true })
+  dirs = readdirSync(drizzleDir, { withFileTypes: true })
     .filter(d => d.isDirectory()).map(d => d.name).sort()
+}
+catch (e) {
+  // ONLY a genuinely missing dir (bundled builds ship without ./drizzle) may
+  // keep serving; every other readdir failure is a real boot error.
+  if ((e as NodeJS.ErrnoException)?.code === 'ENOENT' && !existsSync(drizzleDir)) {
+    console.warn('[db] migration dir missing, skipping:', drizzleDir)
+    dirs = []
+  }
+  else {
+    throw e
+  }
+}
+
+// PRAGMA foreign_keys is CONNECTION state: snapshot it BEFORE any migration
+// toggles it and restore that exact value in `finally`. Replaying a migration's
+// pragma chunks would execute its trailing `PRAGMA foreign_keys = OFF` and
+// leave FK enforcement disabled for the whole process.
+const fkSnapshot = sqlite.query<{ foreign_keys: number }, []>('PRAGMA foreign_keys').get()
+const fkOn = fkSnapshot?.foreign_keys === 1
+
+try {
   for (const dir of dirs) {
     const applied = sqlite.query('SELECT 1 FROM __migrations WHERE name = ?').get(dir)
     if (applied) continue
     const sqlFiles = readdirSync(join(drizzleDir, dir)).filter((f: string) => f.endsWith('.sql'))
-    if (sqlFiles.length > 1) throw new Error(`${dir} declares ${sqlFiles.length} .sql files — one migration per folder`)
-    const sqlFile = sqlFiles[0]
-    if (!sqlFile) continue
+    // EXACTLY one .sql per folder: >1 is ambiguous, and 0 means the migration's
+    // SQL is lost — skipping it would journal nothing while later migrations
+    // apply, leaving the db permanently one migration behind with no error.
+    if (sqlFiles.length !== 1) {
+      throw new Error(`${dir} declares ${sqlFiles.length} .sql files — exactly one migration per folder`)
+    }
+    const sqlFile = sqlFiles[0]!
     const raw = readFileSync(join(drizzleDir, dir, sqlFile), 'utf-8')
     // strip leading `--` comment lines per chunk: a comment-only chunk (e.g. a
     // trailing explanation after the last breakpoint) makes sqlite.exec throw
@@ -62,17 +88,15 @@ try {
       throw e
     }
     finally {
-      if (fkOff) sqlite.exec('PRAGMA foreign_keys = ON')
-      for (const p of pragmas) sqlite.exec(p)
+      // restore the SNAPSHOT, never a blind ON and never the migration's own
+      // pragma chunks: a trailing `foreign_keys = OFF` must not escape
+      if (fkOff) sqlite.exec(`PRAGMA foreign_keys = ${fkOn ? 'ON' : 'OFF'}`)
     }
   }
 }
 catch (e) {
-  // ONLY the missing-drizzle case (bundled builds) may keep serving; a real
-  // migration failure must be loud — serving a wrong schema is worse.
-  const msg = e instanceof Error ? e.message : String(e)
-  if (msg.includes('ENOENT')) console.warn('[db] migration dir missing, skipping:', msg)
-  else throw new Error(`migration failed: ${msg}`)
+  // a real migration failure must be loud — serving a wrong schema is worse
+  throw new Error(`migration failed: ${e instanceof Error ? e.message : String(e)}`)
 }
 
 // rc: `schema` lives inside defineRelations() — drizzle() takes relations only

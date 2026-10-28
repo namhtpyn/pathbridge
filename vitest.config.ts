@@ -18,9 +18,11 @@ export default defineConfig({
           name: 'unit',
           include: ['test/unit/**/*.test.ts'],
           environment: 'node',
-          // bun:sqlite + WAL: one writer at a time — sequential files, fresh DATA_DIR per run
+          // bun:sqlite + WAL: one writer at a time — sequential files, fresh DATA_DIR per run.
+          // maxWorkers: 1 is explicit: `forks.singleFork` is not a Vitest 5 option
+          // (silently ignored), so serialization must come from these two flags.
           pool: 'forks',
-          forks: { singleFork: true },
+          maxWorkers: 1,
           fileParallelism: false,
           env: { DATA_DIR: mkdtempSync(join(tmpdir(), 'pb-vitest-')) },
         },

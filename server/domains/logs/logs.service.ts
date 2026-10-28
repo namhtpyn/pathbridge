@@ -16,7 +16,9 @@ export async function queryLogsScoped(user: ResolvedUser, input: { limit?: numbe
   const own = await (await getDb()).query.routes.findMany({ where: { userId: user.userId }, columns: { id: true }, orderBy: { id: 'asc' } })
   const ownIds = own.map(p => p.id)
   if (routeId !== undefined && !ownIds.includes(routeId)) return []
-  return await queryAccessLog({ limit, routeIds: ownIds, beforeId: input.beforeId })
+  // keep the requested routeId: queryAccessLog prefers it over routeIds, so a
+  // single-route query returns that route's rows instead of every owned route
+  return await queryAccessLog({ limit, routeId, routeIds: ownIds, beforeId: input.beforeId })
 }
 
 /** highest own-scope access-log id at subscribe time — the delta tail's cursor,

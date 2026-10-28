@@ -81,6 +81,22 @@ async function assertRolesExist(role: string) {
   }
 }
 
+/** Refuse a change that would leave the instance without an admin. Counts the
+ *  OTHER users whose comma-separated role list still contains 'admin' (LIKE
+ *  narrows, the split-test is exact — same pattern as removeRole). */
+async function assertNotLastAdmin(db: Awaited<ReturnType<typeof getDb>>, id: string, nextRole?: string) {
+  const rows = await db.query.user.findMany({
+    where: { role: { like: '%admin%' } },
+    columns: { id: true, role: true },
+    orderBy: { id: 'asc' },
+  })
+  const admins = rows.filter(u => (u.role ?? '').split(',').map(r => r.trim()).includes('admin'))
+  if (!admins.some(u => u.id === id)) return // not an admin today — nothing to protect
+  if (nextRole?.split(',').map(r => r.trim()).includes('admin')) return // stays an admin
+  if (admins.some(u => u.id !== id)) return
+  throw new ORPCError('CONFLICT', { message: 'cannot remove the last admin' })
+}
+
 export async function createUser(email: string, name: string, password: string, role = 'viewer', emailVerified = true) {
   await assertRolesExist(role)
   const id = uuidv7()
@@ -109,7 +125,10 @@ export async function updateUser(id: string, patch: { name?: string, email?: str
   const db = await getDb()
   const exists = await db.query.user.findFirst({ where: { id }, columns: { id: true } })
   if (!exists) return false
-  if (patch.role !== undefined) await assertRolesExist(patch.role)
+  if (patch.role !== undefined) {
+    await assertRolesExist(patch.role)
+    await assertNotLastAdmin(db, id, patch.role)
+  }
   if (patch.email !== undefined) {
     const taken = await db.query.user.findFirst({ where: { email: patch.email }, columns: { id: true } })
     if (taken && taken.id !== id) throw new ORPCError('CONFLICT', { message: 'email already in use' })
@@ -127,6 +146,7 @@ export async function deleteUser(id: string) {
   const db = await getDb()
   const target = await db.query.user.findFirst({ where: { id }, columns: { email: true } })
   if (!target) return false
+  await assertNotLastAdmin(db, id)
   // one transaction: sessions, credentials, pending tokens, API keys (no FK on
   // apikey.referenceId), owned routes and the user row must disappear together.
   db.transaction((tx) => {

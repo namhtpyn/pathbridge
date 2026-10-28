@@ -63,4 +63,17 @@ export async function setSetting(key: keyof AppSettings, value: string | number 
     .onConflictDoUpdate({ target: settings.key, set: { value: String(value), updatedAt: new Date().toISOString() } })
 }
 
-
+/** Apply a settings patch atomically: a mid-loop failure must not leave the
+ *  stored policy half-applied (bun:sqlite is a SYNC driver — no async callback). */
+export async function setSettings(patch: Partial<Record<keyof AppSettings, string | number | boolean>>) {
+  const db = await getDb()
+  const now = new Date().toISOString()
+  db.transaction((tx) => {
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) continue
+      tx.insert(settings).values({ key, value: String(value), updatedAt: now })
+        .onConflictDoUpdate({ target: settings.key, set: { value: String(value), updatedAt: now } })
+        .run()
+    }
+  })
+}

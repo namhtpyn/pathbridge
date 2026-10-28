@@ -56,9 +56,11 @@ Save as `compose.yaml` and run `docker compose up -d`. To upgrade later:
 Open `http://localhost:3000/admin` and sign in with the seeded admin:
 
 - email `admin@pathbridge.local`
-- password `pathbridge-admin`
+- password: whatever you set in `ADMIN_PASSWORD`, or — when that is unset — the
+  random one-time password printed once in the first boot's log. There is no
+  fixed default password.
 
-Override `ADMIN_EMAIL` / `ADMIN_PASSWORD` before first boot if you like.
+Set `ADMIN_EMAIL` / `ADMIN_PASSWORD` before first boot if you want them fixed.
 The seed runs only on a fresh database — never on restarts.
 
 Put your own TLS terminator (nginx, Traefik, Caddy…) in front; the app itself
@@ -70,7 +72,10 @@ is plain HTTP.
 |---|---|---|
 | `DATA_DIR` | `/data` | database location (mount a volume) |
 | `PORT` | `3000` | listen port |
-| `BETTER_AUTH_SECRET` | random | auth secret (set your own in production) |
+| `DRIZZLE_DIR` | `./drizzle` (cwd) | migration folder; the boot runner applies every folder here into `__migrations` |
+| `BETTER_AUTH_SECRET` | random per boot | auth/session signing secret. Generated fresh on every boot when unset, which invalidates sessions on restart — **set it in production**. |
+| `BETTER_AUTH_URL` | unset (request host) | public base URL better-auth uses for generated links/callbacks (e.g. `https://pathbridge.example.com`). Set it behind a reverse proxy. |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | empty | comma-separated EXTRA origins accepted by better-auth (on top of the request's own origin). Empty by default — values are trimmed, blanks dropped. |
 | `NITRO_BUN_IDLE_TIMEOUT` | `255` | server idle timeout in seconds (max 255). Raised from the runtime default so long-lived live connections (admin realtime tables/logs) survive idle periods. Only lower it if you know why. |
 | `OIDC_DISABLED_PASSWORD_LOGIN` | unset | legacy env fallback: `true` disables email+password login while an OIDC provider is configured. Settings → "Disable password login" is the normal switch. |
 
@@ -95,8 +100,10 @@ Add a route in the admin UI (Routes → New route):
 
 Forwarding is deterministic, two modes:
 
-- **Exact path** — `/hook` forwards to the target URL **verbatim** (a path on
-  the target is the upstream path). e.g. `/webhooks/zalo-oa` → `https://api.example.com/webhooks/zalo-oa`.
+- **Exact path** — `/hook` forwards to the target URL **verbatim**: a path on
+  the target *is* the upstream path, and the request's own path is NOT appended.
+  e.g. route `/zalo` with target `https://api.example.com/webhooks/zalo-oa`
+  sends every `/zalo` request to exactly that URL.
 - **Wildcard** — `/hook/*` forwards the remainder after the base:
   `/hook/abc` → `https://api.example.com/abc`.
 
@@ -121,9 +128,10 @@ Procedures: `authConfig`, `version`, `session`, `me`,
 `roles.{list,live,save,update,remove}`, `settings.{get,save}`, `oidc.{list,save}`,
 `keys.{list,create,rename,revoke}`, `logs.{recent,tail}`.
 
-Live procedures (`*.live`, `logs.tail`) stream snapshots over SSE instead of
-answering once — point an HTTP client that understands `text/event-stream` at
-them. There is no other HTTP API (`/api/*` is unused).
+Live procedures (`*.live`, `logs.tail`) stream over SSE instead of answering
+once — `.live` sends snapshots, `logs.tail` sends deltas only. Point an HTTP
+client that understands `text/event-stream` at them. There is no other HTTP API
+(`/api/*` is unused).
 
 ### MCP (AI agents)
 

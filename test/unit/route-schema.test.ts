@@ -8,11 +8,19 @@ describe('routeInputSchema (strict security boundary)', () => {
   it('accepts a minimal valid route', () => {
     const r = routeInputSchema.safeParse(valid)
     expect(r.success).toBe(true)
-    if (r.success) {
+    if (!r.success) return
     // `enabled` is NOT defaulted at the schema: a materialized default would make
     // an update that omits it silently re-enable a disabled route (service applies
     // the create-time default instead)
-    }
+    expect('enabled' in r.data).toBe(false)
+    expect(r.data.enabled).toBeUndefined()
+  })
+
+  it('keeps an explicit enabled: false (no schema default overrides it)', () => {
+    const r = routeInputSchema.safeParse({ ...valid, enabled: false })
+    expect(r.success).toBe(true)
+    if (!r.success) return
+    expect(r.data.enabled).toBe(false)
   })
 
   it('rejects unknown keys (strict)', () => {

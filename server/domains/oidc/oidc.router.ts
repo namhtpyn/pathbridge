@@ -65,7 +65,16 @@ export const oidcRouter = {
       }
     }
     await setOidcProviders(out)
-    await rebuildAuth() // discovery for new providers runs at auth build
+    try {
+      await rebuildAuth() // discovery for new providers runs at auth build
+    }
+    catch (e) {
+      // a bad discovery must not leave a stored config the runtime cannot serve:
+      // restore the previous list, rebuild back onto it, then surface the failure
+      await setOidcProviders(existing)
+      await rebuildAuth()
+      throw e
+    }
     const { publishChange } = await import('../../lib/change-bus')
     await publishChange('settings', 'update')
     return { providers: providersToPublic(out) }

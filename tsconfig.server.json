@@ -1,0 +1,9 @@
+{
+  "extends": "./.nuxt/tsconfig.server.json",
+  "compilerOptions": {
+    "types": ["bun-types"],
+    "lib": ["ESNext"]
+  },
+  "include": ["server/**/*.ts", "shared/**/*.ts", ".nuxt/types/nitro.d.ts"],
+  "exclude": ["app/**", "test/**"]
+}

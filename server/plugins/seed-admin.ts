@@ -11,8 +11,9 @@
 import { db } from '../db'
 import { user } from '../db/schema'
 import { createUser } from '../domains/users/users.service'
-import { seedRoles } from './seed-roles'
-import { verifyExistingUsers } from './verify-existing-users'
+import { once } from '../lib/once'
+import { seedRoles } from '../lib/bootstrap/seed-roles'
+import { verifyExistingUsers } from '../lib/bootstrap/verify-existing-users'
 
 async function seedAdmin() {
   const existing = await db.query.user.findFirst({ columns: { id: true } })
@@ -28,7 +29,7 @@ async function seedAdmin() {
   }
 }
 
-export default defineNitroPlugin(async () => {
+async function bootstrap() {
   // one failing step must not skip the others (or crash boot)
   try {
     await seedRoles()
@@ -48,4 +49,15 @@ export default defineNitroPlugin(async () => {
   catch (e) {
     console.error('[boot] seed-admin failed:', e)
   }
+}
+
+/** The shared boot seed. Exported so the request hook below (and any other
+ *  bootstrap step) awaits the SAME run instead of starting a second one. */
+export const seedPromise = once(bootstrap)
+
+export default defineNitroPlugin((nitroApp) => {
+  // Nitro does not await plugins, so without this the first request could hit
+  // an empty roles/users table while the seed is still running. `request`
+  // hooks are awaited before the route handler runs.
+  nitroApp.hooks.hook('request', () => seedPromise())
 })

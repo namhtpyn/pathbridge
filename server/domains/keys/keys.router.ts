@@ -8,7 +8,12 @@ import * as svc from './keys.service'
 const keyCreateInput = z.strictObject({
   name: z.string().trim().min(1).max(64),
   expiresIn: z.number().int().positive().max(365 * 24 * 3600).optional(), // seconds; omit = no expiry
-  permissions: z.record(z.string(), z.array(z.string())).optional(),
+  // {} is not "no scope": requireUser skips narrowing only when the map is
+  // absent, so an empty object must never reach storage
+  permissions: z.record(z.string(), z.array(z.string())).refine(
+    p => Object.keys(p).length > 0,
+    'permissions must not be empty — omit it to inherit, or list at least one resource',
+  ).optional(),
 })
 
 export const keysRouter = {
@@ -18,6 +23,11 @@ export const keysRouter = {
   create: base.use(withUser).input(keyCreateInput).handler(async ({ context, input }) => {
     const { getAuth } = await import('../../lib/auth')
     const { publishChange } = await import('../../lib/change-bus')
+    // scope escalation guard (half 1): a key-scoped caller omitting permissions
+    // would mint a full-access key, because narrowing is skipped for an empty map
+    if (context.user.via === 'apikey' && !input.permissions) {
+      badRequest('an API key cannot mint an unscoped key')
+    }
     // the RBAC vocabulary is the single validator (same check the roles API
     // uses) — a second hand-kept list drifts from it silently
     const { ACTIONS, SCOPES, STATEMENTS, validateStatements, userCan } = await import('../../lib/permissions')
@@ -36,9 +46,14 @@ export const keysRouter = {
           const [rawAction, rawScope] = st.split(':')
           const action = ACTIONS.find(a => a === rawAction)
           const scope = SCOPES.find(s => s === rawScope)
-          if (!action || !scope || !userCan(context.user, key, action, scope)) {
-            badRequest(`cannot grant ${resource}:${st} — you do not hold it`)
-          }
+          // scope escalation guard (half 2): an API-key caller may only delegate
+          // statements its OWN narrowed grants hold — context.user.grants is the
+          // key's set here, not the owner's full role grants
+          const owned = context.user.grants.get(key)
+          const holds = !!action && !!scope && (context.user.via === 'apikey'
+            ? (owned?.has(`${action}:${scope}`) ?? false) || (scope === 'own' && (owned?.has(`${action}:all`) ?? false))
+            : userCan(context.user, key, action, scope))
+          if (!holds) badRequest(`cannot grant ${resource}:${st} — you do not hold it`)
         }
         clean[key] = statements
       }
@@ -61,9 +76,8 @@ export const keysRouter = {
 
   revoke: base.use(withUser).input(z.strictObject({ id: z.string().min(1) })).handler(async ({ context, input }) => {
     const { publishChange } = await import('../../lib/change-bus')
-    // verify ownership before revoking (key must belong to the caller)
-    await svc.requireOwnedKey(input.id, context.user.userId)
-    await svc.deleteKey(input.id)
+    // deleteKey carries the ownership predicate in the DELETE itself
+    await svc.deleteKey(input.id, context.user.userId)
     await publishChange('keys', 'delete')
     return { ok: true }
   }),
