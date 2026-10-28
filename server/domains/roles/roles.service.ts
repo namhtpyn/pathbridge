@@ -9,7 +9,10 @@ const getDb = async () => (await import('../../db')).db
 import { roles as rolesTable } from '../../db/schema'
 
 export async function listRoles() {
-  const rows = await (await getDb()).query.roles.findMany({ orderBy: { name: 'asc' } })
+  const rows = await (await getDb()).query.roles.findMany({
+    columns: { id: true, name: true, description: true, statements: true, builtin: true },
+    orderBy: { name: 'asc' },
+  })
   return { roles: rows, vocabulary: await vocabularyOut() }
 }
 
@@ -18,15 +21,17 @@ export async function createRole(input: {
 }) {
   const { publishChange } = await import('../../lib/change-bus')
   const name = input.name.trim().toLowerCase()
-  const description = input.description?.trim() ? input.description.trim() : null
   const stmtErr = (await import('../../lib/permissions')).validateStatements(input.statements ?? {})
   if (stmtErr) badRequest(stmtErr)
-  const exists = await (await getDb()).query.roles.findFirst({ where: { name } })
-  if (exists) throw new ORPCError('CONFLICT', { message: `role "${name}" already exists` })
   const id = uuidv7()
   const now = new Date().toISOString()
   const statements = input.statements ?? {}
-  await (await getDb()).insert(rolesTable).values({ id, name, description, statements, builtin: false, createdAt: now, updatedAt: now })
+  const description = input.description ?? null
+  // the unique index is the real gate — a pre-check loses to a concurrent create
+  const res = await (await getDb()).insert(rolesTable)
+    .values({ id, name, description, statements, builtin: false, createdAt: now, updatedAt: now })
+    .onConflictDoNothing()
+  if (res.changes === 0) throw new ORPCError('CONFLICT', { message: `role "${name}" already exists` })
   await publishChange('roles', 'create')
   return { role: { id, name, description, statements, builtin: false } }
 }
@@ -36,13 +41,10 @@ export async function updateRole(input: {
 }) {
   const { publishChange } = await import('../../lib/change-bus')
   const row = await (await getDb()).query.roles.findFirst({ where: { id: input.id } })
-  if (!row) notFound('Role not found')
+  if (!row) notFound('role not found')
   if (row.builtin && input.statements !== undefined) badRequest('builtin roles cannot be modified')
   const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() }
-  if (input.description !== undefined) {
-    if (input.description === null || input.description.trim()) patch.description = input.description === null ? null : input.description.trim()
-    else badRequest('description: must be a non-empty string or null')
-  }
+  if (input.description !== undefined) patch.description = input.description ?? null
   if (input.statements !== undefined) {
     const stmtErr = (await import('../../lib/permissions')).validateStatements(input.statements)
     if (stmtErr) badRequest(stmtErr)
@@ -56,7 +58,7 @@ export async function updateRole(input: {
 export async function removeRole(input: { id: string }) {
   const { publishChange } = await import('../../lib/change-bus')
   const row = await (await getDb()).query.roles.findFirst({ where: { id: input.id } })
-  if (!row) notFound('Role not found')
+  if (!row) notFound('role not found')
   if (row.builtin) badRequest('builtin roles cannot be deleted')
   // user.role is a comma list ('viewer,custom') — an exact match misses those
   // holders and the delete would silently strip grants. LIKE narrows, then

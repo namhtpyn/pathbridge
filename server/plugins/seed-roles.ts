@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm'
 import { roles as rolesTable } from '../db/schema'
 import { STATEMENTS } from '../lib/permissions'
 
-const BUILTIN = [
+const BUILTIN: Array<{ name: string, description: string, statements: Record<string, string[]> }> = [
   {
     name: 'admin',
     description: 'Full access to everything',
@@ -33,7 +33,7 @@ const BUILTIN = [
 // regular editable/deletable roles so existing assignments keep working.
 const DEMOTED = ['operator']
 
-export default defineNitroPlugin(async () => {
+export async function seedRoles() {
   const existing = await db.query.roles.findMany()
   const now = new Date().toISOString()
   for (const r of BUILTIN) {
@@ -65,4 +65,8 @@ export default defineNitroPlugin(async () => {
     .set({ builtin: true })
     .where(eq(rolesTable.name, 'viewer'))
   return true
-})
+}
+
+// Nitro registers every file under server/plugins; seed-admin awaits this
+// directly, so the plugin hook itself stays a no-op.
+export default defineNitroPlugin(() => {})

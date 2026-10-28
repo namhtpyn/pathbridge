@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
@@ -25,11 +28,13 @@ export default defineConfig({
     ? undefined
     : {
         command: 'bun run build >/dev/null 2>&1 && (bun test/e2e/upstream.mjs >/dev/null 2>&1 &) && DATA_DIR=$E2E_DATA_DIR PORT=4310 BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:4310,http://127.0.0.1:4310 BETTER_AUTH_SECRET=e2e-secret-0123456789abcdefghijklmnop ADMIN_EMAIL=e2e@pathbridge.dev ADMIN_PASSWORD=e2e-admin-pw bun .output/server/index.mjs',
-        url: 'http://127.0.0.1:4310/health',
-        reuseExistingServer: true,
+        url: 'http://127.0.0.1:4310/health/ready',
+        reuseExistingServer: !process.env.CI,
         timeout: 240_000,
         env: {
-          E2E_DATA_DIR: process.env.E2E_DATA_DIR ?? '/tmp/pb-e2e-playwright',
+          // fresh DB per run — a persistent dir made run 2 fail with 403s on
+          // fixtures that a previous run already created
+          E2E_DATA_DIR: process.env.E2E_DATA_DIR || mkdtempSync(join(tmpdir(), 'pb-e2e-')),
         },
       },
 })

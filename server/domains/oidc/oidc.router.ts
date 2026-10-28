@@ -28,7 +28,7 @@ export const oidcRouter = {
   }),
 
   save: base.use(withPerm('settings', 'update')).input(oidcSaveInput).handler(async ({ input }) => {
-    const { getOidcProviders, setOidcProviders, validProviderId, newProviderId } = await import('./oidc.service')
+    const { getOidcProviders, setOidcProviders, providersToPublic, validProviderId, newProviderId } = await import('./oidc.service')
     type OidcProvider = import('./oidc.service').OidcProvider
     const { rebuildAuth } = await import('../../lib/auth')
     const existing = await getOidcProviders()
@@ -40,6 +40,9 @@ export const oidcRouter = {
       // callback path stable); anything else is a NEW provider whose id is
       // generated here, server-side — never taken from the request body
       const prevId = existing.find(e => e.id === incomingId)
+      // a supplied id that matches nothing is a caller error: generating a fresh
+      // id would drop that provider's stored config AND change its callback path
+      if (p.id && !prevId) badRequest(`unknown provider id: ${p.id}`)
       const id = prevId ? incomingId : newProviderId()
       if (!validProviderId(id)) {
         // legacy slug ids (e.g. the migrated single 'oidc' provider) are not
@@ -65,6 +68,6 @@ export const oidcRouter = {
     await rebuildAuth() // discovery for new providers runs at auth build
     const { publishChange } = await import('../../lib/change-bus')
     await publishChange('settings', 'update')
-    return { providers: out.map(({ clientSecret: _s, ...rest }) => ({ ...rest, secretSet: true })) }
+    return { providers: providersToPublic(out) }
   }),
 }

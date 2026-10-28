@@ -4,7 +4,6 @@ import type { H3Event } from 'h3'
 // intersected with owner role) or session cookie. Tools = routes CRUD + logs.
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { type ZodType } from 'zod'
 import { toolListRoutes, toolUpsertRoute, toolUpdateRouteById, toolDeleteRoute, toolGetLogs, mcpSchemas } from '../../lib/mcp/tools'
 import { requireSession } from '../../lib/session'
 
@@ -31,25 +30,25 @@ async function handle(event: H3Event) {
   server.tool(
     'create_route',
     'Create a forwarding route (or update the existing route at the same path). Fields: path (e.g. "/hook" or "/hook/*"), target (http(s) URL), optional requestHeaders/responseHeaders (lists of {name, op: set|remove, value} — request overrides reach the upstream, response overrides reach the client), methods (e.g. ["GET","HEAD"]), note, enabled.',
-    mcpSchemas.createRoute.shape as unknown as Record<string, ZodType>,
+    mcpSchemas.createRoute.shape,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolUpsertRoute(headers, input), null, 2) }] }),
   )
   server.tool(
     'update_route',
     'Update an existing route by numeric id. Same fields as create_route plus required id; path rename allowed.',
-    mcpSchemas.updateRoute.shape as unknown as Record<string, ZodType>,
+    mcpSchemas.updateRoute.shape,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolUpdateRouteById(headers, input), null, 2) }] }),
   )
   server.tool(
     'delete_route',
     'Delete a forwarding route by numeric id (preferred) or path.',
-    mcpSchemas.deleteRoute.shape as unknown as Record<string, ZodType>,
+    mcpSchemas.deleteRoute.shape,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolDeleteRoute(headers, input), null, 2) }] }),
   )
   server.tool(
     'get_logs',
-    'Read access-log entries for forwarded traffic. Optional limit (default 100) and routeId filter; scoped to what the key may read.',
-    mcpSchemas.getLogs.shape as unknown as Record<string, ZodType>,
+    'Read access-log entries for forwarded traffic. Optional limit (default 100), routeId filter, beforeId paging cursor; scoped to what the key may read.',
+    mcpSchemas.getLogs.shape,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolGetLogs(headers, input ?? {}), null, 2) }] }),
   )
 

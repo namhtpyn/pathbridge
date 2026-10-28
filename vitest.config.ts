@@ -20,7 +20,7 @@ export default defineConfig({
           environment: 'node',
           // bun:sqlite + WAL: one writer at a time — sequential files, fresh DATA_DIR per run
           pool: 'forks',
-          poolOptions: { forks: { singleFork: true } },
+          forks: { singleFork: true },
           fileParallelism: false,
           env: { DATA_DIR: mkdtempSync(join(tmpdir(), 'pb-vitest-')) },
         },
@@ -30,6 +30,8 @@ export default defineConfig({
           name: 'nuxt',
           include: ['test/nuxt/**/*.test.ts'],
           environment: 'nuxt',
+          // never let a Nuxt-runtime test reach the developer's real ./data DB
+          env: { DATA_DIR: mkdtempSync(join(tmpdir(), 'pb-nuxt-')) },
         },
       }),
     ],

@@ -29,34 +29,31 @@ const DEFAULTS: AppSettings = {
   logRetentionDays: 30,
 }
 
-// explicit return union: inferred type would keep `undefined` widened per-branch and
-// defeat `out[key] = v` narrowing below (AGENTS law: lossy-inference exception)
-type SettingValue = boolean | number | string
-
-function coerce(raw: string | undefined, key: keyof AppSettings): SettingValue | undefined {
-  if (raw === undefined) return undefined
-  switch (key) {
-    case 'disablePasswordLogin': return raw === 'true'
-    case 'logRetentionDays': {
-      const n = Number(raw)
-      return Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined
-    }
-    default: return raw
-  }
-}
-
 export async function getSettings() {
   const rows = await (await getDb()).query.settings.findMany({ columns: { key: true, value: true }, orderBy: { key: 'asc' } })
   const out = { ...DEFAULTS }
   for (const row of rows) {
-    const v = coerce(row.value, row.key as keyof AppSettings)
-    if (v === undefined) continue
-    if (typeof v === 'boolean') out.disablePasswordLogin = v
-    else if (typeof v === 'number') out.logRetentionDays = v
-    else if (row.key === 'oidcProviders') out.oidcProviders = v
-    else if (row.key === 'oidcIssuer') out.oidcIssuer = v
-    else if (row.key === 'oidcClientId') out.oidcClientId = v
-    else if (row.key === 'oidcClientSecret') out.oidcClientSecret = v
+    // dispatch on the KEY, never on the JS type of the parsed value: a second
+    // boolean/numeric setting would otherwise silently overwrite the first
+    const key = row.key as keyof AppSettings
+    switch (key) {
+      case 'oidcProviders': out.oidcProviders = row.value; break
+      case 'oidcIssuer': out.oidcIssuer = row.value; break
+      case 'oidcClientId': out.oidcClientId = row.value; break
+      case 'oidcClientSecret': out.oidcClientSecret = row.value; break
+      case 'disablePasswordLogin': out.disablePasswordLogin = row.value === 'true'; break
+      case 'logRetentionDays': {
+        const n = Number(row.value)
+        if (Number.isFinite(n) && n >= 0) out.logRetentionDays = Math.floor(n)
+        break
+      }
+      default: {
+        // exhaustive over AppSettings at compile time; unknown keys (a setting
+        // dropped from the code but still stored) are ignored
+        const unhandled: never = key
+        void unhandled
+      }
+    }
   }
   return out
 }

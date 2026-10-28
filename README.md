@@ -72,6 +72,7 @@ is plain HTTP.
 | `PORT` | `3000` | listen port |
 | `BETTER_AUTH_SECRET` | random | auth secret (set your own in production) |
 | `NITRO_BUN_IDLE_TIMEOUT` | `255` | server idle timeout in seconds (max 255). Raised from the runtime default so long-lived live connections (admin realtime tables/logs) survive idle periods. Only lower it if you know why. |
+| `OIDC_DISABLED_PASSWORD_LOGIN` | unset | legacy env fallback: `true` disables email+password login while an OIDC provider is configured. Settings → "Disable password login" is the normal switch. |
 
 Everything else — OIDC providers, roles, retention — is configured in the
 admin UI at runtime.
@@ -115,8 +116,9 @@ Calls go to `POST /rpc/<procedure>` with body `{"json": <input>}`, authorized
 with a session cookie or an API key (Bearer). A key carries its owner's
 permissions, or a narrower scope you pick when creating it.
 
-Procedures: `authConfig`, `version`, `session`, `me`, `routes.{live,count,save,remove}`,
-`users.live`, `roles.live`, `settings.{get,save}`, `oidc.{list,save}`,
+Procedures: `authConfig`, `version`, `session`, `me`,
+`routes.{list,live,count,save,remove}`, `users.{list,live,save,update,setPassword,remove}`,
+`roles.{list,live,save,update,remove}`, `settings.{get,save}`, `oidc.{list,save}`,
 `keys.{list,create,rename,revoke}`, `logs.{recent,tail}`.
 
 Live procedures (`*.live`, `logs.tail`) stream snapshots over SSE instead of

@@ -5,7 +5,9 @@ export const ADMIN = { email: 'e2e@pathbridge.dev', password: 'e2e-admin-pw' }
 
 /** Sign in via the better-auth endpoint; returns the session cookie jar state. */
 export async function signIn(request: APIRequestContext) {
-  const r = await request.post('/auth/sign-in/email', { data: ADMIN })
+  // better-auth rejects cookie-carrying POSTs without Origin — always send it
+  const origin = new URL(process.env.E2E_BASE_URL ?? 'http://127.0.0.1:4310').origin
+  const r = await request.post('/auth/sign-in/email', { data: ADMIN, headers: { origin } })
   expect(r.status(), `sign-in failed: ${await r.text()}`).toBe(200)
 }
 
@@ -28,14 +30,15 @@ export async function rpc<T = unknown>(
 
 /** UI login through the real form (fills + submits, waits for the shell). */
 export async function uiLogin(page: Page) {
+  // listeners COLLECT; throwing inside an event handler is not an assertion
+  // (it surfaces as an unhandled worker error and stays attached all test)
+  const problems: string[] = []
   page.on('response', (r) => {
     if (r.url().includes('/auth/') && r.status() >= 400) {
-      throw new Error(`auth POST failed during login: ${r.status()} ${r.url()} ${r.request().method()}`)
+      problems.push(`auth POST failed during login: ${r.status()} ${r.url()} ${r.request().method()}`)
     }
   })
-  page.on('pageerror', (e) => {
-    throw new Error(`page error during login: ${String(e).slice(0, 300)}`)
-  })
+  page.on('pageerror', (e) => problems.push(`page error during login: ${String(e).slice(0, 300)}`))
   await page.goto('/admin')
   await expect(page.locator('input[type="email"]').first()).toBeVisible({ timeout: 15_000 })
   await page.waitForLoadState('networkidle', { timeout: 20_000 }).catch(() => {})
@@ -55,4 +58,5 @@ export async function uiLogin(page: Page) {
   }
   // shell signal: the Routes page heading (h2) appears once the layout swaps
   await expect(page.getByRole('heading', { level: 2, name: 'Routes' })).toBeVisible({ timeout: 20_000 })
+  expect(problems, `login produced errors: ${problems.join(' | ')}`).toHaveLength(0)
 }

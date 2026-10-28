@@ -5,9 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -18,5 +26,13 @@ jobs:
       - run: bun run typecheck
       - run: bun run build
       - run: bun run test:unit
+      # migrations are hand-written: replay every folder into a fresh DB and
+      # boot against it — a broken chain must fail here, not at deploy
+      - run: |
+          rm -rf /tmp/ci-db && mkdir -p /tmp/ci-db
+          DATA_DIR=/tmp/ci-db bun .output/server/index.mjs &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000/health/ready >/dev/null && break; sleep 1; done
+          curl -sf http://127.0.0.1:3000/health/ready || { echo 'fresh-DB boot failed'; exit 1; }
+          kill %1
       - run: bunx playwright install --with-deps chromium
       - run: bun run test:e2e

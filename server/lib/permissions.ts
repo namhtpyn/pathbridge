@@ -21,11 +21,10 @@ export type Scope = typeof SCOPES[number]
 
 export const STATEMENTS = {
   routes: ['create:all', 'read:own', 'read:all', 'update:own', 'update:all', 'delete:own', 'delete:all'],
-  logs: ['read:own', 'read:all', 'delete:own', 'delete:all'],
+  logs: ['read:own', 'read:all'],
   settings: ['read:all', 'update:all'],
   users: ['create:all', 'read:all', 'update:all', 'delete:all'],
   roles: ['create:all', 'read:all', 'update:all', 'delete:all'],
-  keys: ['create:all', 'read:own', 'read:all', 'update:own', 'update:all', 'delete:own', 'delete:all'],
   // own profile only: name/email display + password change in the Profile modal.
   // NO :all variants — nobody edits other people's profiles through this resource
   // (admin user management stays under users:*).
@@ -50,7 +49,10 @@ export type RoleRow = {
 
 /** All role rows from the DB (source of truth). */
 export async function listRoles() {
-  const rows = await db.query.roles.findMany()
+  const rows = await db.query.roles.findMany({
+    columns: { id: true, name: true, description: true, statements: true, builtin: true },
+    orderBy: { name: 'asc' },
+  })
   return rows.map(r => ({
     id: r.id,
     name: r.name,

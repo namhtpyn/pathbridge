@@ -4,7 +4,7 @@
 // trusts the parsed value.
 import { z } from 'zod'
 import { base, withUser, withPerm, liveGenerator } from '../shared/context'
-import { routeInputSchema } from './routes.schema'
+import { routeInputSchema, validRoutePath } from './routes.schema'
 import * as svc from './routes.service'
 
 export const routesRouter = {
@@ -16,7 +16,7 @@ export const routesRouter = {
   /** live list — own-scope filtered; snapshot on subscribe (reconciliation for
    * already-loaded pages) then on every routes change */
   live: base.use(withPerm('routes', 'read')).handler(({ context }) =>
-    liveGenerator(['routes'], async () => svc.listRoutes(context.user)),
+    liveGenerator(['routes'], async () => svc.listRoutes(context.user), context.signal),
   ),
 
   count: base.use(withPerm('routes', 'read')).handler(async ({ context }) => ({ count: await svc.countRoutes(context.user) })),
@@ -30,7 +30,9 @@ export const routesRouter = {
   /** remove by numeric id (preferred) or path — exactly one of the two */
   remove: base.use(withUser).input(z.strictObject({
     id: z.number().int().positive().optional(),
-    path: z.string().min(1).max(512).optional(),
+    // same strict path rules as create: a remove must not accept a path that
+    // could never have been stored
+    path: validRoutePath.optional(),
   }).refine(i => (i.id !== undefined) !== (i.path !== undefined), { message: 'provide id or path' }))
     .handler(async ({ context, input }) => svc.removeRoute(context, input)),
 }

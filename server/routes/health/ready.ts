@@ -9,7 +9,8 @@ export default defineEventHandler(async () => {
     await db.run(sql`select 1`)
     return { ok: true, db: true }
   }
-  catch {
+  catch (e) {
+    console.error('[health] readiness db probe failed:', e instanceof Error ? e.message : e)
     throw createError({ statusCode: 503, statusMessage: 'database unreachable' })
   }
 })

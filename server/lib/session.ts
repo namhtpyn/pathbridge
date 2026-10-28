@@ -4,8 +4,12 @@ import type { H3Event } from 'h3'
 import { getAuth } from './auth'
 import type { Session } from './auth'
 import { db } from '../db'
+import { parseKeyPermissions } from '../domains/keys/keys.service'
 
-export type AppSession = Session
+export type AppSession = Session & {
+  /** parsed key scopes — the plugin persists them as (sometimes double-encoded) JSON text */
+  apiKeyPermissions: Record<string, string[]> | null
+}
 
 export async function requireSession(event: H3Event) {
   // node's IncomingHttpHeaders -> standard Headers
@@ -30,6 +34,8 @@ export async function requireSession(event: H3Event) {
         if (ownerId) {
           const u = await db.query.user.findFirst({ where: { id: ownerId } })
           if (u) {
+            // json text column — double-encoded rows would otherwise parse to zero grants
+            const rawPermissions: unknown = (res.key as { permissions?: unknown } | undefined)?.permissions ?? null
             return {
               user: {
                 id: u.id,
@@ -44,10 +50,10 @@ export async function requireSession(event: H3Event) {
                 userId: u.id,
                 expiresAt: res.key?.expiresAt instanceof Date ? res.key.expiresAt : new Date(8640000000000000),
               },
-              // key-scoped permissions (Record<string,string[]>, same grammar as
-              // role statements). Never expands access: permissions.ts intersects
-              // these with the owner role's grants.
-              apiKeyPermissions: (res.key as { permissions?: Record<string, string[]> } | undefined)?.permissions ?? null,
+              // key-scoped permissions (same grammar as role statements). Never
+              // expands access: permissions.ts intersects these with the owner
+              // role's grants.
+              apiKeyPermissions: parseKeyPermissions(rawPermissions),
             } as AppSession
           }
         }

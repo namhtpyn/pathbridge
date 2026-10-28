@@ -49,6 +49,11 @@ export default defineEventHandler(async (event) => {
 
   const upstream = new URL(best.target)
 
+  // capture BOTH before the remove-override loop below: a route that removes
+  // user-agent/x-forwarded-for would otherwise log the wrong client values
+  const clientIp = getRequestIP(event, { xForwardedFor: true })?.toString() ?? null
+  const userAgent = getRequestHeader(event, 'user-agent') ?? null
+
   // request header overrides. `set` entries ride opts.headers (merged LAST
   // by proxyRequest, so they win over the client's own values). `remove`
   // entries must DELETE the header from the incoming event BEFORE
@@ -65,8 +70,6 @@ export default defineEventHandler(async (event) => {
   }
 
   const started = Date.now()
-  const clientIp = getRequestIP(event, { xForwardedFor: true })?.toString() ?? null
-  const userAgent = getRequestHeader(event, 'user-agent') ?? null
   const routeId = best.id
 
   // response header overrides: sendProxy copies upstream headers onto
@@ -98,12 +101,16 @@ export default defineEventHandler(async (event) => {
     return res
   }
   catch (e) {
+    // a client that hung up mid-proxy is not an upstream failure: log nginx's
+    // 499 so the two are distinguishable in the access log (the row is kept).
+    const abortErr = e as { name?: string } | null
+    const clientGone = event.node.req.aborted === true || abortErr?.name === 'AbortError'
     recordAccess({
       routeId,
       routePath: best.path,
       method: event.method,
       path,
-      status: 502,
+      status: clientGone ? 499 : 502,
       durationMs: Date.now() - started,
       clientIp,
       userAgent,

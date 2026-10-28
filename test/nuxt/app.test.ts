@@ -7,10 +7,12 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import App from '~/app.vue'
 
 describe('nuxt runtime: app shell', () => {
-  it('mounts the app shell (UApp + layouts + teleport anchors) without errors', async () => {
+  it('mounts the app shell (route announcer + skip link) without errors', async () => {
     const wrapper = await mountSuspended(App)
-    // mountSuspended renders the component tree, not the SSR __nuxt shell —
-    // assert on observable structure: teleport anchors + no thrown render error
-    expect(wrapper.html()).toContain('teleport start')
+    // assert user-visible shell structure, not Vue serialization internals:
+    // the route announcer and the skip link both come from the shell itself
+    const html = wrapper.html()
+    expect(html).toContain('nuxt-route-announcer')
+    expect(wrapper.text()).toContain('Pathbridge')
   })
 })

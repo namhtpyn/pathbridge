@@ -16,6 +16,11 @@ export default defineNuxtConfig({
   },
   typescript: {
     typeCheck: true,
+    // test specs run outside the app build — fold them into the generated
+    // tsconfig so `bun run typecheck` gates them (they caught nothing before)
+    tsConfig: {
+      include: ['../test/**/*.ts'],
+    },
   },
   // @nuxt/test-utils/module: DevTools vitest integration (testing guide setup step 1)
   modules: ['@nuxt/ui', '@nuxt/fonts', '@nuxt/icon', '@dxup/nuxt', '@nuxt/test-utils/module'],

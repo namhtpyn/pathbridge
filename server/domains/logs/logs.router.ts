@@ -1,7 +1,10 @@
 // logs module router
 import { z } from 'zod'
-import { base, withPerm, liveGenerator } from '../shared/context'
+import { base, withPerm, pullIterator } from '../shared/context'
 import * as svc from './logs.service'
+
+/** rows per delta page; a burst bigger than this is drained page by page */
+const TAIL_PAGE = 100
 
 const logsPageInput = z.strictObject({
   limit: z.number().int().min(1).max(1000).optional(),
@@ -14,7 +17,13 @@ export const logsRouter = {
   recent: base
     .use(withPerm('logs', 'read'))
     .input(logsPageInput)
-    .handler(async ({ context, input }) => ({ entries: await svc.queryLogsScoped(context.user, input ?? {}) })),
+    .handler(async ({ context, input }) => {
+      const entries = await svc.queryLogsScoped(context.user, input ?? {})
+      // newest id IN THE PAGE, not the table's max: the client reconciles its
+      // tail cursor against this, so rows committed between the page snapshot
+      // and the first tail frame are refetched instead of skipped forever
+      return { entries, latestId: entries.reduce((max, e) => Math.max(max, e.id), 0) }
+    }),
 
   /** live tail — DELTAS ONLY; the stream carries NO initial data (AGENTS.md law:
    *  the list is loaded by the conventional logs.recent query) and needs NO
@@ -27,12 +36,25 @@ export const logsRouter = {
       let lastId = await svc.latestLogId(context.user)
       async function* deltas() {
         const { changeBus } = await import('../../lib/change-bus')
-        for await (const evt of changeBus.subscribe('change')) {
-          if (evt.resource !== 'logs') continue
-          const fresh = await svc.queryLogsAfter(context.user, { afterId: lastId, limit: 100 })
-          if (!fresh.length) continue
-          lastId = fresh.at(-1)!.id
-          yield { entries: fresh }
+        const bus = pullIterator(changeBus.subscribe('change'), context.signal)
+        try {
+          for (;;) {
+            const evt = await bus.next()
+            if (!evt || evt.done) return
+            if (evt.value.resource !== 'logs') continue
+            // drain: one event can announce a burst of more than one page, so
+            // keep paging from the last id instead of jumping to the newest
+            for (;;) {
+              const page = await svc.queryLogsAfter(context.user, { afterId: lastId, limit: TAIL_PAGE })
+              if (!page.length) break
+              lastId = page.at(-1)!.id
+              yield { entries: page }
+              if (page.length < TAIL_PAGE) break
+            }
+          }
+        }
+        finally {
+          await bus.close()
         }
       }
       return deltas()

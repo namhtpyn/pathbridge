@@ -138,11 +138,14 @@ test('logs: live window stays at 50 as new traffic arrives (prepend + evict)', a
   await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('table tbody tr')).toHaveCount(50, { timeout: 10_000 })
 
-  // 5 more arrive: prepend, list stays 50
-  for (let i = 0; i < 5; i++) await page.request.get(uniq('/log-live'))
-  await expect(page.locator('table tbody tr').first()).toContainText(uniq('/log-live'), { timeout: 15_000 })
+  // 5 more arrive via a DISTINCT path: 'the first row contains X' is only
+  // meaningful if X cannot already be on screen (55 identical seed rows were)
+  await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/log-live-new'), target: 'http://127.0.0.1:4311' } } })
+  for (let i = 0; i < 5; i++) await page.request.get(uniq('/log-live-new'))
+  await expect(page.locator('table tbody tr').first()).toContainText(uniq('/log-live-new'), { timeout: 15_000 })
   await expect(page.locator('table tbody tr')).toHaveCount(50, { timeout: 15_000 })
   await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/log-live') } } })
+  await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/log-live-new') } } })
 })
 
 test('logs: Load more grows list to 100 and live keeps appending while paged', async ({ page }) => {
@@ -156,38 +159,53 @@ test('logs: Load more grows list to 100 and live keeps appending while paged', a
   await page.getByRole('button', { name: 'Load more' }).click()
   await expect(page.locator('table tbody tr')).toHaveCount(100, { timeout: 15_000 })
 
-  // live continues WHILE paged: new traffic prepends and the list stays at 100
-  for (let i = 0; i < 5; i++) await page.request.get(uniq('/log-page'))
-  await expect(page.locator('table tbody tr').first()).toContainText(uniq('/log-page'), { timeout: 15_000 })
+  // live continues WHILE paged: new traffic prepends and the list stays at 100.
+  // Distinct path — the 110 seed rows already carry the old one.
+  await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/log-page-live'), target: 'http://127.0.0.1:4311' } } })
+  for (let i = 0; i < 5; i++) await page.request.get(uniq('/log-page-live'))
+  await expect(page.locator('table tbody tr').first()).toContainText(uniq('/log-page-live'), { timeout: 15_000 })
   await expect(page.locator('table tbody tr')).toHaveCount(100, { timeout: 15_000 })
   // and the Resume button is gone for good
   await expect(page.getByRole('button', { name: 'Resume live tail' })).toHaveCount(0)
   await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/log-page') } } })
+  await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/log-page-live') } } })
 })
 
 // live toggle: switching Live OFF freezes the list (new traffic does NOT appear);
 // switching back ON re-subscribes and fresh traffic flows again
 test('logs: Live toggle pauses and resumes the tail', async ({ page }) => {
   await uiLogin(page)
-  await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/log-tgl'), target: 'http://127.0.0.1:4311' } } })
-  await page.request.get(uniq('/log-tgl'))
+  // three distinct paths: seed, traffic-while-paused, traffic-after-resume
+  const seed = uniq('/log-tgl')
+  const pausedPath = uniq('/log-tgl-paused')
+  const resumedPath = uniq('/log-tgl-resumed')
+  for (const p of [seed, pausedPath, resumedPath]) {
+    await page.request.post('/rpc/routes/save', { data: { json: { path: p, target: 'http://127.0.0.1:4311' } } })
+  }
+  await page.request.get(seed)
   await page.goto('/admin/logs')
   await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10_000 })
 
-  // pause — the seed row is already in the list; new traffic must NOT grow it
+  // pause — traffic sent now carries a path that is NOT on screen; it must
+  // stay absent (a dead stream would also pass a row-count assert, so assert
+  // the specific row)
   const rowsAtPause = await page.locator('table tbody tr').count()
   await page.getByRole('switch', { name: 'Live' }).click()
   await expect(page.getByText('paused', { exact: true })).toBeVisible({ timeout: 5_000 })
-  await page.waitForTimeout(1_500)
-  for (let i = 0; i < 3; i++) await page.request.get(uniq('/log-tgl'))
-  await page.waitForTimeout(3_000)
-  await expect(page.locator('table tbody tr')).toHaveCount(rowsAtPause, { timeout: 5_000 })
+  for (let i = 0; i < 3; i++) await page.request.get(pausedPath)
+  await expect.poll(
+    async () => page.locator('table tbody tr').filter({ hasText: pausedPath }).count(),
+    { timeout: 5_000 },
+  ).toBe(0)
+  await expect(page.locator('table tbody tr')).toHaveCount(rowsAtPause)
 
-  // resume — the tail reconnects and new traffic prepends
+  // resume — a third distinct path must appear: proves the stream is live again
   await page.getByRole('switch', { name: 'Live' }).click()
-  for (let i = 0; i < 3; i++) await page.request.get(uniq('/log-tgl'))
-  await expect(page.locator('table tbody tr').first()).toContainText(uniq('/log-tgl'), { timeout: 15_000 })
-  await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/log-tgl') } } })
+  for (let i = 0; i < 3; i++) await page.request.get(resumedPath)
+  await expect(page.locator('table tbody tr').filter({ hasText: resumedPath }).first()).toBeVisible({ timeout: 15_000 })
+  for (const p of [seed, pausedPath, resumedPath]) {
+    await page.request.post('/rpc/routes/remove', { data: { json: { path: p } } })
+  }
 })
 
 test.describe('admin shell', () => {
@@ -224,13 +242,15 @@ test.describe('admin shell', () => {
     // it forwards for real
     expect(await (await page.request.get('/e2e-ui-route')).status()).toBe(200)
 
-    // delete via row action
+    // delete via row action — confirmation is the app's ConfirmModal (native
+    // window.confirm is a product-law violation, so fail loudly if it appears)
+    const nativeDialog = new Promise<string>(resolve => page.once('dialog', d => resolve(d.message())))
     await row.getByRole('button', { name: 'Delete route' }).click()
-    // confirm if the app asks (page.on('dialog') covers native confirm)
-    page.once('dialog', d => d.accept().catch(() => {}))
-    const confirmBtn = page.getByRole('button', { name: /^delete$/i }).last()
-    try { await confirmBtn.click({ timeout: 2_000 }) } catch { /* no confirm step */ }
+    const confirmBtn = page.locator('[role=dialog]').getByRole('button', { name: /^delete$/i })
+    await expect(confirmBtn).toBeVisible({ timeout: 10_000 })
+    await confirmBtn.click()
     await expect(row).toBeHidden({ timeout: 15_000 })
+    expect(await Promise.race([nativeDialog, Promise.resolve('none')])).toBe('none')
     expect(await (await page.request.get('/e2e-ui-route')).status()).toBe(404)
   })
 
@@ -240,10 +260,15 @@ test.describe('admin shell', () => {
     await page.route('**/rpc/routes/live', route => route.abort())
     await uiLogin(page)
     await page.request.post('/rpc/routes/save', { data: { json: { path: uniq('/ssr-route'), target: 'http://127.0.0.1:4311' } } })
-    // the raw server HTML (no JS executed) must already contain the row: the
-    // conventional query is awaited during SSR and dehydrated into the payload
-    const html = await (await page.request.get('/admin')).text()
-    expect(html).toContain(uniq('/ssr-route'))
+    // JS disabled: the rendered <tbody> must already carry the row. A raw-text
+    // search would also match the dehydrated payload in <script>, so an
+    // implementation that ships only the payload would wrongly pass.
+    const state = await page.context().storageState()
+    const noJs = await page.context().browser()!.newContext({ javaScriptEnabled: false, storageState: state })
+    const raw = await noJs.newPage()
+    await raw.goto('/admin')
+    await expect(raw.locator('table tbody tr', { hasText: uniq('/ssr-route') }).first()).toBeVisible({ timeout: 15_000 })
+    await noJs.close()
     await page.goto('/admin')
     await expect(page.locator('tr', { hasText: uniq('/ssr-route') }).first()).toBeVisible({ timeout: 10_000 })
   })
@@ -271,12 +296,17 @@ test.describe('mobile 390px', () => {
       const btn = page.getByRole('button', { name: 'Open sidebar' })
       if (await btn.isVisible().catch(() => false)) await btn.click()
     }
+    const headings: Record<string, string> = { Users: 'Users', Roles: 'Roles', Settings: 'Settings', Logs: 'Access log' }
     for (const nav of ['Users', 'Roles', 'Settings', 'Logs']) {
       await openDrawer()
       await page.getByRole('link', { name: new RegExp(`^${nav}$`, 'i') }).first().click()
-      await page.waitForTimeout(400)
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-      expect(overflow, `${nav} overflows`).toBeLessThanOrEqual(0)
+      // measure THIS page, not the previous one: wait for its landmark, then
+      // poll so a late layout shift is retried instead of sampled once
+      await expect(page.getByRole('heading', { level: 2, name: headings[nav] })).toBeVisible({ timeout: 10_000 })
+      await expect.poll(
+        async () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+        { timeout: 5_000 },
+      ).toBeLessThanOrEqual(0)
     }
   })
 })

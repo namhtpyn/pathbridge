@@ -1,5 +1,7 @@
 # AGENTS.md — pathbridge repo rules for AI agents
 
+- **Migrations are hand-written SQL folders.** Never run `drizzle-kit generate/push/pull` here — the folders are the DDL truth, the boot runner applies them atomically, and CI replays them on a fresh DB. No snapshot.json files exist on purpose.
+
 ## Docs are part of the change — ALWAYS up to date
 
 **Every functional change ships with matching docs in the SAME commit.** Stale docs count as shipped bugs. Before opening a PR / pushing:

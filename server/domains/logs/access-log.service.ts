@@ -5,7 +5,7 @@ const getDb = async () => (await import('../../db')).db
 // lazy: nuxt prepare (jiti/Node) must not statically reach bun:sqlite
 import { accessLog } from '../../db/schema'
 import { getSettings } from '../settings/settings.service'
-import { lt, desc, eq, and, gt, asc, inArray, type SQL } from 'drizzle-orm'
+import { lt, desc, eq, and, gt, asc, inArray, sql, type SQL } from 'drizzle-orm'
 import { publishChange } from '../../lib/change-bus'
 
 export type AccessLogRow = typeof accessLog.$inferSelect
@@ -53,24 +53,47 @@ export async function queryAccessLog(opts: { limit?: number, routeId?: number, r
   return rows
 }
 
+/** rows per DELETE: the db has a single writer, so an unbounded purge would
+ *  hold it for the whole sweep and block every proxied request's insert */
+const PURGE_BATCH = 5000
+
 export async function purgeOldLogs() {
   const s = await getSettings()
   if (s.logRetentionDays <= 0) return 0
   const cutoff = new Date(Date.now() - s.logRetentionDays * 86400_000).toISOString()
-  const res = await (await getDb()).delete(accessLog).where(lt(accessLog.ts, cutoff)).run()
-  return Number(res.changes)
+  const db = await getDb()
+  let removed = 0
+  for (;;) {
+    // id-subselect keeps the DELETE itself bounded (sqlite has no DELETE LIMIT
+    // without the build flag); repeat until a batch comes back short
+    const res = await db.run(sql`DELETE FROM access_log WHERE id IN (SELECT id FROM access_log WHERE ts < ${cutoff} LIMIT ${PURGE_BATCH})`)
+    const changes = Number(res.changes ?? 0)
+    removed += changes
+    if (changes < PURGE_BATCH) return removed
+  }
 }
 
-// start sweeper (6h interval; first run after 1 min). unref'd so bun exits freely.
-let sweeperStarted = false
+// start/stop the sweeper (6h interval; first run after 1 min). The handles live
+// at module scope so the nitro close hook can clear them — an orphaned interval
+// outlives the app and every HMR reload stacks another sweeper.
+let sweeper: { first: ReturnType<typeof setTimeout>, every: ReturnType<typeof setInterval> } | null = null
+
 export function startLogSweeper() {
-  if (sweeperStarted) return
-  sweeperStarted = true
+  if (sweeper) return
   const purge = () => purgeOldLogs()
     .then(n => { if (n > 0) return publishChange('logs', 'delete') })
     .catch(e => console.error('[access-log] purge failed:', e instanceof Error ? e.message : e))
-  const t = setTimeout(purge, 60_000)
-  t.unref?.()
-  const i = setInterval(purge, 6 * 3600_000)
-  i.unref?.()
+  const first = setTimeout(purge, 60_000)
+  first.unref?.()
+  const every = setInterval(purge, 6 * 3600_000)
+  every.unref?.()
+  sweeper = { first, every }
+}
+
+/** clear both timers (nitro close hook) so a closed/reloaded app leaves none */
+export function stopLogSweeper() {
+  if (!sweeper) return
+  clearTimeout(sweeper.first)
+  clearInterval(sweeper.every)
+  sweeper = null
 }

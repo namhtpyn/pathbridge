@@ -1,13 +1,13 @@
 // better-auth (Relations v2): email+password by default; optional generic OIDC
-// provider via env OR runtime Settings (DB). Policy resolves Settings-first,
-// env-fallback. The auth instance is a lazily-built singleton that REBUILDS
-// when the policy changes (OIDC discovery runs at plugin init, so live-edit
-// requires a rebuild — sessions live in the DB and survive rebuilds).
+// provider configured in runtime Settings (DB). The auth instance is a lazily
+// built singleton that REBUILDS when the policy changes (OIDC discovery runs at
+// plugin init, so live-edit requires a rebuild — sessions live in the DB and
+// survive rebuilds).
 //
-// Env (seed/fallback):
+// Env:
 //   BETTER_AUTH_SECRET           — session signing (required in prod)
-//   OIDC_ISSUER / OIDC_CLIENT_ID / OIDC_CLIENT_SECRET
-//   OIDC_DISABLED_PASSWORD_LOGIN — "true" to turn off email+password
+//   OIDC_DISABLED_PASSWORD_LOGIN — "true" to turn off email+password. The only
+//                                  OIDC env knob left; settings own the rest.
 //
 // Runtime: /admin -> Settings tab -> stored in the `settings` table.
 import { betterAuth } from 'better-auth'
@@ -16,10 +16,11 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
 import { genericOAuth } from 'better-auth/plugins/generic-oauth'
 import { bearer } from 'better-auth/plugins/bearer'
 import { apiKey } from '@better-auth/api-key'
-import { eq } from 'drizzle-orm'
+import { eq, count } from 'drizzle-orm'
 import { db } from '../db'
 import { user as userTable } from '../db/schema'
 import { authSchema } from '../db/schema'
+import { publishChange } from './change-bus'
 import { getSettings } from '../domains/settings/settings.service'
 import { getOidcProviders, type OidcProvider } from '../domains/oidc/oidc.service'
 
@@ -109,11 +110,13 @@ async function buildAuth() {
           after: async (user) => {
             // first user claims the instance -> admin role
             if (user && typeof user === 'object' && 'id' in user) {
-              const count = await db.query.user.findMany({ columns: { id: true } })
-              if (count.length === 1) {
+              const [total] = await db.select({ n: count() }).from(userTable)
+              if (total && Number(total.n) === 1) {
                 await db.update(userTable).set({ role: 'admin' }).where(eq(userTable.id, (user as { id: string }).id))
               }
             }
+            // users.live must refresh after signup / first OIDC login
+            await publishChange('users', 'create')
           },
         },
       },

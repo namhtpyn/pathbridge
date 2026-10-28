@@ -8,7 +8,7 @@ import { db } from '../db'
 import { user, account } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
-export default defineNitroPlugin(async () => {
+export async function verifyExistingUsers() {
   const credAccounts = await db.select({ userId: account.userId }).from(account).where(eq(account.providerId, 'credential'))
   const credUserIds = new Set(credAccounts.map(a => a.userId))
   const users = await db.select({ id: user.id, emailVerified: user.emailVerified }).from(user)
@@ -21,4 +21,8 @@ export default defineNitroPlugin(async () => {
   }
   if (fixed > 0) console.log(`[boot] email_verified canonicalized for ${fixed} password user(s)`)
   return true
-})
+}
+
+// Nitro registers every file under server/plugins; seed-admin awaits this
+// directly, so the plugin hook itself stays a no-op.
+export default defineNitroPlugin(() => {})

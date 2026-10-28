@@ -6,7 +6,7 @@
 //   /hook/*   subtree: /hook and everything under it
 //   /         root catch-all
 import { z } from 'zod'
-import { HOP_BY_HOP as SHARED_HOP_BY_HOP } from '#shared/constants'
+import { HOP_BY_HOP } from '#shared/constants'
 
 // target: http(s) URL. EXACT routes forward to this URL verbatim (a path on
 // the target is the destination; nothing is appended). WILDCARD routes treat
@@ -22,7 +22,7 @@ const httpTarget = z.string().min(1, 'target is required').max(2048).refine((t) 
   catch { return false }
 }, 'target must be an http(s) URL without query or fragment')
 
-const validRoutePath = z.string().min(1).max(512)
+export const validRoutePath = z.string().min(1).max(512)
   .startsWith('/', 'path must start with "/"')
   .refine(p => !p.startsWith('/_'), 'path must not use reserved prefix "_"')
   .refine(p => p !== '/', 'path "/" is reserved — it redirects to the admin UI')
@@ -48,8 +48,6 @@ export const methodsSchema = z.array(z.enum(httpVerbs))
 // `host` is settable (classic Host override); framing/hop-by-hop headers are
 // NOT — a wrong content-length/transfer-encoding breaks the proxied body.
 export type HeaderOverride = { name: string, op: 'set' | 'remove', value?: string }
-
-const HOP_BY_HOP = SHARED_HOP_BY_HOP
 
 const headerName = z.string().min(1, 'header name is required').max(128)
   .transform(n => n.trim().toLowerCase())
@@ -82,7 +80,9 @@ export const routeInputSchema = z.strictObject({
   responseHeaders: headerOverridesSchema.optional(),
   methods: methodsSchema.optional(),
   note: z.string().max(200).optional(),
-  enabled: z.boolean().optional().default(true),
+  /** omitted on UPDATE means "leave as stored" — a default here would
+   *  materialize true on every parse and silently re-enable a parked route */
+  enabled: z.boolean().optional(),
 })
 
 export type StrictRouteInput = z.infer<typeof routeInputSchema>

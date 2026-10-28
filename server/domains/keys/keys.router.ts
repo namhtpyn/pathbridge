@@ -2,10 +2,11 @@
 import { z } from 'zod'
 import { ORPCError } from '@orpc/server'
 import { base, withUser, badRequest } from '../shared/context'
+import type { Resource } from '../../lib/permissions'
 import * as svc from './keys.service'
 
 const keyCreateInput = z.strictObject({
-  name: z.string().min(1).max(64),
+  name: z.string().trim().min(1).max(64),
   expiresIn: z.number().int().positive().max(365 * 24 * 3600).optional(), // seconds; omit = no expiry
   permissions: z.record(z.string(), z.array(z.string())).optional(),
 })
@@ -17,30 +18,34 @@ export const keysRouter = {
   create: base.use(withUser).input(keyCreateInput).handler(async ({ context, input }) => {
     const { getAuth } = await import('../../lib/auth')
     const { publishChange } = await import('../../lib/change-bus')
-    // validate resource names + statements exist in the RBAC vocabulary
-    const { STATEMENTS, userCan } = await import('../../lib/permissions')
+    // the RBAC vocabulary is the single validator (same check the roles API
+    // uses) — a second hand-kept list drifts from it silently
+    const { ACTIONS, SCOPES, STATEMENTS, validateStatements, userCan } = await import('../../lib/permissions')
     const clean: Record<string, string[]> = {}
     if (input.permissions) {
-      const vocabulary = STATEMENTS as Record<string, readonly string[]>
+      const invalid = validateStatements(input.permissions)
+      if (invalid) badRequest(invalid)
       for (const [resource, statements] of Object.entries(input.permissions)) {
-        const vocab = vocabulary[resource]
-        if (!vocab) badRequest(`unknown resource: ${resource}`)
+        // narrow the raw key back through the vocabulary instead of casting to
+        // userCan's parameter types (a cast would let an unknown value through)
+        const key = (Object.keys(STATEMENTS) as Resource[]).find(k => k === resource)
+        if (!key) badRequest(`unknown resource: ${resource}`)
         for (const st of statements) {
-          if (!vocab.includes(st)) badRequest(`unknown statement ${resource}:${st}`)
           // narrow-only: a key can never hold what its owner doesn't — request
           // time is where that must fail, not silently at first use
-          const [action, scope] = st.split(':')
-          if ((action !== 'read' && action !== 'create' && action !== 'update' && action !== 'delete') || (scope !== 'own' && scope !== 'all')) {
-            badRequest(`unknown statement ${resource}:${st}`)
+          const [rawAction, rawScope] = st.split(':')
+          const action = ACTIONS.find(a => a === rawAction)
+          const scope = SCOPES.find(s => s === rawScope)
+          if (!action || !scope || !userCan(context.user, key, action, scope)) {
+            badRequest(`cannot grant ${resource}:${st} — you do not hold it`)
           }
-          type Ctx = Parameters<typeof userCan>
-          const held = userCan(context.user, resource as Ctx[1], action as Ctx[2], scope as Ctx[3])
-          if (!held) badRequest(`cannot grant ${resource}:${st} — you do not hold it`)
         }
-        clean[resource] = statements
+        clean[key] = statements
       }
     }
     const auth = await getAuth()
+    // the endpoint returns the full row (`...apiKey`, id included) but
+    // better-auth's inferred return type only advertises key/referenceId
     const res = await auth.api.createApiKey({
       body: {
         name: input.name,
@@ -48,9 +53,10 @@ export const keysRouter = {
         ...(input.expiresIn ? { expiresIn: input.expiresIn } : {}),
         ...(Object.keys(clean).length > 0 ? { permissions: clean } : {}),
       },
-    })
+    }) as { id: string, key: string, referenceId: string }
     await publishChange('keys', 'create')
-    return { key: res.key, referenceId: res.referenceId, name: input.name }
+    // id lets the client address the key (rename/revoke) without a refetch
+    return { id: res.id, key: res.key, referenceId: res.referenceId, name: input.name }
   }),
 
   revoke: base.use(withUser).input(z.strictObject({ id: z.string().min(1) })).handler(async ({ context, input }) => {

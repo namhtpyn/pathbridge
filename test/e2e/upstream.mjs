@@ -2,6 +2,7 @@
 // GET /anything/* -> {ok:true,path}. Binds 127.0.0.1:4311 (bun, zero deps).
 const UPSTREAM_PORT = Number(process.env.E2E_UPSTREAM_PORT || 4311)
 Bun.serve({
+  hostname: '127.0.0.1', // loopback only — never expose the echo/TLS test upstream on the LAN
   port: UPSTREAM_PORT,
   fetch(req) {
     const url = new URL(req.url)

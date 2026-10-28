@@ -5,12 +5,19 @@ import { notFound } from '../shared/context'
 const getDb = async () => (await import('../../db')).db
 import { apiKey as apiKeyTable } from '../../db/schema'
 
-/** parse stored key permissions (plain or double-JSON-encoded) */
-export function parseKeyPermissions(raw: string | null | undefined) {
+/** parse stored key permissions. `apikey.permissions` is a TEXT column (not
+ *  json-mode) and rows written by older better-auth versions can be
+ *  double-encoded — handle both */
+export function parseKeyPermissions(raw: unknown): Record<string, string[]> | null {
   if (!raw) return null
+  // verifyApiKey hands back the parsed object; older/raw rows are strings
+  // (possibly double-encoded) — both shapes must narrow, never silently drop
+  if (typeof raw === 'object') return raw as Record<string, string[]>
+  if (typeof raw !== 'string') return null
   try {
     const parsed = JSON.parse(raw)
-    return typeof parsed === 'string' ? JSON.parse(parsed) : parsed
+    if (typeof parsed === 'string') return JSON.parse(parsed) as Record<string, string[]>
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, string[]> : null
   }
   catch {
     return null
@@ -31,7 +38,7 @@ export async function listKeys(userId: string) {
     expiresAt: k.expiresAt ? k.expiresAt.toISOString() : null,
     lastRequest: k.lastRequest ? k.lastRequest.toISOString() : null,
     requestCount: k.requestCount,
-    // json-mode column: drizzle types it unknown after select
+    // text column: drizzle types it unknown after select
     permissions: parseKeyPermissions(typeof k.permissions === 'string' ? k.permissions : null),
   })) }
 }

@@ -1,69 +1,52 @@
 // MCP tool handlers — thin wrappers sharing the SAME services as the oRPC procedures
 // (shared zod schemas, same permission enforcement via requireUser on a
-// synthetic event). A tool call is exactly as privileged as the API key
-// (or session) that authenticated the MCP connection: key statements are
-// intersected with the owner's role grants in requireUser — no MCP-specific
-// permission logic exists here.
-import type { H3Event } from 'h3'
+// synthetic event built from the request headers). A tool call is exactly as
+// privileged as the API key (or session) that authenticated the MCP connection:
+// key statements are intersected with the owner's role grants in requireUser —
+// no MCP-specific permission logic exists here.
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
-import { db } from '../../db'
-import { routes } from '../../db/schema'
 import { routeInputSchema } from '../../domains/routes/routes.schema'
-import { requireUser, userCan, requireRecordPermission } from '../permissions'
-import type { RouteRow } from '../../../shared/types'
-import { publishChange } from '../change-bus'
+import { requireUser, userCan } from '../permissions'
+import { eventFromHeaders } from '../../domains/shared/context'
+import * as routesSvc from '../../domains/routes/routes.service'
+import * as logsSvc from '../../domains/logs/logs.service'
 
-/** Build a minimal H3 event so permission helpers resolve auth from headers. */
-export function eventFor(headers: Headers) {
-  // h3 v1: node req + headers; the permission path only reads
-  // event.node.req.headers — synthesize exactly that surface.
-  const raw: Record<string, string | string[]> = {}
-  headers.forEach((v, k) => { raw[k] = v })
-  return {
-    node: { req: { headers: raw } },
-  } as unknown as H3Event
-}
-
-async function listRoutes() {
-  return await db.query.routes.findMany({ orderBy: { path: 'asc' } }) as RouteRow[]
-}
-
-// routeInputSchema carries refinements (wildcard shape) so .omit() is
-// illegal on it (zod v4) — declare the create shape explicitly instead.
-const routeBase = {
-  path: z.string().min(1).max(512).describe('URL path prefix to claim, e.g. /hook or /hook/* (trailing wildcard)'),
-  target: z.string().min(1).max(2048).describe('http(s) upstream URL (origin, optionally with base path)'),
-  requestHeaders: z.array(z.strictObject({
-    name: z.string().min(1).max(128).describe('Header name, lowercase (e.g. "host", "authorization")'),
-    op: z.enum(['set', 'remove']).describe('set replaces/adds the header; remove strips it'),
-    value: z.string().max(8192).optional().describe('Header value (required for op=set)'),
-  })).max(20).optional().describe('Overrides applied to the REQUEST before it reaches the upstream (e.g. host, authorization, x-custom)'),
-  responseHeaders: z.array(z.strictObject({
-    name: z.string().min(1).max(128).describe('Header name, lowercase (e.g. "cache-control")'),
-    op: z.enum(['set', 'remove']).describe('set replaces/adds the header; remove strips it'),
-    value: z.string().max(8192).optional().describe('Header value (required for op=set)'),
-  })).max(20).optional().describe('Overrides applied to the proxied RESPONSE before it reaches the client (e.g. cache-control, x-frame-options)'),
-  methods: z.array(z.enum(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])).optional().describe('Allowed HTTP methods; all when omitted'),
-  note: z.string().max(200).optional().describe('Free-form label'),
-  enabled: z.boolean().optional().describe('false parks the route'),
+// Tool shapes are DERIVED from the strict edge schema so REST and MCP validation
+// cannot drift; only .describe() text is added, no field rules are re-declared.
+const routeFields = {
+  path: routeInputSchema.shape.path.describe('URL path to claim: "/hook" (exact) or "/hook/*" (subtree)'),
+  target: routeInputSchema.shape.target.describe('http(s) upstream URL; a base path is forwarded (exact: verbatim, wildcard: prefix)'),
+  requestHeaders: routeInputSchema.shape.requestHeaders.describe('Overrides applied to the REQUEST before it reaches the upstream (e.g. host, authorization)'),
+  responseHeaders: routeInputSchema.shape.responseHeaders.describe('Overrides applied to the proxied RESPONSE before it reaches the client (e.g. cache-control)'),
+  methods: routeInputSchema.shape.methods.describe('Allowed HTTP methods; all when omitted'),
+  note: routeInputSchema.shape.note.describe('Free-form label'),
+  enabled: routeInputSchema.shape.enabled.describe('false parks the route'),
 }
 
 export const mcpSchemas = {
-  createRoute: z.strictObject(routeBase),
-  updateRoute: z.strictObject({ id: z.number().int().positive().describe('Numeric route id to update'), ...routeBase }),
-  deleteRoute: z.strictObject({ id: z.number().int().positive().optional(), path: z.string().min(1).max(512).optional() }).refine(i => (i.id !== undefined) !== (i.path !== undefined), { message: 'provide id or path' }),
-  getLogs: z.strictObject({ limit: z.number().int().min(1).max(1000).optional(), routeId: z.number().int().positive().optional() }),
+  createRoute: z.strictObject(routeFields),
+  updateRoute: z.strictObject({
+    ...routeFields,
+    id: z.number().int().positive().describe('Numeric id of the route to update'),
+  }),
+  deleteRoute: z.strictObject({
+    id: z.number().int().positive().optional().describe('Numeric route id (preferred)'),
+    // lenient on the leading slash: clients pass paths copy-pasted from URLs;
+    // routes.service resolves the exact path before normalizing
+    path: z.string().min(1).max(512).optional().describe('Route path, with or without the leading "/"'),
+  }).refine(i => (i.id !== undefined) !== (i.path !== undefined), { message: 'provide id or path' }),
+  getLogs: z.strictObject({
+    limit: z.number().int().min(1).max(1000).optional().describe('Max entries (default 100)'),
+    routeId: z.number().int().positive().optional().describe('Only entries for this route'),
+    beforeId: z.number().int().positive().optional().describe('Only entries older than this id (paging)'),
+  }),
 }
 
 export async function toolListRoutes(headers: Headers) {
-  const { user } = await requireUser(eventFor(headers))
+  const { user } = await requireUser(eventFromHeaders(headers))
   if (!userCan(user, 'routes', 'read')) throw new Error('Forbidden: missing permission routes:read')
-  const all = await listRoutes()
-  // read:all sees everything; read:own only their routes
-  const grants = user.grants.get('routes') ?? new Set<string>()
-  if (grants.has('read:all')) return { routes: all }
-  return { routes: all.filter(p => p.userId === user.userId) }
+  // own/all filtering lives in the service (fail-closed when no read grant)
+  return { routes: await routesSvc.listRoutes(user) }
 }
 
 export async function toolUpsertRoute(headers: Headers, input: unknown) {
@@ -71,135 +54,36 @@ export async function toolUpsertRoute(headers: Headers, input: unknown) {
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'invalid route payload')
   const strict = routeInputSchema.safeParse(parsed.data) // security boundary: same rules as REST
   if (!strict.success) throw new Error(strict.error.issues[0]?.message ?? 'invalid route payload')
-  const { user } = await requireUser(eventFor(headers))
-  const data = strict.data
-
-  // upsert-by-path semantics identical to routes.save
-  const existing = await db.query.routes.findFirst({ where: { path: data.path } })
-  if (existing) {
-    await requireRecordPermission(eventFor(headers), 'routes', 'update', existing)
-    const u = new URL(data.target)
-    const targetUrl = u.pathname === '/' ? u.origin : `${u.origin}${u.pathname}`.replace(/\/+$/, '')
-    await db.update(routes).set({
-      target: targetUrl,
-      requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
-      responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-      methods: data.methods ?? null,
-      note: data.note !== undefined ? data.note.slice(0, 200) : null,
-      enabled: data.enabled,
-      updatedAt: new Date().toISOString(),
-    }).where(eq(routes.id, existing.id))
-    await publishChange('routes', 'update')
-  return { route: await db.query.routes.findFirst({ where: { id: existing.id } }) }
-  }
-  if (!userCan(user, 'routes', 'create')) throw new Error('Forbidden: missing permission routes:create')
-  const u = new URL(data.target)
-  const targetUrl = u.pathname === '/' ? u.origin : `${u.origin}${u.pathname}`.replace(/\/+$/, '')
-  // SECURITY (H1 law): the unguarded onConflictDoUpdate is GONE — a lost
-  // insert race must never silently repoint whatever row now owns the path.
-  // Insert plainly; on the unique-path race, re-run the guarded upsert branch
-  // (ownership check + update), mirroring routes.service.saveRoute.
-  try {
-    const created = await db.insert(routes).values({
-      path: data.path,
-      target: targetUrl,
-      requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
-      responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-      methods: data.methods ?? null,
-      note: data.note !== undefined ? data.note.slice(0, 200) : null,
-      enabled: data.enabled,
-      userId: user.userId,
-      updatedAt: new Date().toISOString(),
-    }).returning()
-    await publishChange('routes', 'create')
-    return { route: created[0] ?? await db.query.routes.findFirst({ where: { path: data.path } }) }
-  }
-  catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    if (!msg.includes('UNIQUE')) throw e
-    // lost the race: someone else created this path between findFirst and insert.
-    // The guarded update path above applies: requireRecordPermission on the winner.
-    const winner = await db.query.routes.findFirst({ where: { path: data.path } })
-    if (!winner) throw e
-    await requireRecordPermission(eventFor(headers), 'routes', 'update', winner)
-    await db.update(routes).set({
-      target: targetUrl,
-      requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
-      responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-      methods: data.methods ?? null,
-      note: data.note !== undefined ? data.note.slice(0, 200) : null,
-      enabled: data.enabled,
-      updatedAt: new Date().toISOString(),
-    }).where(eq(routes.id, winner.id))
-    await publishChange('routes', 'update')
-    return { route: await db.query.routes.findFirst({ where: { id: winner.id } }) }
-  }
+  const { user } = await requireUser(eventFromHeaders(headers))
+  // upsert-by-path, takeover guard, publishChange and error codes all live in
+  // the service — a tool call must behave exactly like routes.save
+  const { route } = await routesSvc.saveRoute({ reqHeaders: headers, user }, strict.data)
+  return { route }
 }
 
 export async function toolUpdateRouteById(headers: Headers, input: unknown) {
   const parsed = mcpSchemas.updateRoute.safeParse(input)
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'invalid route payload')
-  if (!parsed.data.id) throw new Error('id is required for update')
   const strict = routeInputSchema.safeParse(parsed.data)
   if (!strict.success) throw new Error(strict.error.issues[0]?.message ?? 'invalid route payload')
-  await requireUser(eventFor(headers))
-  const data = strict.data
-  const existing = await db.query.routes.findFirst({ where: { id: data.id } })
-  if (!existing) throw new Error('route not found')
-  await requireRecordPermission(eventFor(headers), 'routes', 'update', existing)
-  const routeId: number = data.id as number
-  const clash = await db.query.routes.findFirst({ where: { AND: [{ path: data.path }, { id: { ne: routeId } }] }, columns: { id: true } })
-  if (clash) throw new Error(`a route already exists at ${data.path}`)
-  const u = new URL(data.target)
-  const targetUrl = u.pathname === '/' ? u.origin : `${u.origin}${u.pathname}`.replace(/\/+$/, '')
-  await db.update(routes).set({
-    path: data.path,
-    target: targetUrl,
-    requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
-      responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-    methods: data.methods ?? null,
-    note: data.note !== undefined ? data.note.slice(0, 200) : null,
-    enabled: data.enabled,
-    updatedAt: new Date().toISOString(),
-  }).where(eq(routes.id, routeId))
-  return { route: await db.query.routes.findFirst({ where: { id: routeId } }) }
+  const { user } = await requireUser(eventFromHeaders(headers))
+  const { route } = await routesSvc.saveRoute({ reqHeaders: headers, user }, strict.data)
+  return { route }
 }
 
 export async function toolDeleteRoute(headers: Headers, input: unknown) {
   const parsed = mcpSchemas.deleteRoute.safeParse(input)
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'invalid delete payload')
-  const target = parsed.data.id
-    ? await db.query.routes.findFirst({ where: { id: parsed.data.id } })
-    : parsed.data.path
-      ? await db.query.routes.findFirst({ where: { OR: [{ path: parsed.data.path }, { path: `/${parsed.data.path.replace(/^\//, '')}` }] } })
-      : null
-  if (!target) throw new Error('route not found')
-  await requireRecordPermission(eventFor(headers), 'routes', 'delete', target)
-  await db.delete(routes).where(eq(routes.id, target.id))
-  await publishChange('routes', 'delete')
-  return { deleted: true, id: target.id, path: target.path }
+  const { user } = await requireUser(eventFromHeaders(headers))
+  return await routesSvc.removeRoute({ reqHeaders: headers, user }, parsed.data)
 }
 
 export async function toolGetLogs(headers: Headers, input: unknown) {
   const parsed = mcpSchemas.getLogs.safeParse(input ?? {})
   if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? 'invalid logs payload')
-  const { user } = await requireUser(eventFor(headers))
-  const grants = user.grants.get('logs') ?? new Set<string>()
-  if (!grants.has('read:all') && !grants.has('read:own')) throw new Error('Forbidden: missing permission logs:read')
-
-  const { queryAccessLog } = await import('../../domains/logs/access-log.service')
-  const limit = parsed.data.limit ?? 100
-  const routeId = parsed.data.routeId
-
-  if (grants.has('read:all')) {
-    return { entries: await queryAccessLog({ limit, routeId }) }
-  }
-  // read:own — only logs for routes the caller owns
-  const own = await db.query.routes.findMany({ where: { userId: user.userId }, columns: { id: true } })
-  const ownIds = new Set(own.map(p => p.id))
-  if (routeId !== undefined && !ownIds.has(routeId)) return { entries: [] }
-  const entries = []
-  for (const pid of ownIds) entries.push(...await queryAccessLog({ limit, routeId: pid }))
-  entries.sort((a, b) => b.id - a.id)
-  return { entries: entries.slice(0, limit) }
+  const { user } = await requireUser(eventFromHeaders(headers))
+  if (!userCan(user, 'logs', 'read')) throw new Error('Forbidden: missing permission logs:read')
+  // scoping (own = only the caller's routes) and beforeId paging live in the
+  // logs service — one query, identical to the oRPC logs.recent procedure
+  return { entries: await logsSvc.queryLogsScoped(user, parsed.data) }
 }

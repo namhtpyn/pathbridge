@@ -8,7 +8,9 @@ export type RouteRow = {
   id: number
   /** URL path prefix this route claims, e.g. "/hook". Always starts with "/". */
   path: string
-  /** Absolute upstream origin to forward to, e.g. "https://api.example.com" (no path). */
+  /** Absolute upstream URL to forward to, e.g. "https://api.example.com" or
+   *  "https://api.example.com/base". A base path is honored: exact routes
+   *  forward it verbatim, wildcard routes use it as the prefix. */
   target: string
   /** Headers set/removed on the request before it reaches the upstream. */
   requestHeaders: Array<{ name: string, op: 'set' | 'remove', value?: string }> | null

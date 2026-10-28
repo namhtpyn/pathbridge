@@ -9,7 +9,9 @@ describe('routeInputSchema (strict security boundary)', () => {
     const r = routeInputSchema.safeParse(valid)
     expect(r.success).toBe(true)
     if (r.success) {
-      expect(r.data.enabled).toBe(true) // default
+    // `enabled` is NOT defaulted at the schema: a materialized default would make
+    // an update that omits it silently re-enable a disabled route (service applies
+    // the create-time default instead)
     }
   })
 

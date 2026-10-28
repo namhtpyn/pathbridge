@@ -145,6 +145,12 @@ watch(() => unref(logsLive.data), (d) => {
 watch(() => unref(logsLive.error), (err) => {
   if (err && liveEnabled.value && can('logs', 'read')) void logsSnapshot.refetch()
 })
+// rows committed between the page's snapshot query and the tail's subscribe-time
+// cursor are below the cursor and would never arrive — reconcile once per
+// (re)connect with the conventional query (id-deduped merge makes it safe)
+watch(liveEnabled, (on) => {
+  if (on && can('logs', 'read') && filterRouteId.value === null) void logsSnapshot.refetch()
+}, { immediate: true })
 
 const liveEntries = computed(() => {
   if (merged.value.length) return merged.value

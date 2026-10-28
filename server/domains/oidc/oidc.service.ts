@@ -36,12 +36,14 @@ let migrated = false
 
 export async function getOidcProviders() {
   const s = await getSettings()
-  const raw = (s as unknown as { oidcProviders?: string }).oidcProviders
+  const raw = s.oidcProviders
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as OidcProvider[]
       if (Array.isArray(parsed)) {
-        const valid = parsed.filter(p => p && p.id && p.issuer && p.clientId)
+        // clientSecret must be a string: providersToPublic reads `.length` on it
+        // and a legacy/corrupt row would throw instead of being dropped
+        const valid = parsed.filter(p => p && p.id && p.issuer && p.clientId && typeof p.clientSecret === 'string')
         if (valid.length !== parsed.length) {
           console.error(`[oidc] dropped ${parsed.length - valid.length} invalid provider entr${parsed.length - valid.length === 1 ? 'y' : 'ies'} from stored config`)
         }
@@ -67,5 +69,5 @@ export async function setOidcProviders(list: OidcProvider[]) {
 }
 
 export function providersToPublic(list: OidcProvider[]) {
-  return list.map(({ clientSecret, ...rest }) => ({ ...rest, secretSet: clientSecret.length > 0 }))
+  return list.map(({ clientSecret, ...rest }) => ({ ...rest, secretSet: (clientSecret ?? '').length > 0 }))
 }

@@ -26,7 +26,10 @@ export const metaRouter = {
         session: { expiresAt: session.session.expiresAt.toISOString() },
       }
     }
-    catch {
+    catch (e: unknown) {
+      // signed-out is the normal case (null); anything else is a real failure
+      const status = (e as { statusCode?: number }).statusCode
+      if (status !== 401) console.error('[meta] session lookup failed:', e instanceof Error ? e.message : e)
       return null
     }
   }),

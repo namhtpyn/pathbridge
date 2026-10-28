@@ -28,7 +28,9 @@ try {
   for (const dir of dirs) {
     const applied = sqlite.query('SELECT 1 FROM __migrations WHERE name = ?').get(dir)
     if (applied) continue
-    const sqlFile = readdirSync(join(drizzleDir, dir)).find((f: string) => f.endsWith('.sql'))
+    const sqlFiles = readdirSync(join(drizzleDir, dir)).filter((f: string) => f.endsWith('.sql'))
+    if (sqlFiles.length > 1) throw new Error(`${dir} declares ${sqlFiles.length} .sql files — one migration per folder`)
+    const sqlFile = sqlFiles[0]
     if (!sqlFile) continue
     const raw = readFileSync(join(drizzleDir, dir, sqlFile), 'utf-8')
     // strip leading `--` comment lines per chunk: a comment-only chunk (e.g. a
@@ -38,12 +40,19 @@ try {
     const stmts = raw.split('--> statement-breakpoint')
       .map(s => s.split('\n').filter(l => !l.trimStart().startsWith('--')).join('\n').trim())
       .filter(Boolean)
+    // PRAGMA statements are connection state, not schema: SQLite ignores them
+    // inside a transaction, so table-recreate migrations must toggle
+    // foreign_keys=OFF around the atomic block instead.
+    const pragmas = stmts.filter(st => /^PRAGMA\b/i.test(st))
+    const ddl = stmts.filter(st => !/^PRAGMA\b/i.test(st))
+    const fkOff = pragmas.some(p => /foreign_keys\s*=\s*(off|0|false)/i.test(p))
+    if (fkOff) sqlite.exec('PRAGMA foreign_keys = OFF')
     // ATOMIC: DDL + the journal row commit together, so a crash mid-migration
     // rolls back and retries cleanly next boot instead of half-applying and
     // silently skipping every later migration
     sqlite.exec('BEGIN')
     try {
-      for (const stmt of stmts) sqlite.exec(stmt)
+      for (const stmt of ddl) sqlite.exec(stmt)
       sqlite.query('INSERT INTO __migrations (name, applied_at) VALUES (?, ?)').run(dir, new Date().toISOString())
       sqlite.exec('COMMIT')
       console.log(`[db] applied migration ${dir}`)
@@ -51,6 +60,10 @@ try {
     catch (e) {
       sqlite.exec('ROLLBACK')
       throw e
+    }
+    finally {
+      if (fkOff) sqlite.exec('PRAGMA foreign_keys = ON')
+      for (const p of pragmas) sqlite.exec(p)
     }
   }
 }
