@@ -1,3 +1,10 @@
+## [6.8.3](https://github.com/namhtpyn/pathbridge/compare/v6.8.2...v6.8.3) (2026-10-28)
+
+
+### Bug Fixes
+
+* full frontend+backend audit pass (8 blind auditors, ~100 findings triaged) ([58ccfea](https://github.com/namhtpyn/pathbridge/commit/58ccfea88395f11fbd3e37d7608e3f117a386dc8))
+
 ## [6.8.2](https://github.com/namhtpyn/pathbridge/compare/v6.8.1...v6.8.2) (2026-10-26)
 
 
