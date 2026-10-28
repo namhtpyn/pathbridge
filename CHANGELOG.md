@@ -1,3 +1,10 @@
+## [6.8.5](https://github.com/namhtpyn/pathbridge/compare/v6.8.4...v6.8.5) (2026-10-28)
+
+
+### Bug Fixes
+
+* backend audit round 2 — SSE lifecycle, identity/RBAC, proxy, migrations, tests ([4f89399](https://github.com/namhtpyn/pathbridge/commit/4f8939901aa46feaaaf1d6e6f2033c8c7e6bea0c))
+
 ## [6.8.4](https://github.com/namhtpyn/pathbridge/compare/v6.8.3...v6.8.4) (2026-10-28)
 
 
