@@ -1,3 +1,10 @@
+## [6.8.4](https://github.com/namhtpyn/pathbridge/compare/v6.8.3...v6.8.4) (2026-10-28)
+
+
+### Bug Fixes
+
+* **admin:** unwrap reactive proxies before structuredClone on modal populate ([ddcaa4f](https://github.com/namhtpyn/pathbridge/commit/ddcaa4f60e2cfd32f20c8c12e235ed95772556fb))
+
 ## [6.8.3](https://github.com/namhtpyn/pathbridge/compare/v6.8.2...v6.8.3) (2026-10-28)
 
 
