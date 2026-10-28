@@ -176,7 +176,7 @@ test('logs: Live toggle pauses and resumes the tail', async ({ page }) => {
 
   // pause — the seed row is already in the list; new traffic must NOT grow it
   const rowsAtPause = await page.locator('table tbody tr').count()
-  await page.getByRole('switch', { name: /live log tail toggle/i }).click()
+  await page.getByRole('switch', { name: 'Live' }).click()
   await expect(page.getByText('paused', { exact: true })).toBeVisible({ timeout: 5_000 })
   await page.waitForTimeout(1_500)
   for (let i = 0; i < 3; i++) await page.request.get(uniq('/log-tgl'))
@@ -184,7 +184,7 @@ test('logs: Live toggle pauses and resumes the tail', async ({ page }) => {
   await expect(page.locator('table tbody tr')).toHaveCount(rowsAtPause, { timeout: 5_000 })
 
   // resume — the tail reconnects and new traffic prepends
-  await page.getByRole('switch', { name: /live log tail toggle/i }).click()
+  await page.getByRole('switch', { name: 'Live' }).click()
   for (let i = 0; i < 3; i++) await page.request.get(uniq('/log-tgl'))
   await expect(page.locator('table tbody tr').first()).toContainText(uniq('/log-tgl'), { timeout: 15_000 })
   await page.request.post('/rpc/routes/remove', { data: { json: { path: uniq('/log-tgl') } } })

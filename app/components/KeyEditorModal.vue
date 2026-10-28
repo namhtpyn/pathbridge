@@ -80,6 +80,16 @@ watch(() => props.open, (o) => {
 })
 
 async function createKey() {
+  // "Restrict permissions" with nothing selected must NOT fall through to an
+  // unrestricted key (the server omits empty permissions = inherit all)
+  if (keyForm.scoped && Object.keys(keyForm.scope).length === 0) {
+    toast.add({ title: 'Pick at least one permission', description: 'Restricting with no scopes would create a full-access key', color: 'error' })
+    return
+  }
+  if (!keyForm.name.trim()) {
+    toast.add({ title: 'Name required', color: 'error' })
+    return
+  }
   busy.value = true
   try {
     const body: Record<string, unknown> = { name: keyForm.name.trim() }

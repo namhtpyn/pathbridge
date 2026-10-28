@@ -40,14 +40,23 @@ export async function getOidcProviders() {
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as OidcProvider[]
-      if (Array.isArray(parsed)) return parsed.filter(p => p && p.id && p.issuer && p.clientId)
-    } catch { /* fall through to legacy */ }
+      if (Array.isArray(parsed)) {
+        const valid = parsed.filter(p => p && p.id && p.issuer && p.clientId)
+        if (valid.length !== parsed.length) {
+          console.error(`[oidc] dropped ${parsed.length - valid.length} invalid provider entr${parsed.length - valid.length === 1 ? 'y' : 'ies'} from stored config`)
+        }
+        return valid
+      }
+    }
+    catch (e) {
+      console.error('[oidc] stored provider config is corrupt:', e instanceof Error ? e.message : e)
+    }
   }
   // lazy legacy migration: single provider config -> provider id 'oidc'
   if (!migrated && s.oidcIssuer && s.oidcClientId && s.oidcClientSecret) {
-    migrated = true
     const legacy: OidcProvider[] = [{ id: 'oidc', label: 'SSO', issuer: s.oidcIssuer, clientId: s.oidcClientId, clientSecret: s.oidcClientSecret }]
     await setOidcProviders(legacy)
+    migrated = true // only after the write landed — a failure retries next call
     return legacy
   }
   return []

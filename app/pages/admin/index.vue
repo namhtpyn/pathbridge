@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <PageHeader title="Routes">
       <template #subtitle>
-        Route incoming paths to upstream origins · <span class="inline-flex items-center gap-1"><span class="relative flex size-1.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /><span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" /></span>live</span>
+        Route incoming paths to upstream origins<template v-if="routesLive.data"><span class="inline-flex items-center gap-1"> · <span class="relative flex size-1.5"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:animate-none" /><span class="relative inline-flex size-1.5 rounded-full bg-emerald-500" /></span>live</span></template>
       </template>
       <template #actions>
         <UButton v-if="can('routes', 'create')" icon="i-lucide-plus" label="New route" @click="openEditor()" />
@@ -76,10 +76,11 @@
               <button
                 type="button"
                 :disabled="form.methodsAll"
-                class="rounded-md border px-2 py-1 font-mono text-xs transition-colors disabled:opacity-40"
+                :aria-pressed="form.methods.includes(verb)"
+                class="min-h-8 rounded-md border px-2 py-1 font-mono text-xs transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-40"
                 :class="form.methods.includes(verb)
                   ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-zinc-300 text-zinc-500 hover:border-zinc-400 dark:border-zinc-600'"
+                  : 'border-zinc-300 text-zinc-600 hover:border-zinc-400 dark:border-zinc-600 dark:text-zinc-400'"
                 @click="toggleVerb(verb)"
               >
                 {{ verb }}
@@ -98,14 +99,14 @@
         <template #path-cell="{ row }">
           <div class="flex items-center gap-2">
             <code class="rounded-md bg-primary/5 px-1.5 py-0.5 text-sm font-semibold text-primary">{{ row.original.path }}</code>
-            <UBadge v-if="!row.original.enabled" label="disabled" variant="subtle" color="error" size="sm" />
+            <UBadge v-if="!row.original.enabled" label="disabled" variant="subtle" color="neutral" size="sm" />
           </div>
         </template>
         <template #target-cell="{ row }">
           <div class="text-xs text-zinc-500">
             <span class="break-all font-mono">{{ row.original.target }}</span>
-            <span v-if="row.original.methods?.length" class="block font-mono text-[10px] text-zinc-400">{{ row.original.methods.join(' ') }}</span>
-            <span v-if="row.original.note" class="block truncate text-zinc-400">{{ row.original.note }}</span>
+            <span v-if="row.original.methods?.length" class="block font-mono text-[10px] text-zinc-500 dark:text-zinc-400">{{ row.original.methods.join(' ') }}</span>
+            <span v-if="row.original.note" class="block truncate text-zinc-500 dark:text-zinc-400">{{ row.original.note }}</span>
           </div>
         </template>
         <template #actions-cell="{ row }">
@@ -162,7 +163,7 @@ const routes = computed(() =>
 const routeColumns: TableColumn<RouteRow>[] = [
   { accessorKey: 'path', header: 'Path' },
   { accessorKey: 'target', header: 'Target' },
-  { id: 'actions', header: '' },
+  { id: 'actions', header: 'Actions', meta: { class: { th: 'sr-only' } } },
 ]
 
 // ---------- route form ----------
@@ -195,13 +196,14 @@ function validatePair(state: typeof form): Array<{ name: string, message: string
 }
 
 function edit(p: RouteRow) {
-  editing.value = p.path
+  // populate-then-open: the modal must never flash stale form state
   Object.assign(form, structuredClone(p))
   form.id = p.id
   form.methodsAll = !p.methods || p.methods.length === 0
   form.methods = p.methods ? [...p.methods] : []
   form.requestHeaders = (p.requestHeaders ?? []).map(o => ({ name: o.name, op: o.op, value: o.value ?? '' }))
   form.responseHeaders = (p.responseHeaders ?? []).map(o => ({ name: o.name, op: o.op, value: o.value ?? '' }))
+  editing.value = p.path
 }
 
 function reset() {
@@ -218,10 +220,15 @@ async function save() {
       busy.value = false
       return
     }
+    if (!form.methodsAll && form.methods.length === 0) {
+      toast.add({ title: 'Select at least one method', description: 'Unchecking All with no verbs would save a route that forwards everything', color: 'error' })
+      busy.value = false
+      return
+    }
     await $client.routes.save({
       ...parsed.data,
       id: editing.value && editing.value !== 'new' ? form.id : undefined,
-      methods: (form.methodsAll || form.methods.length === 0 ? undefined : form.methods) as Array<'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS'> | undefined,
+      methods: (form.methodsAll ? undefined : form.methods) as Array<'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS'> | undefined,
     })
     toast.add({ title: editing.value && editing.value !== 'new' ? 'Route updated' : 'Route added', color: 'success' })
     reset()

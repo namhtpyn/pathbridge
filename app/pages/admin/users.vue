@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <PageHeader title="Users" subtitle="Who can manage this bridge">
       <template #actions>
-        <UButton icon="i-lucide-user-plus" label="Add user" @click="showAddUser = true" />
+        <UButton v-if="can('users', 'create')" icon="i-lucide-user-plus" label="Add user" @click="showAddUser = true" />
       </template>
     </PageHeader>
 
@@ -88,8 +88,9 @@
     <!-- delete confirm modal -->
     <ConfirmModal v-model:open="deleteModalOpen" title="Delete user" :description="deleteModal.what" :busy="deleteBusy" @confirm="confirmDelete" />
 
-    <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
-      <UTable :data="users" :columns="userColumns">
+    <UCard v-if="usersPending || users.length" :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
+      <UTable v-if="usersPending" :data="[]" :columns="userColumns" :loading="true" />
+      <UTable v-else :data="users" :columns="userColumns">
         <template #user-cell="{ row }">
           <div class="flex items-center gap-3">
             <UAvatar :alt="row.original.name || row.original.email" :text="avatarInitials(row.original)" size="sm" />
@@ -105,20 +106,21 @@
         <template #role-cell="{ row }">
           <div class="flex flex-wrap items-center gap-1.5 text-xs text-zinc-400">
             <UBadge class="font-mono" variant="subtle" color="neutral" size="sm">{{ row.original.role }}</UBadge>
-            <span v-if="row.original.hasPassword" class="flex items-center gap-1" title="Has a password login"><UIcon name="i-lucide-lock" class="size-3" />password</span>
-            <span v-if="row.original.oidcLinked" class="flex items-center gap-1" title="Linked to OIDC"><UIcon name="i-lucide-key-round" class="size-3" />oidc</span>
-            <span class="flex items-center gap-1" title="Active sessions"><UIcon name="i-lucide-monitor-smartphone" class="size-3" />{{ row.original.sessionCount }}</span>
+            <span v-if="row.original.hasPassword" class="flex items-center gap-1"><UIcon name="i-lucide-lock" class="size-3" />password</span>
+            <span v-if="row.original.oidcLinked" class="flex items-center gap-1"><UIcon name="i-lucide-key-round" class="size-3" />oidc</span>
+            <span class="flex items-center gap-1"><UIcon name="i-lucide-monitor-smartphone" class="size-3" aria-hidden="true" /><span class="sr-only">active sessions:</span>{{ row.original.sessionCount }}</span>
           </div>
         </template>
         <template #actions-cell="{ row }">
           <div class="flex justify-end gap-2">
-            <IconButton text="Edit user" icon="i-lucide-pencil" :disabled="!can('users', 'update')" @click="openUserEditor(row.original)" />
-            <IconButton text="Reset password" icon="i-lucide-key-round" @click="resetPassword(row.original)" />
+            <IconButton v-if="can('users', 'update')" text="Edit user" icon="i-lucide-pencil" @click="openUserEditor(row.original)" />
+            <IconButton v-if="can('users', 'update')" text="Reset password" icon="i-lucide-key-round" @click="resetPassword(row.original)" />
             <IconButton text="Delete user" icon="i-lucide-trash-2" color="error" :disabled="Boolean(session?.user?.id && row.original.id === session.user.id)" @click="removeUser(row.original)" />
           </div>
         </template>
       </UTable>
     </UCard>
+    <EmptyState v-else icon="i-lucide-users" title="No users yet" description="Create a user to grant admin access" />
   </div>
 </template>
 
@@ -150,10 +152,11 @@ function avatarInitials(u: AdminUser): string {
 const userColumns: TableColumn<AdminUser>[] = [
   { id: 'user', header: 'User' },
   { id: 'role', header: 'Role & auth', meta: { class: { td: 'w-full' } } },
-  { id: 'actions', header: '' },
+  { id: 'actions', header: 'Actions', meta: { class: { th: 'sr-only' } } },
 ]
 
 const users = ref<AdminUser[]>([])
+const usersPending = ref(true)
 const roles = ref<{ id: string, name: string }[]>([])
 const roleOptions = computed(() => roles.value.map(r => ({ label: r.name, value: r.name })))
 
@@ -163,15 +166,17 @@ onMounted(async () => {
 
 async function refresh() {
   try {
-    const client = $client
     const [u, r] = await Promise.all([
-      client.users.list(),
-      can('roles', 'read') ? client.roles.list().then(r => ({ roles: r.roles as { id: string, name: string }[] })).catch(() => ({ roles: [] as { id: string, name: string }[] })) : Promise.resolve({ roles: [] as { id: string, name: string }[] }),
+      $client.users.list(),
+      can('roles', 'read') ? $client.roles.list().then(r => ({ roles: r.roles as { id: string, name: string }[] })).catch(() => ({ roles: [] as { id: string, name: string }[] })) : Promise.resolve({ roles: [] as { id: string, name: string }[] }),
     ])
     users.value = u.users as AdminUser[]
     roles.value = r.roles
   }
-  catch { /* ignore */ }
+  catch (e: unknown) {
+    toast.add({ title: 'Failed to load users', description: errorMessage(e), color: 'error' })
+  }
+  finally { usersPending.value = false }
 }
 
 const showAddUser = ref(false)

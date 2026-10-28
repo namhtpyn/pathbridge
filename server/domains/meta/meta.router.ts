@@ -23,7 +23,7 @@ export const metaRouter = {
       const session = await requireSession(eventFromContext(context))
       return {
         user: { id: session.user.id, name: session.user.name, email: session.user.email },
-        session: { expiresAt: session.session.expiresAt },
+        session: { expiresAt: session.session.expiresAt.toISOString() },
       }
     }
     catch {

@@ -1,5 +1,4 @@
 // keys service: current-user API keys (ownership = referenceId)
-import { eq, desc } from 'drizzle-orm'
 import { notFound } from '../shared/context'
 // lazy db access: nuxt prepare (jiti/Node) must never statically reach
 // bun:sqlite through this module — services load the client on first call
@@ -19,7 +18,11 @@ export function parseKeyPermissions(raw: string | null | undefined) {
 }
 
 export async function listKeys(userId: string) {
-  const rows = await (await getDb()).select().from(apiKeyTable).where(eq(apiKeyTable.referenceId, userId)).orderBy(desc(apiKeyTable.createdAt))
+  const rows = await (await getDb()).query.apikey.findMany({
+    where: { referenceId: userId },
+    columns: { id: true, name: true, start: true, enabled: true, expiresAt: true, lastRequest: true, requestCount: true, permissions: true },
+    orderBy: { createdAt: 'desc', id: 'asc' },
+  })
   return { keys: rows.map(k => ({
     id: k.id,
     name: k.name,
@@ -29,13 +32,17 @@ export async function listKeys(userId: string) {
     lastRequest: k.lastRequest ? k.lastRequest.toISOString() : null,
     requestCount: k.requestCount,
     // json-mode column: drizzle types it unknown after select
-    permissions: parseKeyPermissions(typeof k.permissions === 'string' ? k.permissions : JSON.stringify(k.permissions) ?? null),
+    permissions: parseKeyPermissions(typeof k.permissions === 'string' ? k.permissions : null),
   })) }
 }
 
 /** ownership check shared by rename/revoke (no touching other people's keys) */
 export async function requireOwnedKey(id: string, userId: string) {
-  const owned = (await (await getDb()).select().from(apiKeyTable).where(eq(apiKeyTable.id, id)))[0]
+  const owned = await (await getDb()).query.apikey.findFirst({
+    where: { id },
+    columns: { id: true, referenceId: true },
+    orderBy: { id: 'asc' },
+  })
   if (!owned || owned.referenceId !== userId) notFound('key not found')
   return owned
 }

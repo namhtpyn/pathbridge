@@ -77,8 +77,14 @@ export async function guardRecord(context: { reqHeaders?: Headers }, resource: '
   }
   catch (e: unknown) {
     const err = e as { statusCode?: number, statusMessage?: string, message?: string }
+    // h3 errors carry a statusCode — remap those; anything else is an infra
+    // failure masquerading as authz, which hides outages: log + 500.
+    if (typeof err.statusCode !== 'number') {
+      console.error('[guard] unexpected permission-check failure:', e)
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'permission check failed' })
+    }
     const code = err.statusCode === 404 ? 'NOT_FOUND' : err.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN'
-    throw new ORPCError(code as 'FORBIDDEN', { message: err.statusMessage ?? err.message ?? 'forbidden' })
+    throw new ORPCError(code, { message: err.statusMessage ?? err.message ?? 'forbidden' })
   }
 }
 
@@ -106,8 +112,15 @@ export async function readScopeOf(user: ResolvedUser, resource: 'routes' | 'logs
 export async function* liveGenerator<T>(resources: ChangeEvent['resource'][], fetch: () => Promise<T>) {
   yield await fetch()
   for await (const evt of changeBus.subscribe('change')) {
-    if (evt.resource === 'logs' || resources.includes(evt.resource)) {
+    // strict filter — access-log publishes a 'logs' event on EVERY proxied
+    // request; waking unrelated live streams on it multiplies traffic into
+    // DB re-queries. A snapshot fetch failure must not kill the stream.
+    if (!resources.includes(evt.resource)) continue
+    try {
       yield await fetch()
+    }
+    catch (e) {
+      console.error('[live] snapshot failed, skipping frame:', e instanceof Error ? e.message : e)
     }
   }
 }

@@ -2,16 +2,17 @@
   <div class="space-y-6">
     <PageHeader title="Roles" subtitle="Bundle permissions; assign to users on the Users page.">
       <template #actions>
-        <UButton icon="i-lucide-plus" label="New role" :disabled="!can('roles', 'create')" @click="openRoleEditor()" />
+        <UButton v-if="can('roles', 'create')" icon="i-lucide-plus" label="New role" @click="openRoleEditor()" />
       </template>
     </PageHeader>
 
-    <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
-      <UTable :data="roles" :columns="roleColumns">
+    <UCard v-if="rolesPending || roles.length" :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
+      <UTable v-if="rolesPending" :data="[]" :columns="roleColumns" :loading="true" />
+      <UTable v-else :data="roles" :columns="roleColumns">
         <template #name-cell="{ row }">
           <div class="flex flex-wrap items-center gap-2">
             <span class="font-mono text-sm font-medium">{{ row.original.name }}</span>
-            <UBadge v-if="row.original.builtin" color="neutral" variant="outline" size="sm" class="text-zinc-400">builtin</UBadge>
+            <UBadge v-if="row.original.builtin" color="neutral" variant="outline" size="sm" class="text-zinc-500 dark:text-zinc-400">builtin</UBadge>
           </div>
         </template>
         <template #description-cell="{ row }">
@@ -20,7 +21,7 @@
         <template #statements-cell="{ row }">
           <div class="flex flex-wrap gap-1.5">
             <template v-for="(stmts, res) in (row.original.statements as Record<string, string[]>)" :key="res">
-              <UBadge v-for="st in stmts" :key="String(res) + st" variant="subtle" size="sm" class="font-mono">
+              <UBadge v-for="st in stmts" :key="String(res) + st" variant="subtle" color="neutral" size="sm" class="font-mono">
                 {{ res }}:{{ st }}
               </UBadge>
             </template>
@@ -29,23 +30,24 @@
         <template #actions-cell="{ row }">
           <div class="flex justify-end gap-2">
             <IconButton
+              v-if="!row.original.builtin && can('roles', 'update')"
               text="Edit role" icon="i-lucide-pencil"
-              :disabled="row.original.builtin || !can('roles', 'update')"
               @click="openRoleEditor(row.original)"
             />
             <IconButton
+              v-if="!row.original.builtin && can('roles', 'delete')"
               text="Delete role" icon="i-lucide-trash-2" color="error"
-              :disabled="row.original.builtin || !can('roles', 'delete')"
               @click="askDeleteRole(row.original)"
             />
           </div>
         </template>
       </UTable>
     </UCard>
+    <EmptyState v-else icon="i-lucide-shield" title="No roles yet" description="Bundle permissions into a reusable role" />
 
     <!-- role editor modal -->
     <FormModal
-      v-model:open="roleModalOpen" :title="editingRoleId ? `Edit ${roleForm.name}` : 'New role'" :description="editingRoleId ? (builtinEdit ? 'Builtin roles cannot be modified' : 'Adjust description and permissions') : 'Bundle permissions into a reusable role'"
+      v-model:open="roleModalOpen" :title="editingRoleId ? `Edit ${roleForm.name}` : 'New role'" :description="editingRoleId ? 'Adjust description and permissions' : 'Bundle permissions into a reusable role'"
       :form-id="roleFormId" :submit-label="editingRoleId ? 'Save changes' : 'Create role'" :submit-icon="editingRoleId ? 'i-lucide-check' : 'i-lucide-plus'" :busy="busy"
     >
       <UForm :id="roleFormId" :state="roleForm" :validate="validateRole" class="grid gap-5" @submit="saveRole">
@@ -100,28 +102,34 @@ const roleColumns: TableColumn<RoleRow>[] = [
   { accessorKey: 'name', header: 'Role' },
   { accessorKey: 'description', header: 'Description' },
   { id: 'statements', header: 'Permissions', meta: { class: { td: 'w-full' } } },
-  { id: 'actions', header: '' },
+  { id: 'actions', header: 'Actions', meta: { class: { th: 'sr-only' } } },
 ]
 const roles = ref<RoleRow[]>([])
+const rolesPending = ref(true)
 const vocabulary = ref<Record<string, string[]>>({})
 const roleModalOpen = ref(false)
 const roleFormId = useId()
 const roleForm = reactive({ name: '', description: '', statements: {} as Record<string, string[]> })
 const editingRoleId = ref<string | null>(null)
-const builtinEdit = computed(() => roles.value.find(r => r.id === editingRoleId.value)?.builtin ?? false)
 
 async function loadRoles() {
-  const data = await $client.roles.list()
-  roles.value = data.roles as RoleRow[]
-  vocabulary.value = data.vocabulary
+  try {
+    const data = await $client.roles.list()
+    roles.value = data.roles as RoleRow[]
+    vocabulary.value = data.vocabulary
+  }
+  catch (e: unknown) {
+    toast.add({ title: 'Failed to load roles', description: errorMessage(e), color: 'error' })
+  }
+  rolesPending.value = false
 }
 
-onMounted(() => { loadRoles().catch(() => {}) })
+onMounted(() => { void loadRoles() })
 
 function validateRole(state: { name: string }): Array<{ name: string, message: string }> {
   const errs: Array<{ name: string, message: string }> = []
   if (!state.name.trim()) errs.push({ name: 'name', message: 'Name is required' })
-  else if (!/^[a-z0-9][a-z0-9-]{1,32}$/.test(state.name.trim())) errs.push({ name: 'name', message: '2-32 chars: lowercase letters, digits, hyphens' })
+  else if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(state.name.trim()) || state.name.trim().length < 2) errs.push({ name: 'name', message: '2-32 chars: lowercase letters, digits, hyphens' })
   return errs
 }
 

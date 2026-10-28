@@ -92,9 +92,15 @@ Add a route in the admin UI (Routes → New route):
 { "path": "/hook", "target": "https://api.example.com" }
 ```
 
-Requests to `/hook*` are proxied to `https://api.example.com*`. Optional
-per-route settings: strip the prefix before forwarding, restrict HTTP methods,
-override the upstream Host header, add a note, disable.
+Forwarding is deterministic, two modes:
+
+- **Exact path** — `/hook` forwards to the target URL **verbatim** (a path on
+  the target is the upstream path). e.g. `/webhooks/zalo-oa` → `https://api.example.com/webhooks/zalo-oa`.
+- **Wildcard** — `/hook/*` forwards the remainder after the base:
+  `/hook/abc` → `https://api.example.com/abc`.
+
+Optional per-route settings: restrict HTTP methods, override the upstream
+Host header, set or strip request/response headers, add a note, disable.
 
 ### API (`/rpc`)
 

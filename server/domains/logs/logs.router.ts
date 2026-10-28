@@ -31,7 +31,7 @@ export const logsRouter = {
           if (evt.resource !== 'logs') continue
           const fresh = await svc.queryLogsAfter(context.user, { afterId: lastId, limit: 100 })
           if (!fresh.length) continue
-          lastId = fresh[fresh.length - 1]!.id
+          lastId = fresh.at(-1)!.id
           yield { entries: fresh }
         }
       }

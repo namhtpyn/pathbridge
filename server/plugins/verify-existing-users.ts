@@ -8,7 +8,7 @@ import { db } from '../db'
 import { user, account } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
-export default defineEventHandler(async () => {
+export default defineNitroPlugin(async () => {
   const credAccounts = await db.select({ userId: account.userId }).from(account).where(eq(account.providerId, 'credential'))
   const credUserIds = new Set(credAccounts.map(a => a.userId))
   const users = await db.select({ id: user.id, emailVerified: user.emailVerified }).from(user)

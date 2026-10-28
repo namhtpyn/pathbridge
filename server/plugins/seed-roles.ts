@@ -33,7 +33,7 @@ const BUILTIN = [
 // regular editable/deletable roles so existing assignments keep working.
 const DEMOTED = ['operator']
 
-export default defineEventHandler(async () => {
+export default defineNitroPlugin(async () => {
   const existing = await db.query.roles.findMany()
   const now = new Date().toISOString()
   for (const r of BUILTIN) {

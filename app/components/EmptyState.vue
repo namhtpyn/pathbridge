@@ -17,7 +17,7 @@ withDefaults(defineProps<{
     : 'border-dashed border-zinc-300 dark:border-zinc-700'">
     <UIcon :name="loading ? 'i-lucide-loader-circle' : icon" class="mx-auto size-8 text-zinc-300" :class="loading ? 'animate-spin' : ''" />
     <p class="mt-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ title }}</p>
-    <p v-if="description" class="mt-1 text-xs text-zinc-500">{{ description }}</p>
+    <p v-if="description" class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ description }}</p>
     <slot />
   </div>
 </template>

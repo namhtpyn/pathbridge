@@ -12,17 +12,11 @@ export async function queryLogsScoped(user: ResolvedUser, input: { limit?: numbe
   if ((await readScopeOf(user, 'logs')) === 'all') {
     return await queryAccessLog({ limit, routeId, beforeId: input.beforeId })
   }
-  // read:own — only logs for routes the caller owns
-  const own = await (await getDb()).query.routes.findMany({ where: { userId: user.userId }, columns: { id: true } })
-  const ownIds = new Set(own.map(p => p.id))
-  if (routeId !== undefined && !ownIds.has(routeId)) return []
-  const entries: Array<{ id: number }> = []
-  for (const pid of ownIds) {
-    const batch = await queryAccessLog({ limit, routeId: pid, beforeId: input.beforeId }) as Array<{ id: number }>
-    entries.push(...batch)
-  }
-  entries.sort((a, b) => b.id - a.id)
-  return entries.slice(0, limit)
+  // read:own — only logs for routes the caller owns (one query over the owned ids)
+  const own = await (await getDb()).query.routes.findMany({ where: { userId: user.userId }, columns: { id: true }, orderBy: { id: 'asc' } })
+  const ownIds = own.map(p => p.id)
+  if (routeId !== undefined && !ownIds.includes(routeId)) return []
+  return await queryAccessLog({ limit, routeIds: ownIds, beforeId: input.beforeId })
 }
 
 /** highest own-scope access-log id at subscribe time — the delta tail's cursor,
@@ -38,13 +32,6 @@ export async function queryLogsAfter(user: ResolvedUser, input: { afterId: numbe
   if ((await readScopeOf(user, 'logs')) === 'all') {
     return await queryAccessLogAfter(input.afterId, limit)
   }
-  const own = await (await getDb()).query.routes.findMany({ where: { userId: user.userId }, columns: { id: true } })
-  const ownIds = new Set(own.map(p => p.id))
-  const entries: Array<{ id: number }> = []
-  for (const pid of ownIds) {
-    const batch = await queryAccessLogAfter(input.afterId, limit, pid) as Array<{ id: number }>
-    entries.push(...batch)
-  }
-  entries.sort((a, b) => a.id - b.id)
-  return entries.slice(-limit)
+  const own = await (await getDb()).query.routes.findMany({ where: { userId: user.userId }, columns: { id: true }, orderBy: { id: 'asc' } })
+  return await queryAccessLogAfter(input.afterId, limit, own.map(p => p.id))
 }

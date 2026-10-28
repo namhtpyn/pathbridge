@@ -58,7 +58,15 @@ export async function removeRole(input: { id: string }) {
   const row = await (await getDb()).query.roles.findFirst({ where: { id: input.id } })
   if (!row) notFound('Role not found')
   if (row.builtin) badRequest('builtin roles cannot be deleted')
-  const holders = await (await getDb()).query.user.findMany({ where: { role: row.name } })
+  // user.role is a comma list ('viewer,custom') — an exact match misses those
+  // holders and the delete would silently strip grants. LIKE narrows, then
+  // every candidate is split-tested exactly.
+  const candidates = await (await getDb()).query.user.findMany({
+    where: { role: { like: `%${row.name}%` } },
+    columns: { id: true, role: true },
+    orderBy: { id: 'asc' },
+  })
+  const holders = candidates.filter(u => (u.role ?? '').split(',').map(r => r.trim()).includes(row.name))
   if (holders.length > 0) throw new ORPCError('CONFLICT', { message: `role still assigned to ${holders.length} user(s)` })
   await (await getDb()).delete(rolesTable).where(eq(rolesTable.id, input.id))
   await publishChange('roles', 'delete')

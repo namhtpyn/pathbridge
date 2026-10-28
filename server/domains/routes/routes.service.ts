@@ -8,7 +8,7 @@ import type { ResolvedUser } from '../../lib/permissions'
 // bun:sqlite through this module — services load the client on first call
 const getDb = async () => (await import('../../db')).db
 import { routes as routesTable } from '../../db/schema'
-import type { RouteRow } from '../../../shared/types'
+import type { StrictRouteInput } from './routes.schema'
 
 /** Normalize a target URL: keep origin+path, strip trailing slashes. */
 export function normalizeTarget(target: string) {
@@ -34,46 +34,44 @@ export async function countRoutes(user: ResolvedUser) {
 
 export async function saveRoute(
   context: Parameters<typeof guardRecord>[0] & { user: ResolvedUser },
-  input: {
-    id?: number, path: string, target: string,
-    requestHeaders?: Array<{ name: string, op: 'set' | 'remove', value?: string }>,
-    responseHeaders?: Array<{ name: string, op: 'set' | 'remove', value?: string }>,
-    methods?: string[], note?: string, enabled: boolean,
-  },
+  input: StrictRouteInput,
 ) {
-  const { routeInputSchema } = await import('./routes.schema')
   const { publishChange } = await import('../../lib/change-bus')
-  // strict security boundary: the loose router input above is UX-shaped; the
-  // strict schema (refinements incl. reserved paths + header rules)
-  // re-validates everything the UI sends
-  const strict = routeInputSchema.safeParse(input)
-  if (!strict.success) {
-    const issue = strict.error.issues[0]
-    badRequest(issue ? `${issue.path.join('.') || 'body'}: ${issue.message}` : 'invalid route payload')
+  const data = input
+
+  if (data.id !== undefined) {
+    // update by id — path rename allowed unless another route claims it.
+    // Omitted optionals MERGE with the stored row: a partial update must not
+    // silently wipe headers/methods/note or re-enable a disabled route.
+    const existing = await (await getDb()).query.routes.findFirst({ where: { id: data.id } })
+    if (!existing) notFound('route not found')
+    await guardRecord(context, 'routes', 'update', existing)
+    const clash = await (await getDb()).query.routes.findFirst({ where: { AND: [{ path: data.path }, { id: { ne: data.id } }] }, columns: { id: true } })
+    if (clash) throw new ORPCError('CONFLICT', { message: `a route already exists at ${data.path}` })
+    const row = {
+      path: data.path,
+      target: normalizeTarget(data.target),
+      requestHeaders: data.requestHeaders !== undefined ? (data.requestHeaders.length ? data.requestHeaders : null) : existing.requestHeaders,
+      responseHeaders: data.responseHeaders !== undefined ? (data.responseHeaders.length ? data.responseHeaders : null) : existing.responseHeaders,
+      methods: data.methods !== undefined ? (data.methods.length ? data.methods : null) : existing.methods,
+      note: data.note !== undefined ? data.note.slice(0, 200) : existing.note,
+      enabled: data.enabled ?? existing.enabled,
+      updatedAt: new Date().toISOString(),
+    }
+    await (await getDb()).update(routesTable).set(row).where(eq(routesTable.id, data.id))
+    await publishChange('routes', 'update')
+    return { route: await (await getDb()).query.routes.findFirst({ where: { id: data.id } }), created: false }
   }
-  const data = strict.data
 
   const row = {
     path: data.path,
     target: normalizeTarget(data.target),
     requestHeaders: data.requestHeaders?.length ? data.requestHeaders : null,
     responseHeaders: data.responseHeaders?.length ? data.responseHeaders : null,
-    methods: data.methods ?? null,
+    methods: data.methods?.length ? data.methods : null,
     note: data.note !== undefined ? data.note.slice(0, 200) : null,
     enabled: data.enabled,
     updatedAt: new Date().toISOString(),
-  }
-
-  if (data.id !== undefined) {
-    // update by id — path rename allowed unless another route claims it
-    const existing = await (await getDb()).query.routes.findFirst({ where: { id: data.id } })
-    if (!existing) notFound('route not found')
-    await guardRecord(context, 'routes', 'update', existing)
-    const clash = await (await getDb()).query.routes.findFirst({ where: { AND: [{ path: data.path }, { id: { ne: data.id } }] }, columns: { id: true } })
-    if (clash) throw new ORPCError('CONFLICT', { message: `a route already exists at ${data.path}` })
-    await (await getDb()).update(routesTable).set(row).where(eq(routesTable.id, data.id))
-    await publishChange('routes', 'update')
-    return { route: await (await getDb()).query.routes.findFirst({ where: { id: data.id } }), created: false }
   }
 
   // create / upsert-by-path: an existing route at this path can only be

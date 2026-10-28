@@ -5,13 +5,13 @@ import type { RouteRow } from '~/../shared/types'
 
 export interface SessionUser { id: string, name?: string | null, email: string }
 export interface SessionPayload { user: SessionUser, session: { expiresAt: string } }
-export interface AuthConfig { passwordEnabled: boolean, oidcEnabled: boolean, providers: Array<{ id: string, label: string }> }
+type AuthConfig = import('../../shared/types').AuthConfig
 
 export async function useAdminSession() {
   const session = useState<SessionPayload | null>('admin:session', () => null)
   const perms = useState<Record<string, string[]>>('admin:perms', () => ({}))
   const vocabulary = useState<Record<string, string[]>>('admin:vocabulary', () => ({}))
-  const authConfig = useState<AuthConfig | null>('admin:auth-config', () => null)
+  const authConfig = useState<import('../../shared/types').AuthConfig | null>('admin:auth-config', () => null)
   const appVersion = useState<string>('admin:version', () => 'dev')
   const booted = useState<boolean>('admin:booted', () => false)
   // resolve the oRPC client ONCE here (composables run inside the Nuxt
@@ -106,9 +106,20 @@ export async function useAdminSession() {
   })
 
   async function logout() {
-    await useAuth().signOut().catch(() => {})
+    // a failed server sign-out must not pretend success — the cookie would
+    // still be valid and a reload restores full access (shared-machine risk)
+    try {
+      await useAuth().signOut()
+    }
+    catch (e) {
+      useToast().add({ title: 'Sign out failed', description: e instanceof Error ? e.message : 'try again', color: 'error' })
+      return
+    }
     session.value = null
     perms.value = {}
+    vocabulary.value = {}
+    authConfig.value = null
+    booted.value = false // next login re-bootstraps permissions fresh
     await navigateTo('/admin')
   }
 

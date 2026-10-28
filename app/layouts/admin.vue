@@ -13,7 +13,7 @@
             <UIcon name="i-lucide-arrow-left-right" class="size-6 text-inverted" />
           </div>
           <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">Pathbridge
-            <span class="font-mono align-middle text-xs font-normal text-zinc-400">v{{ appVersion }}</span>
+            <span class="font-mono align-middle text-xs font-normal text-zinc-400">{{ appVersion === 'dev' ? 'dev' : `v${appVersion}` }}</span>
           </h1>
           <p class="text-sm text-zinc-500">Path forwarding for external upstreams</p>
         </div>
@@ -51,7 +51,7 @@
             </div>
             <div v-if="!collapsed" class="flex min-w-0 flex-col">
               <span class="truncate text-sm font-semibold leading-tight text-zinc-900 dark:text-white">Pathbridge
-                <span class="font-mono text-[10px] font-normal text-zinc-400">v{{ appVersion }}</span>
+                <span class="font-mono text-[10px] font-normal text-zinc-400">{{ appVersion === 'dev' ? 'dev' : `v${appVersion}` }}</span>
               </span>
             </div>
           </NuxtLink>
@@ -101,8 +101,6 @@
 </template>
 
 <script setup lang="ts">
-import { useQuery } from '@tanstack/vue-query'
-import type { RouteRow } from '~/../shared/types'
 const { session, authConfig, appVersion, can, loadPerms, logout } = await useAdminSession()
 const toast = useToast()
 
@@ -127,7 +125,6 @@ async function loadVersionSafe() {
 }
 
 // nav
-const route = useRoute()
 const navItems = computed(() => [
   { label: 'Routes', icon: 'i-lucide-route', to: '/admin', exact: true },
   { label: 'Logs', icon: 'i-lucide-scroll-text', to: '/admin/logs', exact: true, show: can('logs', 'read') },

@@ -20,8 +20,9 @@
           </template>
           <UInputNumber v-model="settingsForm.logRetentionDays" :min="0" :max="3650" class="w-full max-w-48" />
         </UFormField>
+        <UAlert v-if="settingsError" color="error" variant="subtle" title="Settings could not be loaded" description="The values shown are NOT live — fix the connection and reload before saving." />
         <div class="flex justify-end">
-          <UButton type="submit" icon="i-lucide-save" :loading="busy" label="Save settings" />
+          <UButton type="submit" icon="i-lucide-save" :loading="busy" label="Save all settings" :disabled="!settingsLoaded" />
         </div>
       </UForm>
     </UCard>
@@ -38,9 +39,12 @@
         <div>
           <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h4 class="text-xs font-semibold uppercase tracking-wide text-zinc-400">OIDC providers</h4>
-            <UButton v-if="can('settings', 'update')" icon="i-lucide-plus" size="sm" label="Add provider" @click="openOidcEditor()" />
+            <UButton v-if="can('settings', 'update') && oidcProviders.length" icon="i-lucide-plus" size="sm" label="Add provider" @click="openOidcEditor()" />
           </div>
-          <template v-if="oidcProviders.length">
+          <template v-if="!oidcLoaded">
+            <div class="p-10 text-center text-sm text-zinc-400">Loading providers…</div>
+          </template>
+          <template v-else-if="oidcProviders.length">
             <UCard :ui="{ root: 'shadow-sm', body: 'p-0 sm:p-0' }">
               <UTable :data="oidcProviders" :columns="providerColumns">
                 <template #provider-cell="{ row }">
@@ -60,7 +64,7 @@
                 </template>
               </UTable>
             </UCard>
-            <p class="mt-2 text-xs text-zinc-400">Register each callback URL above with its identity provider.</p>
+            <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Register each callback URL above with its identity provider.</p>
           </template>
           <EmptyState v-else icon="i-lucide-key-round" title="No OIDC providers" description="Add one to enable SSO login buttons">
             <UButton v-if="can('settings', 'update')" class="mt-4" size="sm" icon="i-lucide-plus" label="Add provider" @click="openOidcEditor()" />
@@ -75,7 +79,7 @@
             Turns off the email + password sign-in form entirely; everyone signs in via OIDC. Requires OIDC to be fully configured first — this prevents locking yourself out.
           </FieldHint>
         </div>
-        <p v-if="oidcProviders.length && !oidcReady" class="text-xs text-amber-600 dark:text-amber-500">
+        <p v-if="oidcProviders.length && !oidcReady" class="text-xs text-amber-700 dark:text-amber-400">
           Enabled once at least one provider has its secret set.
         </p>
       </div>
@@ -87,17 +91,17 @@
       :form-id="oidcFormId" :submit-label="oidcEditingId ? 'Save changes' : 'Add provider'" submit-icon="i-lucide-check" :busy="busy"
       @update:open="v => oidcEditorOpen = v"
     >
-      <UForm :id="oidcFormId" :state="oidcForm" class="space-y-4" @submit="saveOidcProvider">
-        <UFormField name="oidcLabel" label="Name" required help="Shown on the login button">
+      <UForm :id="oidcFormId" :state="oidcForm" :validate="validateOidc" class="space-y-4" @submit="saveOidcProvider">
+        <UFormField name="label" label="Name" required help="Shown on the login button">
           <UInput v-model="oidcForm.label" icon="i-lucide-tag" class="w-full" placeholder="Azure AD" />
         </UFormField>
-        <UFormField name="oidcIssuer2" label="Issuer URL" required>
+        <UFormField name="issuer" label="Issuer URL" required>
           <UInput v-model="oidcForm.issuer" icon="i-lucide-globe" class="w-full" placeholder="https://issuer.example.com" />
         </UFormField>
-        <UFormField name="oidcClientId2" label="Client ID" required>
+        <UFormField name="clientId" label="Client ID" required>
           <UInput v-model="oidcForm.clientId" class="w-full" />
         </UFormField>
-        <UFormField name="oidcSecret2" :label="oidcEditingId ? 'Client secret (blank = keep stored)' : 'Client secret'" :required="!oidcEditingId">
+        <UFormField name="clientSecret" :label="oidcEditingId ? 'Client secret (blank = keep stored)' : 'Client secret'" :required="!oidcEditingId">
           <UInput v-model="oidcForm.clientSecret" type="password" icon="i-lucide-key-round" class="w-full" placeholder="••••••••" />
         </UFormField>
       </UForm>
@@ -120,6 +124,11 @@ const { $client } = useNuxtApp()
 const busy = ref(false)
 
 const settingsForm = reactive({ logRetentionDays: 30, disablePasswordLogin: false })
+// the form MUST NOT submit values that were never confirmed from the server —
+// a failed load rendering defaults would overwrite production settings
+const settingsLoaded = ref(false)
+const settingsError = ref(false)
+const oidcLoaded = ref(false)
 interface OidcProviderRow { id: string, label: string, issuer: string, clientId: string, secretSet: boolean }
 const oidcProviders = ref<OidcProviderRow[]>([])
 const oidcEditorOpen = ref(false)
@@ -148,7 +157,7 @@ async function confirmRemoveOidcProvider() {
 const providerColumns: TableColumn<OidcProviderRow>[] = [
   { id: 'provider', header: 'Provider' },
   { id: 'callback', header: 'Callback URL', meta: { class: { td: 'w-full' } } },
-  { id: 'actions', header: '' },
+  { id: 'actions', header: 'Actions', meta: { class: { th: 'sr-only' } } },
 ]
 
 const publicOrigin = computed(() => {
@@ -161,18 +170,44 @@ const publicOrigin = computed(() => {
 const oidcReady = computed(() => oidcProviders.value.some(p => p.secretSet))
 
 async function loadSettings() {
-  const s = await $client.settings.get()
-  settingsForm.disablePasswordLogin = s.disablePasswordLogin
-  settingsForm.logRetentionDays = s.logRetentionDays
+  settingsError.value = false
+  try {
+    const s = await $client.settings.get()
+    settingsForm.disablePasswordLogin = s.disablePasswordLogin
+    settingsForm.logRetentionDays = s.logRetentionDays
+    settingsLoaded.value = true
+  }
+  catch (e: unknown) {
+    settingsError.value = true
+    settingsLoaded.value = false
+    toast.add({ title: 'Failed to load settings', description: errorMessage(e), color: 'error' })
+  }
   await loadOidcProviders()
 }
 
 async function loadOidcProviders() {
-  const r = await $client.oidc.list()
-  oidcProviders.value = r.providers as OidcProviderRow[]
+  try {
+    const r = await $client.oidc.list()
+    oidcProviders.value = r.providers as OidcProviderRow[]
+    oidcLoaded.value = true
+  }
+  catch (e: unknown) {
+    oidcLoaded.value = true
+    toast.add({ title: 'Failed to load OIDC providers', description: errorMessage(e), color: 'error' })
+  }
 }
 
-onMounted(() => { loadSettings().catch(() => {}) })
+onMounted(() => { void loadSettings() })
+
+/** mirrors the backend zod rules so errors render inline, not as a toast */
+function validateOidc(state: typeof oidcForm): Array<{ name: string, message: string }> {
+  const errs: Array<{ name: string, message: string }> = []
+  if (!state.label.trim()) errs.push({ name: 'label', message: 'Name is required' })
+  if (!/^https?:\/\//i.test(state.issuer.trim())) errs.push({ name: 'issuer', message: 'Enter an http(s) issuer URL' })
+  if (!state.clientId.trim()) errs.push({ name: 'clientId', message: 'Client ID is required' })
+  if (!oidcEditingId.value && !state.clientSecret) errs.push({ name: 'clientSecret', message: 'Client secret is required' })
+  return errs
+}
 
 function openOidcEditor(prov?: OidcProviderRow) {
   oidcEditingId.value = prov?.id ?? null
@@ -184,17 +219,20 @@ function openOidcEditor(prov?: OidcProviderRow) {
   oidcEditorOpen.value = true
 }
 
+function toStoredProvider(p: OidcProviderRow) {
+  return { id: p.id, label: p.label, issuer: p.issuer, clientId: p.clientId, clientSecret: '' }
+}
+
 async function saveOidcProvider() {
   busy.value = true
-  const list: Array<{ id: string | undefined, label: string, issuer: string, clientId: string, clientSecret: string }> = oidcProviders.value
-    .filter(p => p.id !== oidcForm.id)
-    .map(p => ({ id: p.id, label: p.label, issuer: p.issuer, clientId: p.clientId, clientSecret: '' }))
+  const list: Array<{ id: string | undefined, label: string, issuer: string, clientId: string, clientSecret: string }> =
+    oidcProviders.value.filter(p => p.id !== oidcForm.id).map(toStoredProvider)
   // empty id = NEW provider -> send undefined so the server autogenerates a uuid
   // (sending id:'' fails zod min(2) and 400s with 'invalid provider payload')
   const trimmedId = oidcForm.id.trim().toLowerCase()
   list.push({
     id: trimmedId || undefined,
-    label: oidcForm.label.trim() || oidcForm.id.trim(),
+    label: oidcForm.label.trim(),
     issuer: oidcForm.issuer.trim(),
     clientId: oidcForm.clientId.trim(),
     clientSecret: oidcForm.clientSecret,
@@ -212,7 +250,7 @@ async function saveOidcProvider() {
 }
 
 async function removeOidcProviderById(id: string) {
-  const list = oidcProviders.value.filter(p => p.id !== id).map(p => ({ id: p.id, label: p.label, issuer: p.issuer, clientId: p.clientId, clientSecret: '' }))
+  const list = oidcProviders.value.filter(p => p.id !== id).map(toStoredProvider)
   try {
     await $client.oidc.save({ providers: list })
     toast.add({ title: 'Provider removed', color: 'success' })
@@ -224,6 +262,7 @@ async function removeOidcProviderById(id: string) {
 }
 
 async function saveSettings() {
+  if (!settingsLoaded.value) return
   busy.value = true
   try {
     await $client.settings.save({

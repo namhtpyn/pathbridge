@@ -1,10 +1,10 @@
 // users module router
 import { z } from 'zod'
 import { ORPCError } from '@orpc/server'
-import { base, withPerm, badRequest, liveGenerator } from '../shared/context'
+import { base, withPerm, badRequest, notFound, liveGenerator } from '../shared/context'
 
 const userSaveInput = z.strictObject({
-  email: z.string().email().max(255),
+  email: z.email().max(255),
   name: z.string().min(1).max(100),
   password: z.string().min(8).max(128),
   role: z.string().regex(/^[a-z0-9][a-z0-9,-]*[a-z0-9]$/).optional(),
@@ -14,7 +14,7 @@ const userSaveInput = z.strictObject({
 const userUpdateInput = z.strictObject({
   id: z.string().min(1),
   name: z.string().min(1).max(100).optional(),
-  email: z.string().email().max(255).optional(),
+  email: z.email().max(255).optional(),
   emailVerified: z.boolean().optional(),
   role: z.string().regex(/^[a-z0-9][a-z0-9,-]*[a-z0-9]$/).optional(),
 })
@@ -43,8 +43,12 @@ export const usersRouter = {
       return { ok: true }
     }
     catch (e: unknown) {
-      const msg = e instanceof Error && e.message.includes('UNIQUE') ? 'email already in use' : 'create failed'
-      throw new ORPCError('CONFLICT', { message: msg })
+      if (e instanceof ORPCError) throw e // validation from the service (unknown role)
+      if (e instanceof Error && e.message.includes('UNIQUE')) {
+        throw new ORPCError('CONFLICT', { message: 'email already in use' })
+      }
+      console.error('[users] create failed:', e)
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'create failed' })
     }
   }),
 
@@ -56,7 +60,8 @@ export const usersRouter = {
     }
     const { id, ...patch } = input
     if (Object.keys(patch).length === 0) badRequest('nothing to update')
-    await (await import('./users.service')).updateUser(id, patch)
+    const updated = await (await import('./users.service')).updateUser(id, patch)
+    if (!updated) notFound('user not found')
     await publishChange('users', 'update')
     return { ok: true }
   }),
@@ -65,7 +70,10 @@ export const usersRouter = {
     id: z.string().min(1),
     password: z.string().min(8).max(128),
   })).handler(async ({ input }) => {
-    await (await import('./users.service')).setPassword(input.id, input.password)
+    const done = await (await import('./users.service')).setPassword(input.id, input.password)
+    if (!done) notFound('user not found')
+    const { publishChange } = await import('../../lib/change-bus')
+    await publishChange('users', 'update')
     return { ok: true }
   }),
 

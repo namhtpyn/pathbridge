@@ -25,7 +25,7 @@ export const settingsRouter = {
       const providers = await getOidcProviders()
       if (providers.length === 0) badRequest('configure an OIDC provider before disabling password login')
     }
-    for (const [k, v] of Object.entries(input)) await setSetting(k as 'logRetentionDays', v)
+    for (const [k, v] of Object.entries(input) as Array<[keyof typeof input, string | number | boolean]>) await setSetting(k, v)
     await rebuildAuth()
     await publishChange('settings', 'update')
     return { ok: true }

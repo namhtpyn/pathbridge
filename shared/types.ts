@@ -4,7 +4,7 @@
 // everything for security.
 
 /** Row shape returned by routes procedures (serialized JSON — dates as ISO strings). */
-export interface RouteRow {
+export type RouteRow = {
   id: number
   /** URL path prefix this route claims, e.g. "/hook". Always starts with "/". */
   path: string
@@ -14,8 +14,7 @@ export interface RouteRow {
   requestHeaders: Array<{ name: string, op: 'set' | 'remove', value?: string }> | null
   /** Headers set/removed on the proxied response before it reaches the client. */
   responseHeaders: Array<{ name: string, op: 'set' | 'remove', value?: string }> | null
-  /** Strip the route's path prefix before forwarding. */
-  /** Allowed HTTP verbs; null = all. Serialized JSON array in the row. */
+    /** Allowed HTTP verbs; null = all. Serialized JSON array in the row. */
   methods: string[] | null
   /** Free-form note shown in the UI. */
   note: string | null
@@ -26,18 +25,8 @@ export interface RouteRow {
   updatedAt: string
 }
 
-/**
- * Frontend form model — LOOSE on purpose: inputs naturally produce
- * undefined | null | '' | string. The backend zod schema
- * (server/utils/route-schema.ts) is the strict authority and accepts none
- * of those for required fields.
- */
-
-export interface RoutesResponse {
-  routes: RouteRow[]
-}
-
-export interface AuthConfig {
+export type AuthConfig = {
   passwordEnabled: boolean
   oidcEnabled: boolean
+  providers: Array<{ id: string, label: string }>
 }

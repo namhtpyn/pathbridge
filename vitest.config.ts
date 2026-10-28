@@ -1,3 +1,7 @@
+import { mkdtempSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { defineConfig } from 'vitest/config'
 import { defineVitestProject } from '@nuxt/test-utils/config'
 
@@ -5,6 +9,8 @@ import { defineVitestProject } from '@nuxt/test-utils/config'
 // env via @nuxt/test-utils) as vitest projects. e2e stays on Playwright against
 // the real built artifact (test/e2e) — separate runner, see playwright.config.ts.
 export default defineConfig({
+  resolve: { alias: { '#shared': fileURLToPath(new URL('./shared', import.meta.url)) } },
+
   test: {
     projects: [
       {
@@ -16,7 +22,7 @@ export default defineConfig({
           pool: 'forks',
           poolOptions: { forks: { singleFork: true } },
           fileParallelism: false,
-          env: { DATA_DIR: '/tmp/pb-vitest-db' },
+          env: { DATA_DIR: mkdtempSync(join(tmpdir(), 'pb-vitest-')) },
         },
       },
       await defineVitestProject({

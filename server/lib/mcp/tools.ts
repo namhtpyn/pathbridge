@@ -52,7 +52,7 @@ const routeBase = {
 export const mcpSchemas = {
   createRoute: z.strictObject(routeBase),
   updateRoute: z.strictObject({ id: z.number().int().positive().describe('Numeric route id to update'), ...routeBase }),
-  deleteRoute: z.strictObject({ id: z.number().int().positive().optional(), path: z.string().min(1).max(512).optional() }),
+  deleteRoute: z.strictObject({ id: z.number().int().positive().optional(), path: z.string().min(1).max(512).optional() }).refine(i => (i.id !== undefined) !== (i.path !== undefined), { message: 'provide id or path' }),
   getLogs: z.strictObject({ limit: z.number().int().min(1).max(1000).optional(), routeId: z.number().int().positive().optional() }),
 }
 

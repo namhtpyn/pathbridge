@@ -1,5 +1,6 @@
 const getDb = async () => (await import('../../db')).db
-// Settings store: key/value in the `settings` table, cached in memory.
+// Settings store: key/value in the `settings` table (read fresh every call —
+// auth policy resolution depends on live values; local sqlite makes it cheap).
 // Runtime-editable knobs that used to be env-only (OIDC config, password
 // login toggle, access-log retention).
 // lazy: nuxt prepare (jiti/Node) must not statically reach bun:sqlite
@@ -45,7 +46,7 @@ function coerce(raw: string | undefined, key: keyof AppSettings): SettingValue |
 }
 
 export async function getSettings() {
-  const rows = await (await getDb()).query.settings.findMany()
+  const rows = await (await getDb()).query.settings.findMany({ columns: { key: true, value: true }, orderBy: { key: 'asc' } })
   const out = { ...DEFAULTS }
   for (const row of rows) {
     const v = coerce(row.value, row.key as keyof AppSettings)

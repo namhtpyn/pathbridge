@@ -11,9 +11,9 @@ const oidcProviderInput = z.strictObject({
    * let a caller craft callback paths.
    */
   id: z.string().min(2).max(36).optional(),
-  label: z.string().min(1).max(64),
-  issuer: z.string().url().max(512),
-  clientId: z.string().min(1).max(255),
+  label: z.string().trim().min(1).max(64),
+  issuer: z.url().max(512).refine(u => /^https?:\/\//i.test(u), 'issuer must be an http(s) URL'),
+  clientId: z.string().trim().min(1).max(255),
   clientSecret: z.string().max(512).optional(),
 })
 
@@ -54,8 +54,17 @@ export const oidcRouter = {
       if (!clientSecret) badRequest(`client secret required for ${id} (or stored previously)`)
       out.push({ id, label: p.label.trim(), issuer: p.issuer.trim().replace(/\/+$/, ''), clientId: p.clientId.trim(), clientSecret })
     }
+    if (out.length === 0) {
+      const { getSettings } = await import('../settings/settings.service')
+      const settings = await getSettings()
+      if (settings.disablePasswordLogin) {
+        badRequest('cannot remove the last OIDC provider while password login is disabled — enable password login first')
+      }
+    }
     await setOidcProviders(out)
     await rebuildAuth() // discovery for new providers runs at auth build
+    const { publishChange } = await import('../../lib/change-bus')
+    await publishChange('settings', 'update')
     return { providers: out.map(({ clientSecret: _s, ...rest }) => ({ ...rest, secretSet: true })) }
   }),
 }

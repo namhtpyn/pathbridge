@@ -6,6 +6,7 @@
 //   /hook/*   subtree: /hook and everything under it
 //   /         root catch-all
 import { z } from 'zod'
+import { HOP_BY_HOP as SHARED_HOP_BY_HOP } from '#shared/constants'
 
 // target: http(s) URL. EXACT routes forward to this URL verbatim (a path on
 // the target is the destination; nothing is appended). WILDCARD routes treat
@@ -48,7 +49,7 @@ export const methodsSchema = z.array(z.enum(httpVerbs))
 // NOT — a wrong content-length/transfer-encoding breaks the proxied body.
 export type HeaderOverride = { name: string, op: 'set' | 'remove', value?: string }
 
-const HOP_BY_HOP = new Set(['content-length', 'transfer-encoding', 'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'upgrade'])
+const HOP_BY_HOP = SHARED_HOP_BY_HOP
 
 const headerName = z.string().min(1, 'header name is required').max(128)
   .transform(n => n.trim().toLowerCase())

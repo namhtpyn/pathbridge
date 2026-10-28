@@ -1,26 +1,11 @@
-// routes module router: parse -> perm -> service
+// routes module router: parse -> perm -> service.
+// The STRICT schema (routes.schema.ts) is the oRPC contract — header charset,
+// hop-by-hop, reserved-path and target rules validate AT THE EDGE; the service
+// trusts the parsed value.
 import { z } from 'zod'
 import { base, withUser, withPerm, liveGenerator } from '../shared/context'
-import type { RouteRow } from '../../../shared/types'
+import { routeInputSchema } from './routes.schema'
 import * as svc from './routes.service'
-
-const headerOverrideInput = z.strictObject({
-  name: z.string().min(1).max(128),
-  op: z.enum(['set', 'remove']),
-  value: z.string().max(8192).optional(),
-})
-
-const routeSaveInput = z.strictObject({
-  /** present = update this row; absent = create/upsert-by-path */
-  id: z.number().int().positive().optional(),
-  path: z.string().min(1).max(512),
-  target: z.string().min(1).max(2048),
-  requestHeaders: z.array(headerOverrideInput).max(20).optional(),
-  responseHeaders: z.array(headerOverrideInput).max(20).optional(),
-  methods: z.array(z.enum(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])).optional(),
-  note: z.string().max(200).optional(),
-  enabled: z.boolean().optional().default(true),
-})
 
 export const routesRouter = {
   /** one-shot list — own-scope filtered. The INITIAL load of every routes view;
@@ -37,14 +22,15 @@ export const routesRouter = {
   count: base.use(withPerm('routes', 'read')).handler(async ({ context }) => ({ count: await svc.countRoutes(context.user) })),
 
   /** save (create/update/upsert, takeover-safe) */
-  save: base.use(withUser).input(routeSaveInput).handler(async ({ context, input }) => {
+  save: base.use(withUser).input(routeInputSchema).handler(async ({ context, input }) => {
     const { route, created } = await svc.saveRoute(context, input)
     return { route, created }
   }),
 
-  /** remove by numeric id (preferred) or path */
+  /** remove by numeric id (preferred) or path — exactly one of the two */
   remove: base.use(withUser).input(z.strictObject({
     id: z.number().int().positive().optional(),
     path: z.string().min(1).max(512).optional(),
-  })).handler(async ({ context, input }) => svc.removeRoute(context, input)),
+  }).refine(i => (i.id !== undefined) !== (i.path !== undefined), { message: 'provide id or path' }))
+    .handler(async ({ context, input }) => svc.removeRoute(context, input)),
 }

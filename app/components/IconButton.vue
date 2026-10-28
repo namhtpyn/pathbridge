@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Icon-only buttons MUST carry a hover popover label (DESIGN_SYSTEM law):
-// plain icons are unguessable. UButton wrapped in UPopover mode="hover";
-// aria-label stays for screen readers.
+// plain icons are unguessable. UButton wrapped in UPopover mode="hover"
+// (enable-touch; focus/blur open it for keyboard users); aria-label stays
+// for screen readers.
 const props = withDefaults(defineProps<{
   text: string
   icon: string
@@ -21,10 +22,11 @@ const props = withDefaults(defineProps<{
   type: 'button',
 })
 const emit = defineEmits<{ click: [event: MouseEvent] }>()
+const hintOpen = ref(false)
 </script>
 
 <template>
-  <UPopover mode="hover" :content="{ side: 'top', align: 'center' }" :ui="{ content: 'p-1.5 text-xs' }">
+  <UPopover v-model:open="hintOpen" mode="hover" enable-touch :content="{ side: 'top', align: 'center' }" :ui="{ content: 'p-1.5 text-xs' }">
     <template #default>
       <UButton
         :icon="props.icon"
@@ -35,6 +37,8 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
         :loading="props.loading"
         :type="props.type"
         :aria-label="props.ariaLabel ?? props.text"
+        @focus="hintOpen = true"
+        @blur="hintOpen = false"
         @click="emit('click', $event)"
       />
     </template>

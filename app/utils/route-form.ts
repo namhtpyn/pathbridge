@@ -3,6 +3,7 @@
 // API wants. The backend strict schema still re-validates everything — this
 // layer is UX + normalization only, never security.
 import { z } from 'zod'
+import { HOP_BY_HOP as SHARED_HOP_BY_HOP } from '#shared/constants'
 
 /** One header override row as the UI edits it (loose strings). */
 export interface HeaderRowInput {
@@ -31,8 +32,7 @@ export const routeFormSchema = z.object({
 
 export type RouteFormState = z.input<typeof routeFormSchema>
 
-// keep in sync with HOP_BY_HOP in server/domains/routes/routes.schema.ts
-const HOP_BY_HOP_UI = ['content-length', 'transfer-encoding', 'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'upgrade']
+const HOP_BY_HOP_UI = [...SHARED_HOP_BY_HOP]
 
 const headerRow = z.object({
   name: z.string()

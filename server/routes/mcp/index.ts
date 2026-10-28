@@ -36,7 +36,7 @@ async function handle(event: H3Event) {
   )
   server.tool(
     'update_route',
-    'Update an existing route by numeric id. Same fields as create_pair plus required id; path rename allowed.',
+    'Update an existing route by numeric id. Same fields as create_route plus required id; path rename allowed.',
     mcpSchemas.updateRoute.shape as unknown as Record<string, ZodType>,
     async (input: unknown) => ({ content: [{ type: 'text', text: JSON.stringify(await toolUpdateRouteById(headers, input), null, 2) }] }),
   )

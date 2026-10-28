@@ -14,13 +14,13 @@ const emit = defineEmits<{ 'update:open': [value: boolean], confirm: [] }>()
 </script>
 
 <template>
-  <UModal :open="open" :title="title" :description="description" @update:open="v => emit('update:open', v)">
+  <UModal :open="open" :dismissible="!busy" :title="title" :description="description" @update:open="v => emit('update:open', v)">
     <template #body>
       <p class="text-sm text-zinc-500">This action cannot be undone.</p>
     </template>
     <template #footer>
       <div class="flex justify-end gap-2">
-        <UButton variant="ghost" color="neutral" label="Cancel" @click="emit('update:open', false)" />
+        <UButton variant="ghost" color="neutral" label="Cancel" :disabled="busy" @click="emit('update:open', false)" />
         <UButton color="error" :icon="confirmIcon" :loading="busy" :label="confirmLabel" @click="emit('confirm')" />
       </div>
     </template>

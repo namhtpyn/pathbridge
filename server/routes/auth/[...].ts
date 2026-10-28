@@ -45,12 +45,6 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 403, statusMessage: 'password login is disabled' })
     }
   }
-  if (full.includes('/auth/oauth2/oidc')) {
-    const { oidcEnabled } = await resolveAuthPolicy()
-    if (!oidcEnabled) {
-      throw createError({ statusCode: 404, statusMessage: 'OIDC not configured' })
-    }
-  }
   // profile RBAC gate: self-service endpoints are a permission (resource `profile`,
   // statements read:own / update:own) — enforced here in the wrapper, NOT inside
   // better-auth hooks (a hook re-resolving the user through the session store
@@ -67,8 +61,10 @@ export default defineEventHandler(async (event) => {
       }
     }
     catch (e) {
-      // no session -> let better-auth answer with its own 401 (uniform errors)
-      if ((e as { statusCode?: number }).statusCode === 403) throw e
+      // no session -> let better-auth answer with its own 401 (uniform errors);
+      // ANY other failure (403, 500, DB hiccup) must fail closed, never skip
+      // the permission check.
+      if ((e as { statusCode?: number }).statusCode !== 401) throw e
     }
   }
 
@@ -84,7 +80,8 @@ export default defineEventHandler(async (event) => {
   const auth = await getAuth()
   const res = await auth.handler(buildIncomingRequest(event, body))
 
-  res.headers.forEach((v, k) => setResponseHeader(event, k, v))
+  for (const cookie of res.headers.getSetCookie()) appendResponseHeader(event, 'set-cookie', cookie)
+  res.headers.forEach((v, k) => { if (k !== 'set-cookie') setResponseHeader(event, k, v) })
   setResponseStatus(event, res.status)
   if (res.body) {
     return new Uint8Array(await res.arrayBuffer())

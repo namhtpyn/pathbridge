@@ -32,7 +32,10 @@ export const routes = sqliteTable('routes', {
   createdAt: text('created_at').notNull().$defaultFn(() => new Date().toISOString()),
   updatedAt: text('updated_at').notNull().$defaultFn(() => new Date().toISOString()),
   userId: text('user_id'),
-})
+}, (t) => [
+  // own-scope route lists + record guards filter on user_id
+  index('routes_user_id_idx').on(t.userId),
+])
 
 export const roles = sqliteTable('roles', {
   id: text('id').primaryKey(),
@@ -59,7 +62,11 @@ export const accessLog = sqliteTable('access_log', {
   durationMs: integer('duration_ms').notNull().default(0),
   clientIp: text('client_ip'),
   userAgent: text('user_agent'),
-})
+}, (t) => [
+  // own-scope log reads (live tail fires per request) + the retention purge
+  index('access_log_route_id_idx').on(t.routeId),
+  index('access_log_ts_idx').on(t.ts),
+])
 
 // Relations v2 (drizzle rc) — the shape better-auth's relations-v2 adapter consumes
 // via db._.relations and db.query.

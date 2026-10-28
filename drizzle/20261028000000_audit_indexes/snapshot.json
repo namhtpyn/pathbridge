@@ -1,0 +1,47 @@
+{
+ "version": "7",
+ "dialect": "sqlite",
+ "id": "20261028000000_audit_indexes",
+ "prevIds": [
+  "20261026090000_drop_strip_prefix"
+ ],
+ "ddl": [
+  {
+   "name": "access_log",
+   "entityType": "tables"
+  },
+  {
+   "name": "account",
+   "entityType": "tables"
+  },
+  {
+   "name": "apikey",
+   "entityType": "tables"
+  },
+  {
+   "name": "roles",
+   "entityType": "tables"
+  },
+  {
+   "name": "routes",
+   "entityType": "tables"
+  },
+  {
+   "name": "session",
+   "entityType": "tables"
+  },
+  {
+   "name": "settings",
+   "entityType": "tables"
+  },
+  {
+   "name": "user",
+   "entityType": "tables"
+  },
+  {
+   "name": "verification",
+   "entityType": "tables"
+  }
+ ],
+ "renames": []
+}

@@ -31,25 +31,27 @@
             <UButton icon="i-lucide-plus" size="sm" label="Create key" @click="openKeyEditor" />
           </div>
           <p class="text-xs text-zinc-500">Keys act as you but can be scoped to fewer permissions — never more. Shown once at creation.</p>
-          <p v-if="apiKeys.length === 0" class="text-sm text-zinc-400">No keys yet.</p>
+          <p v-if="keysError" class="text-sm text-error">Failed to load keys — close and reopen to retry.</p>
+          <p v-else-if="keysPending" class="text-sm text-zinc-400">Loading keys…</p>
+          <p v-else-if="apiKeys.length === 0" class="text-sm text-zinc-400">No keys yet.</p>
           <div v-else class="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800/60 dark:border-zinc-800">
             <div v-for="k in apiKeys" :key="k.id" class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="text-sm font-medium text-zinc-900 dark:text-white">{{ k.name }}</span>
                   <UBadge variant="subtle" color="neutral" size="sm" class="font-mono">{{ k.start }}…</UBadge>
-                  <UBadge v-if="k.expiresAt" variant="subtle" color="warning" size="sm">expires {{ new Date(k.expiresAt).toLocaleDateString() }}</UBadge>
+                  <UBadge v-if="k.expiresAt" variant="subtle" color="warning" size="sm">expires {{ fmtDate(k.expiresAt) }}</UBadge>
                   <UBadge v-else variant="subtle" color="neutral" size="sm">no expiry</UBadge>
                 </div>
                 <div class="mt-0.5 text-xs text-zinc-400">
-                  {{ k.lastRequest ? `last used ${new Date(k.lastRequest).toLocaleString()}` : 'never used' }} · {{ k.requestCount }} requests
+                  {{ k.lastRequest ? `last used ${fmtDate(k.lastRequest, true)}` : 'never used' }} · {{ k.requestCount }} requests
                 </div>
               </div>
               <div class="flex shrink-0 items-center gap-2">
                 <template v-if="renaming?.id === k.id">
                   <UInput
                     v-model="renaming.name" icon="i-lucide-tag" size="sm" class="w-44"
-                    placeholder="key name" @keydown.enter.prevent="confirmRename" @keydown.esc.prevent="renaming = null"
+                    aria-label="New key name" placeholder="key name" @keydown.enter.prevent="confirmRename" @keydown.esc.prevent="renaming = null"
                   />
                   <IconButton text="Save name" icon="i-lucide-check" color="success" :loading="renameBusy" @click="confirmRename" />
                   <IconButton text="Cancel" icon="i-lucide-x" @click="renaming = null" />
@@ -78,7 +80,7 @@
   <!-- key created: show once -->
   <UModal :open="!!createdKeyValue" title="API key created" description="Copy it now — it will not be shown again" @update:open="v => !v && (createdKeyValue = '')">
     <template #body>
-      <UInput :model-value="createdKeyValue" readonly class="w-full font-mono" />
+      <UInput :model-value="createdKeyValue" readonly aria-label="API key — copy it now" class="w-full font-mono" />
     </template>
     <template #footer>
       <div class="flex justify-end gap-2">
@@ -96,7 +98,7 @@
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
-const { session, perms } = await useAdminSession()
+const { session } = await useAdminSession()
 const toast = useToast()
 const { $client } = useNuxtApp()
 const busy = ref(false)
@@ -107,6 +109,8 @@ const pwBusy = ref(false)
 
 interface ApiKeyRow { id: string, name: string, start: string, enabled: boolean, expiresAt: string | null, lastRequest: string | null, requestCount: number, permissions: Record<string, string[]> | null }
 const apiKeys = ref<ApiKeyRow[]>([])
+const keysPending = ref(false)
+const keysError = ref(false)
 const keyEditorOpen = ref(false)
 const createdKeyValue = ref('')
 
@@ -132,14 +136,25 @@ watch(() => props.open, (o) => {
 })
 
 async function loadApiKeys() {
+  keysPending.value = true
+  keysError.value = false
   try {
     const r = await $client.keys.list()
     apiKeys.value = r.keys as ApiKeyRow[]
   }
-  catch { apiKeys.value = [] }
+  catch {
+    apiKeys.value = []
+    keysError.value = true
+  }
+  keysPending.value = false
 }
 
 function openKeyEditor() { keyEditorOpen.value = true }
+
+/** house UTC format (matches the logs table) — locale/TZ-dependent rendering differs between devices */
+function fmtDate(iso: string, withTime = false) {
+  return withTime ? `${iso.slice(0, 10)} ${iso.slice(11, 19)}` : iso.slice(0, 10)
+}
 function onKeyCreated(key: string) {
   createdKeyValue.value = key
   loadApiKeys()
@@ -152,8 +167,8 @@ async function saveProfile() {
     if (profile.name.trim() && profile.name !== session.value?.user.name) body.name = profile.name.trim()
     if (profile.email.trim() && profile.email !== session.value?.user.email) body.email = profile.email.trim()
     if (Object.keys(body).length === 0) {
-      busy.value = false
       toast.add({ title: 'No changes to save', color: 'neutral' })
+      busy.value = false
       return
     }
     await $fetch('/auth/update-user', { method: 'POST', body })
@@ -242,8 +257,13 @@ async function confirmRevoke() {
   revokeOpen.value = false
 }
 
-function copyCreatedKey() {
-  navigator.clipboard?.writeText(createdKeyValue.value)
-  toast.add({ title: 'Copied', color: 'success' })
+async function copyCreatedKey() {
+  try {
+    await navigator.clipboard.writeText(createdKeyValue.value)
+    toast.add({ title: 'Copied', color: 'success' })
+  }
+  catch {
+    toast.add({ title: 'Copy failed', description: 'Select the key and copy it manually', color: 'error' })
+  }
 }
 </script>

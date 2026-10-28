@@ -1,5 +1,6 @@
 // keys module router: current-user API keys (create/rename/revoke)
 import { z } from 'zod'
+import { ORPCError } from '@orpc/server'
 import { base, withUser, badRequest } from '../shared/context'
 import * as svc from './keys.service'
 
@@ -17,14 +18,24 @@ export const keysRouter = {
     const { getAuth } = await import('../../lib/auth')
     const { publishChange } = await import('../../lib/change-bus')
     // validate resource names + statements exist in the RBAC vocabulary
-    const { STATEMENTS } = await import('../../lib/permissions')
+    const { STATEMENTS, userCan } = await import('../../lib/permissions')
     const clean: Record<string, string[]> = {}
     if (input.permissions) {
+      const vocabulary = STATEMENTS as Record<string, readonly string[]>
       for (const [resource, statements] of Object.entries(input.permissions)) {
-        if (!(resource in STATEMENTS)) badRequest(`unknown resource: ${resource}`)
-        const vocab: readonly string[] = STATEMENTS[resource as keyof typeof STATEMENTS]
+        const vocab = vocabulary[resource]
+        if (!vocab) badRequest(`unknown resource: ${resource}`)
         for (const st of statements) {
           if (!vocab.includes(st)) badRequest(`unknown statement ${resource}:${st}`)
+          // narrow-only: a key can never hold what its owner doesn't — request
+          // time is where that must fail, not silently at first use
+          const [action, scope] = st.split(':')
+          if ((action !== 'read' && action !== 'create' && action !== 'update' && action !== 'delete') || (scope !== 'own' && scope !== 'all')) {
+            badRequest(`unknown statement ${resource}:${st}`)
+          }
+          type Ctx = Parameters<typeof userCan>
+          const held = userCan(context.user, resource as Ctx[1], action as Ctx[2], scope as Ctx[3])
+          if (!held) badRequest(`cannot grant ${resource}:${st} — you do not hold it`)
         }
         clean[resource] = statements
       }
@@ -61,9 +72,10 @@ export const keysRouter = {
     await svc.requireOwnedKey(input.id, context.user.userId)
     const { getAuth } = await import('../../lib/auth')
     const auth = await getAuth()
-    // endpoint-style call: needs the caller's session headers (same as createApiKey)
+    // endpoint-style call: needs the caller's session headers
+    if (!context.reqHeaders) throw new ORPCError('UNAUTHORIZED', { message: 'missing session headers' })
     await auth.api.updateApiKey({
-      headers: context.reqHeaders ?? new Headers(),
+      headers: context.reqHeaders,
       body: { keyId: input.id, userId: context.user.userId, name: input.name },
     })
     await publishChange('keys', 'update')

@@ -84,10 +84,10 @@ function policyKey(p: AuthPolicy) {
 
 async function buildAuth() {
   const p = await resolveAuthPolicy()
-  builtWith = policyKey(p)
+  const key = policyKey(p)
   // single justified cast: the plugin-heavy Auth<...> return is structurally
   // compatible with the widened interface consumers rely on
-  return betterAuth({
+  const built = betterAuth({
     database: drizzleAdapter(db, {
       provider: 'sqlite',
       schema: authSchema,
@@ -168,21 +168,43 @@ async function buildAuth() {
       },
     },
   }) as unknown as Auth
+  // publish the built policy ONLY after betterAuth() resolved — a failed
+  // build (bad OIDC discovery, db hiccup) must leave the previous instance
+  // live and let the next getAuth() retry.
+  instance = built
+  builtWith = key
+  return built
 }
 
-/** Lazily-built auth instance; auto-rebuilds when the policy changed. */
+let building: Promise<Auth> | null = null
+
+/** Lazily-built auth instance; auto-rebuilds when the policy changed. Single-flight. */
 export async function getAuth() {
   const p = await resolveAuthPolicy()
   const key = policyKey(p)
   if (!instance || key !== builtWith) {
-    instance = await buildAuth()
+    building ??= buildAuth()
+      .catch((e) => {
+        console.error('[auth] rebuild failed, keeping previous instance:', e instanceof Error ? e.message : e)
+        if (!instance) throw e
+        return instance
+      })
+      .finally(() => { building = null })
+    await building
   }
-  return instance
+  return instance!
 }
 
-/** Force an immediate rebuild after Settings writes. */
+/** Force an immediate rebuild after Settings writes (single-flight with getAuth). */
 export async function rebuildAuth() {
-  instance = await buildAuth()
+  building ??= buildAuth()
+    .catch((e) => {
+      console.error('[auth] rebuild failed, keeping previous instance:', e instanceof Error ? e.message : e)
+      if (!instance) throw e
+      return instance
+    })
+    .finally(() => { building = null })
+  await building
 }
 
 export type Session = NonNullable<Awaited<ReturnType<Auth['api']['getSession']>>>

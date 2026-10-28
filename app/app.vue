@@ -14,7 +14,6 @@ if (import.meta.client) {
   const nuxtApp = useNuxtApp()
   nuxtApp.hooks.hookOnce('app:manifest:update', (meta) => {
     // eslint-disable-next-line no-console
-    console.info('[pathbridge] newer build available:', (meta as { id?: string })?.id)
     newVersion.value = true
   })
 }

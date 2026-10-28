@@ -1,38 +1,13 @@
 // The bridge: catch-all middleware. Requests under reserved prefixes fall through
 // to the Nuxt app; everything else is matched against routes and proxied.
-// Route lookup uses RQB (drizzle relations-v2 query API).
+// Route lookup uses RQB (drizzle relations-v2 query API); the match/strip/scoring
+// math lives in lib/route-match.ts (pure, unit-tested directly).
 import { proxyRequest } from 'h3'
 import { db } from '../db'
 import { recordAccess } from '../domains/logs/access-log.service'
+import { pickRoute, strip, type MatchedRoute } from '../lib/route-match'
 
 const RESERVED = ['/auth', '/health', '/api', '/admin', '/mcp', '/rpc']
-
-interface HeaderOverride { name: string, op: 'set' | 'remove', value?: string }
-
-interface MatchedRoute {
-  id: number
-  path: string
-  target: string
-  requestHeaders: HeaderOverride[] | null
-  responseHeaders: HeaderOverride[] | null
-  methods: string[] | null
-}
-
-/** Match: /hook exact; /hook/* subtree. */
-function routeMatches(routePath: string, reqPath: string) {
-  if (routePath.endsWith('/*')) {
-    const base = routePath.slice(0, -2) // "/hook"
-    return reqPath === base || reqPath.startsWith(`${base}/`)
-  }
-  return reqPath === routePath
-}
-
-/** Wildcard routes only — strip the base prefix, keep the remainder. */
-function strip(routePath: string, reqPath: string) {
-  const base = routePath.slice(0, -2) // "/hook"
-  if (reqPath === base) return '/'
-  return reqPath.slice(base.length) // keeps leading "/"
-}
 
 export default defineEventHandler(async (event) => {
   const path = event.path.split('?')[0] ?? '/'
@@ -47,15 +22,7 @@ export default defineEventHandler(async (event) => {
     columns: { id: true, path: true, target: true, requestHeaders: true, responseHeaders: true, methods: true },
   })
 
-  let best: MatchedRoute | null = null
-  for (const p of all) {
-    if (routeMatches(p.path, path)) {
-      // specificity: exact > longer wildcard base > root
-      const score = p.path.endsWith('/*') ? p.path.length - 2 : p.path.length + 0.5
-      const bestScore = best ? (best.path.endsWith('/*') ? best.path.length - 2 : best.path.length + 0.5) : -1
-      if (score > bestScore) best = p
-    }
-  }
+  const best = pickRoute(all, path)
   if (!best) {
     throw createError({ statusCode: 404, statusMessage: 'No route matches this path' })
   }
@@ -84,14 +51,14 @@ export default defineEventHandler(async (event) => {
 
   // request header overrides. `set` entries ride opts.headers (merged LAST
   // by proxyRequest, so they win over the client's own values). `remove`
-  // entries must strip the header from the incoming event BEFORE
-  // proxyRequest copies the client headers.
-  const removeNames = (best.requestHeaders ?? []).filter(o => o.op === 'remove').map(o => o.name)
-  for (const name of removeNames) {
-    event.node.req.headers[name] = undefined
+  // entries must DELETE the header from the incoming event BEFORE
+  // proxyRequest copies the client headers — setting undefined keeps the
+  // key present and it leaks upstream as the literal string "undefined".
+  for (const o of best.requestHeaders ?? []) {
+    if (o.op === 'remove') delete event.node.req.headers[o.name]
   }
   const headers: Record<string, string> = {
-    host: upstream.hostname, // default; may be overridden below
+    host: upstream.host, // hostname:port — port-less Host breaks vhost upstreams
   }
   for (const o of best.requestHeaders ?? []) {
     if (o.op === 'set' && o.value !== undefined) headers[o.name] = o.value
@@ -113,17 +80,34 @@ export default defineEventHandler(async (event) => {
       }
     : undefined
 
-  // wrap the response to capture status; log after headers flush
-  const res = await proxyRequest(event, url, { headers, ...(onResponse ? { onResponse } : {}) })
-  recordAccess({
-    routeId,
-    routePath: best.path,
-    method: event.method,
-    path,
-    status: event.node.res.statusCode,
-    durationMs: Date.now() - started,
-    clientIp,
-    userAgent,
-  })
-  return res
+  // wrap the response to capture status; log after headers flush. Upstream
+  // failures (502) must still hit the access log — they're the rows you
+  // debug from.
+  try {
+    const res = await proxyRequest(event, url, { headers, ...(onResponse ? { onResponse } : {}) })
+    recordAccess({
+      routeId,
+      routePath: best.path,
+      method: event.method,
+      path,
+      status: event.node.res.statusCode,
+      durationMs: Date.now() - started,
+      clientIp,
+      userAgent,
+    })
+    return res
+  }
+  catch (e) {
+    recordAccess({
+      routeId,
+      routePath: best.path,
+      method: event.method,
+      path,
+      status: 502,
+      durationMs: Date.now() - started,
+      clientIp,
+      userAgent,
+    })
+    throw e
+  }
 })

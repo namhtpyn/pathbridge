@@ -17,13 +17,13 @@ const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 </script>
 
 <template>
-  <UModal :open="open" :title="title" :description="description" :ui="{ content: contentClass }" @update:open="v => emit('update:open', v)">
+  <UModal :open="open" :dismissible="!busy" :title="title" :description="description" :ui="{ content: contentClass }" @update:open="v => emit('update:open', v)">
     <template #body>
       <slot />
     </template>
     <template #footer>
       <div class="flex justify-end gap-2">
-        <UButton type="button" variant="ghost" color="neutral" label="Cancel" @click="emit('update:open', false)" />
+        <UButton type="button" variant="ghost" color="neutral" label="Cancel" :disabled="busy" @click="emit('update:open', false)" />
         <UButton type="submit" :form="formId" :icon="submitIcon" :loading="busy" :label="submitLabel" />
       </div>
     </template>

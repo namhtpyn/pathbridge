@@ -5,12 +5,14 @@
         :model-value="row.name"
         placeholder="header-name"
         icon="i-lucide-braces"
+        :aria-label="`Header name, row ${i + 1}`"
         class="min-w-20 flex-1 font-mono text-xs" :title="row.name"
         @update:model-value="v => patch(i, { name: String(v) })"
       />
       <USelect
         :model-value="row.op"
         :items="[{ label: 'set', value: 'set' }, { label: 'remove', value: 'remove' }]"
+        :aria-label="`Operation for row ${i + 1}`"
         class="w-26 shrink-0 font-mono text-xs"
         @update:model-value="v => patch(i, { op: v as 'set' | 'remove' })"
       />
@@ -18,11 +20,12 @@
         v-if="row.op === 'set'"
         :model-value="row.value"
         placeholder="value"
+        :aria-label="`Header value, row ${i + 1}`"
         class="min-w-24 flex-[1.4] font-mono text-xs" :title="row.value"
         @update:model-value="v => patch(i, { value: String(v) })"
       />
       <div v-else class="hidden min-w-0 flex-1 text-xs text-zinc-400 sm:block" aria-hidden="true" />
-      <UButton icon="i-lucide-x" variant="ghost" color="error" size="xs" aria-label="Remove header row" @click="removeRow(i)" />
+      <UButton icon="i-lucide-x" variant="ghost" color="error" size="xs" :aria-label="`Remove header row ${i + 1}`" @click="removeRow(i)" />
     </div>
     <UButton
       icon="i-lucide-plus" variant="outline" color="neutral" size="xs" label="Add header"
