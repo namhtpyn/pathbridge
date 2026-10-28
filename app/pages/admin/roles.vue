@@ -138,7 +138,7 @@ function openRoleEditor(role?: RoleRow) {
     editingRoleId.value = role.id
     roleForm.name = role.name
     roleForm.description = role.description ?? ''
-    roleForm.statements = structuredClone(role.statements ?? {})
+    roleForm.statements = structuredClone(toRaw(role.statements) ?? {})
   }
   else {
     editingRoleId.value = null

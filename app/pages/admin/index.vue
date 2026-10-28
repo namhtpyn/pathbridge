@@ -197,7 +197,8 @@ function validatePair(state: typeof form): Array<{ name: string, message: string
 
 function edit(p: RouteRow) {
   // populate-then-open: the modal must never flash stale form state
-  Object.assign(form, structuredClone(p))
+  // toRaw: live-query rows are reactive Proxies — structuredClone rejects them
+  Object.assign(form, structuredClone(toRaw(p)))
   form.id = p.id
   form.methodsAll = !p.methods || p.methods.length === 0
   form.methods = p.methods ? [...p.methods] : []
